@@ -17,7 +17,10 @@
       "Bash(\"C:/Program Files/GitHub CLI/gh.exe\" auth login:*)",
       "Bash(\"C:/Program Files/GitHub CLI/gh.exe\" repo create mformiga/verificai-code-quality-system --public --source=. --remote=origin --push)",
       "Bash(GH_TOKEN=seu_token_aqui \"C:/Program Files/GitHub CLI/gh.exe\" repo create:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(GH_TOKEN=github_pat_seu_token_aqui \"C:/Program Files/GitHub CLI/gh.exe\" repo create:*)",
+      "Bash(git remote add:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
