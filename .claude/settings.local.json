@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git --version)",
+      "Bash(git init:*)",
+      "Bash(mkdir:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)",
+      "Bash(gh repo create:*)",
+      "Bash(winget:*)",
+      "Bash(gh auth:*)",
+      "Bash(gh:*)",
+      "Bash(where:*)",
+      "Read(//c/Program Files/GitHub CLI/**)",
+      "Bash(\"C:/Program Files/GitHub CLI/gh.exe\" auth login:*)",
+      "Bash(\"C:/Program Files/GitHub CLI/gh.exe\" repo create mformiga/verificai-code-quality-system --public --source=. --remote=origin --push)",
+      "Bash(GH_TOKEN=seu_token_aqui \"C:/Program Files/GitHub CLI/gh.exe\" repo create:*)",
+      "Bash(git config:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
