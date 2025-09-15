@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: verificai-config
+  namespace: verificai
+data:
+  # Application configuration
+  ENVIRONMENT: "production"
+  DEBUG: "false"
+  LOG_LEVEL: "INFO"
+  LOG_FORMAT: "json"
+
+  # CORS configuration
+  CORS_ORIGINS: "https://verificai.example.com,https://www.verificai.example.com"
+
+  # Rate limiting
+  RATE_LIMIT_REQUESTS_PER_MINUTE: "60"
+  RATE_LIMIT_BURST: "10"
+
+  # File upload configuration
+  MAX_FILE_SIZE: "104857600"
+  ALLOWED_EXTENSIONS: ".py,.js,.ts,.jsx,.tsx,.java,.cpp,.c,.h,.hpp,.cs,.php,.rb,.go,.rs"
+
+  # Database pool configuration
+  DATABASE_POOL_SIZE: "20"
+  DATABASE_MAX_OVERFLOW: "10"
+  DATABASE_POOL_TIMEOUT: "30"
+  DATABASE_POOL_RECYCLE: "3600"
+
+  # Redis configuration
+  REDIS_MAX_CONNECTIONS: "10"
+
+  # LLM configuration
+  MAX_TOKENS: "4096"
+  TEMPERATURE: "0.1"
+  TOP_P: "0.9"
+  MODEL: "gpt-4-turbo-preview"
+
+  # JWT configuration
+  JWT_ALGORITHM: "HS256"
+  ACCESS_TOKEN_EXPIRE_MINUTES: "30"

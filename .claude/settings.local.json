@@ -20,7 +20,21 @@
       "Bash(git config:*)",
       "Bash(GH_TOKEN=github_pat_seu_token_aqui \"C:/Program Files/GitHub CLI/gh.exe\" repo create:*)",
       "Bash(git remote add:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run dev:*)",
+      "Bash(md-tree explode:*)",
+      "Bash(npm create:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(npx vite build:*)",
+      "Bash(python:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker compose:*)",
+      "Bash(cat:*)",
+      "Bash(\"C:\\Users\\formi\\AppData\\Local\\Microsoft\\WindowsApps\\python.exe\" --version)",
+      "Bash(py:*)",
+      "Bash(pkill:*)"
     ],
     "deny": [],
     "ask": []

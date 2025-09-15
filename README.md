@@ -52,9 +52,11 @@ verificai-code-quality-system/
 
 ### DevOps
 - Docker & Docker Compose
-- GitHub Actions para CI/CD
+- GitHub Actions para CI/CD completo
 - Vercel para frontend
 - Cloud Run para backend
+- Nginx para proxy reverso e load balancing
+- PostgreSQL e Redis com Docker volumes
 
 ## 🚀 Getting Started
 
@@ -88,20 +90,37 @@ verificai-code-quality-system/
    - Backend API: http://localhost:8000
    - API Documentation: http://localhost:8000/docs
 
-## 📋 Development Workflow
+## 🔄 CI/CD Pipeline
 
-### Branch Strategy
+### Pipeline Completo
+O projeto possui um pipeline CI/CD completo com GitHub Actions que inclui:
+
+- **Frontend Testing**: Testes unitários, coverage e build em múltiplas versões do Node.js
+- **Backend Testing**: Testes unitários, coverage e segurança com Python
+- **Security Scanning**: Análise de vulnerabilidades com npm audit, bandit e safety
+- **Integration Testing**: Testes de integração com Docker Compose
+- **Docker Build**: Build e push de imagens para registro
+- **Deployment**: Deploy automático para staging (develop) e produção (main)
+
+### Workflow de Desenvolvimento
+
+#### Branch Strategy
 - `main`: Código estável de produção
 - `develop`: Integração contínua
 - `feature/*`: Desenvolvimento de novas funcionalidades
 - `hotfix/*`: Correções emergenciais
 
-### Processo de Contribuição
+#### Processo de Contribuição
 1. Criar branch a partir de `develop`
 2. Desenvolver e testar localmente
 3. Criar Pull Request
 4. Aguardar code review e CI/CD
 5. Merge para `develop`
+
+#### Deploy Automático
+- **Staging**: Deploy automático para branch `develop`
+- **Produção**: Deploy automático para branch `main`
+- **Rollback**: Suporte a rollback manual via GitHub Actions
 
 ## 📖 Documentação
 
@@ -129,6 +148,7 @@ ENVIRONMENT=development
 
 ## 🧪 Testes
 
+### Testes Locais
 ```bash
 # Backend tests
 cd backend && pytest
@@ -138,6 +158,30 @@ cd frontend && npm test
 
 # Integration tests
 docker-compose exec backend pytest tests/integration/
+```
+
+### Testes com Docker
+```bash
+# Rodar todos os testes com Docker
+docker-compose -f docker-compose.test.yml up --abort-on-container-exit
+
+# Rodar testes específicos
+docker-compose exec backend pytest tests/unit/
+docker-compose exec backend pytest tests/integration/
+
+# Coverage reports
+docker-compose exec backend coverage html
+open htmlcov/index.html
+```
+
+### Testes de Performance
+```bash
+# Testes de carga
+docker-compose exec backend locust -f tests/locust/locustfile.py --host=http://localhost:8000
+
+# Testes de segurança
+docker-compose exec backend bandit -r app/
+docker-compose exec backend safety check
 ```
 
 ## 📝 Licença

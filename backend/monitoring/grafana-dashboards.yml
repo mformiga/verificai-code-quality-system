@@ -1,0 +1,104 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+
+dashboards:
+  - name: VerificAI Backend Overview
+    panels:
+      - title: HTTP Requests Rate
+        type: graph
+        targets:
+          - expr: rate(http_requests_total[5m])
+            legendFormat: "{{ method }} {{ status }}"
+        gridPos:
+          h: 8
+          w: 12
+          x: 0
+          y: 0
+
+      - title: Response Time
+        type: graph
+        targets:
+          - expr: histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[5m]))
+            legendFormat: "50th percentile"
+          - expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
+            legendFormat: "95th percentile"
+          - expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))
+            legendFormat: "99th percentile"
+        gridPos:
+          h: 8
+          w: 12
+          x: 12
+          y: 0
+
+      - title: Error Rate
+        type: graph
+        targets:
+          - expr: rate(http_requests_total{status=~"5.."}[5m])
+            legendFormat: "5xx errors"
+        gridPos:
+          h: 8
+          w: 12
+          x: 0
+          y: 8
+
+      - title: Active Users
+        type: stat
+        targets:
+          - expr: rate(http_requests_total{endpoint="/api/v1/auth/me"}[5m])
+        gridPos:
+          h: 4
+          w: 6
+          x: 12
+          y: 8
+
+      - title: Database Connections
+        type: graph
+        targets:
+          - expr: pg_stat_database_numbackends
+            legendFormat: "Active connections"
+        gridPos:
+          h: 8
+          w: 12
+          x: 0
+          y: 16
+
+      - title: Redis Memory Usage
+        type: graph
+        targets:
+          - expr: redis_memory_used_bytes
+            legendFormat: "Used bytes"
+          - expr: redis_memory_max_bytes
+            legendFormat: "Max bytes"
+        gridPos:
+          h: 8
+          w: 12
+          x: 12
+          y: 16
+
+      - title: CPU Usage
+        type: graph
+        targets:
+          - expr: rate(container_cpu_usage_seconds_total{container="verificai-backend"}[5m])
+            legendFormat: "CPU usage"
+        gridPos:
+          h: 8
+          w: 12
+          x: 0
+          y: 24
+
+      - title: Memory Usage
+        type: graph
+        targets:
+          - expr: container_memory_usage_bytes{container="verificai-backend"}
+            legendFormat: "Memory usage"
+        gridPos:
+          h: 8
+          w: 12
+          x: 12
+          y: 24
