@@ -1,0 +1,46 @@
+2025-09-15 16:36:46,526 - app.core.database - ERROR - Error creating database tables: (psycopg2.OperationalError) connection to server at "localhost" (::1), port 5432 failed: Connection refused (0x0000274D/10061)
+	Is the server running on that host and accepting TCP/IP connections?
+connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused (0x0000274D/10061)
+	Is the server running on that host and accepting TCP/IP connections?
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-09-15 16:37:48,727 - app.core.database - INFO - Database tables created successfully
+2025-09-15 16:38:52,100 - app.core.database - INFO - Database tables created successfully
+2025-09-15 16:41:22,066 - app.core.database - INFO - Database tables created successfully
+2025-09-15 16:41:36,794 - app.core.database - ERROR - Database session error: 403: Not authenticated
+2025-09-15 16:41:36,797 - http.requests - INFO - HTTP GET http://localhost:8000/api/v1/prompts - 403 - 0.006s
+2025-09-15 16:43:44,861 - app.core.database - ERROR - Database health check failed: Textual SQL expression 'SELECT 1' should be explicitly declared as text('SELECT 1')
+2025-09-15 16:43:44,861 - http.requests - INFO - HTTP GET http://localhost:8000/health - 200 - 0.000s
+2025-09-15 16:44:22,437 - app.core.database - INFO - Database tables created successfully
+2025-09-15 16:44:58,862 - app.core.database - ERROR - Database health check failed: Textual SQL expression 'SELECT 1' should be explicitly declared as text('SELECT 1')
+2025-09-15 16:44:58,862 - http.requests - INFO - HTTP GET http://localhost:8000/health - 200 - 0.000s
+2025-09-15 16:45:03,594 - app.core.database - ERROR - Database session error: 403: Not authenticated
+2025-09-15 16:45:03,594 - http.requests - INFO - HTTP GET http://localhost:8000/api/v1/prompts - 403 - 0.001s
+2025-09-15 16:45:39,284 - http.requests - INFO - HTTP GET http://localhost:8000/api/prompts - 404 - 0.003s
+2025-09-15 16:45:39,286 - http.requests - INFO - HTTP GET http://localhost:8000/api/prompts - 404 - 0.005s
+2025-09-15 16:45:46,984 - http.requests - INFO - HTTP POST http://localhost:8000/api/prompts - 404 - 0.001s
+2025-09-15 16:45:54,704 - http.requests - INFO - HTTP GET http://localhost:8000/api/prompts - 404 - 0.002s
+2025-09-15 16:45:54,704 - http.requests - INFO - HTTP GET http://localhost:8000/api/prompts - 404 - 0.002s
+2025-09-15 16:49:08,223 - app.core.database - ERROR - Database session error: 403: Not authenticated
+2025-09-15 16:49:08,232 - http.requests - INFO - HTTP GET http://localhost:8000/api/v1/prompts - 403 - 0.040s
+2025-09-15 16:49:18,136 - app.core.database - ERROR - Database session error: 403: Not authenticated
+2025-09-15 16:49:18,138 - http.requests - INFO - HTTP GET http://localhost:8000/api/v1/prompts - 403 - 0.004s
+2025-09-15 16:50:12,116 - http.requests - INFO - HTTP GET http://localhost:8000/api/v1/dev/prompts - 404 - 0.001s
+2025-09-15 16:50:16,119 - http.requests - INFO - HTTP GET http://localhost:8000/api/v1/dev/prompts - 404 - 0.002s
+2025-09-15 16:50:26,802 - http.requests - INFO - HTTP GET http://localhost:8000/api/v1/dev/prompts - 404 - 0.004s
+2025-09-15 16:50:53,290 - app.core.database - INFO - Database tables created successfully
+2025-09-15 16:51:01,131 - app.core.database - ERROR - Database session error: (sqlite3.OperationalError) no such table: users
+[SQL: SELECT users.username AS users_username, users.email AS users_email, users.full_name AS users_full_name, users.hashed_password AS users_hashed_password, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.role AS users_role, users.is_admin AS users_is_admin, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.preferred_language AS users_preferred_language, users.timezone AS users_timezone, users.last_login AS users_last_login, users.password_changed_at AS users_password_changed_at, users.failed_login_attempts AS users_failed_login_attempts, users.locked_until AS users_locked_until, users.api_key_hash AS users_api_key_hash, users.api_key_created_at AS users_api_key_created_at, users.email_notifications AS users_email_notifications, users.email_analysis_reports AS users_email_analysis_reports, users.email_security_alerts AS users_email_security_alerts, users.id AS users_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at, users.created_by AS users_created_by, users.updated_by AS users_updated_by 
+FROM users 
+WHERE users.username = ?
+ LIMIT ? OFFSET ?]
+[parameters: ('dev_user', 1, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-09-15 16:51:01,133 - security.events - ERROR - Security Event: request_error - Error processing request: (sqlite3.OperationalError) no such table: users
+[SQL: SELECT users.username AS users_username, users.email AS users_email, users.full_name AS users_full_name, users.hashed_password AS users_hashed_password, users.is_active AS users_is_active, users.is_verified AS users_is_verified, users.role AS users_role, users.is_admin AS users_is_admin, users.bio AS users_bio, users.avatar_url AS users_avatar_url, users.preferred_language AS users_preferred_language, users.timezone AS users_timezone, users.last_login AS users_last_login, users.password_changed_at AS users_password_changed_at, users.failed_login_attempts AS users_failed_login_attempts, users.locked_until AS users_locked_until, users.api_key_hash AS users_api_key_hash, users.api_key_created_at AS users_api_key_created_at, users.email_notifications AS users_email_notifications, users.email_analysis_reports AS users_email_analysis_reports, users.email_security_alerts AS users_email_security_alerts, users.id AS users_id, users.created_at AS users_created_at, users.updated_at AS users_updated_at, users.created_by AS users_created_by, users.updated_by AS users_updated_by 
+FROM users 
+WHERE users.username = ?
+ LIMIT ? OFFSET ?]
+[parameters: ('dev_user', 1, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-09-15 16:51:01,134 - http.requests - INFO - HTTP GET http://localhost:8000/api/v1/dev/prompts - 500 - 0.048s
