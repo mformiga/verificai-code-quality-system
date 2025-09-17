@@ -9,9 +9,11 @@
     "shared"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:frontend": "cd frontend && npm run dev",
-    "dev:backend": "cd backend && npm run dev",
+    "dev:backend": "cd backend && python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+    "dev:quick": "npm run install:all && npm run dev",
+    "setup": "npm run install:all && echo \"Environment setup complete! Use 'npm run dev' to start.\"",
     "build": "npm run build:frontend && npm run build:backend",
     "build:frontend": "cd frontend && npm run build",
     "build:backend": "cd backend && npm run build",
@@ -23,10 +25,14 @@
     "lint:backend": "cd backend && npm run lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && pip install -r requirements.txt",
     "docker:build": "docker-compose build",
     "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down"
+    "docker:down": "docker-compose down",
+    "reset:frontend": "cd frontend && rm -rf node_modules package-lock.json && npm install",
+    "reset:backend": "cd backend && rm -rf __pycache__ && pip install -r requirements.txt",
+    "reset:db": "cd backend && rm -f verificai.db",
+    "status": "echo \"Backend: http://localhost:8000\" && echo \"Frontend: Check console for port (starts at 3011)\" && echo \"API Docs: http://localhost:8000/api/v1/docs\""
   },
   "keywords": [
     "code-quality",
