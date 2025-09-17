@@ -1,60 +1,59 @@
-# User Story: File Upload Interface & Drag-and-Drop
+# User Story: Folder Path Extraction & Display Interface
 
 **ID:** STO-004
 **Epic:** Epic 2 - Core File Processing & Upload System
 **Priority:** High
 **Estimate:** 3 days
-**Status:** Ready for Development
+**Status:** Completed
 
 ## Description
 
 Como um usuário de QA,
-Quero fazer upload de pastas de código através de interface intuitiva com drag-and-drop,
-Para que possa facilmente selecionar e enviar os arquivos para análise.
+Quero selecionar uma pasta e ter todos os caminhos de arquivos extraídos e persistidos no banco de dados,
+Para que possa visualizar a estrutura completa de diretórios e arquivos de forma organizada.
 
 ## Acceptance Criteria
 
-1. **[ ]** Interface drag-and-drop implementada na tela principal com área claramente demarcada
-2. **[ ]** Suporte para upload de pastas completas com inclusão automática de subpastas e arquivos
-3. **[ ]** Visualização em tempo real do progresso de upload com indicadores de status
-4. **[ ]** Interface alternativa de click-to-upload para usuários que preferem navegação tradicional
-5. **[ ]** Feedback visual claro para upload concluído com sucesso ou erros
-6. **[ ]** Lista de arquivos enviados com informações básicas (Path da pasta e o nome do arquivo)
+1. **[x]** Interface para seleção de pastas implementada com botão ou área de seleção
+2. **[x]** Sistema recupera caminhos completos de todos os arquivos dentro da pasta selecionada (incluindo subpastas)
+3. **[x]** Sistema persiste as informações de caminho no banco de dados com nome e extensão do arquivo
+4. **[x]** Interface exibe lista de caminhos com um caminho por linha
+5. **[x]** Suporte para navegação recursiva por todas as subpastas e arquivos
+6. **[x]** Feedback visual claro durante o processo de escaneamento e persistência
 
 ## Technical Specifications
 
 ### Component Structure
 ```typescript
-// components/features/CodeUpload/FileUpload.tsx
-interface FileUploadProps {
-  onUploadComplete: (files: UploadedFile[]) => void;
+// components/features/CodeUpload/FolderSelector.tsx
+interface FolderSelectorProps {
+  onFolderSelect: (paths: FilePath[]) => void;
   onError: (error: string) => void;
-  maxFileSize?: number; // Default: 50MB
-  acceptedTypes?: string[];
 }
 
-interface UploadedFile {
+interface FilePath {
   id: string;
-  name: string;
-  path: string;
-  size: number;
-  type: string;
-  uploadDate: Date;
+  fullPath: string; // Caminho completo do arquivo
+  fileName: string; // Nome do arquivo com extensão
+  fileExtension: string; // Extensão do arquivo
+  folderPath: string; // Caminho da pasta onde o arquivo está
+  fileSize?: number;
+  lastModified?: Date;
 }
 ```
 
 ### Sub-components
-1. **DragDropZone**: Main upload area with drag-and-drop functionality
-2. **FileList**: Display uploaded files with metadata
-3. **ProgressIndicator**: Real-time upload progress
-4. **FilePreview**: Preview of uploaded files when applicable
+1. **FolderSelector**: Interface para seleção de pastas
+2. **PathList**: Lista de caminhos exibidos um por linha
+3. **ScanProgress**: Indicador de progresso do escaneamento
+4. **PathDatabase**: Componente para persistência de dados
 
 ### File Processing Logic
-- **Supported File Types**: JavaScript, TypeScript, Python, Java, C/C++
-- **Maximum File Size**: 50MB per file
-- **Folder Processing**: Recursive folder traversal
-- **File Validation**: Type and size validation
-- **Duplicate Handling**: Skip or overwrite options
+- **Folder Selection**: Interface nativa de seleção de pastas
+- **Recursive Scanning**: Varredura completa de subpastas e arquivos
+- **Path Extraction**: Extração de caminhos completos com extensões
+- **Database Persistence**: Armazenamento das informações no banco de dados
+- **Path Display**: Exibição organizada um caminho por linha
 
 ## Dependencies
 
@@ -64,150 +63,177 @@ interface UploadedFile {
 
 ## Testing Strategy
 
-1. **Unit Tests**: Test individual components and file validation
-2. **Integration Tests**: Test upload workflow and backend integration
-3. **Performance Tests**: Test large file uploads and concurrent uploads
-4. **User Interface Tests**: Test drag-and-drop interactions
-5. **Error Handling Tests**: Test various error scenarios
+1. **Unit Tests**: Test individual components e lógica de escaneamento
+2. **Integration Tests**: Test fluxo de seleção e persistência no banco
+3. **Performance Tests**: Test escaneamento de pastas grandes e muitos arquivos
+4. **User Interface Tests**: Test interações de seleção e exibição
+5. **Error Handling Tests**: Test vários cenários de erro
 
 ### Test Cases
-- Upload single file via drag-and-drop
-- Upload folder with subfolders
-- Upload multiple files simultaneously
-- Cancel upload in progress
-- Handle file size limit exceeded
-- Handle unsupported file types
-- Handle network interruptions
-- Test accessibility features
+- Selecionar pasta com arquivos simples
+- Selecionar pasta com subpastas profundas
+- Selecionar pasta com muitos arquivos
+- Lidar com pastas vazias
+- Lidar com permissões negadas
+- Lidar com caminhos muito longos
+- Test exibição de caminhos um por linha
+- Test persistência no banco de dados
+- Test feedback visual durante escaneamento
 
 ## Implementation Details
 
-### Drag-and-Drop Implementation
+### Folder Selection Implementation
 ```typescript
-const useFileUpload = () => {
-  const [isDragActive, setIsDragActive] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+const useFolderScanner = () => {
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
 
-  const handleDrag = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setIsDragActive(true);
-    } else if (e.type === "dragleave") {
-      setIsDragActive(false);
+  const handleFolderSelect = useCallback(async () => {
+    try {
+      setIsScanning(true);
+      // Utiliza input directory ou API específica para selecionar pasta
+      const folderPath = await selectFolderDialog();
+      const filePaths = await scanFolderRecursively(folderPath);
+
+      // Persiste no banco de dados
+      await persistFilePaths(filePaths);
+
+      return filePaths;
+    } catch (error) {
+      throw new Error('Failed to scan folder');
+    } finally {
+      setIsScanning(false);
     }
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragActive(false);
-
-    const files = Array.from(e.dataTransfer.files);
-    processFiles(files);
-  }, []);
-
-  return { isDragActive, handleDrag, handleDrop };
+  return { isScanning, handleFolderSelect };
 };
 ```
 
-### File Validation
+### Recursive Folder Scanning
 ```typescript
-const validateFile = (file: File): ValidationResult => {
-  const maxSize = 50 * 1024 * 1024; // 50MB
-  const acceptedTypes = [
-    'application/javascript',
-    'text/typescript',
-    'text/x-python',
-    'text/x-java-source',
-    'text/x-csrc',
-    'text/x-c++src'
-  ];
+const scanFolderRecursively = async (folderPath: string): Promise<FilePath[]> => {
+  const filePaths: FilePath[] = [];
+  const entries = await readDirectoryEntries(folderPath);
 
-  if (file.size > maxSize) {
-    return { valid: false, error: 'File size exceeds 50MB limit' };
+  for (const entry of entries) {
+    if (entry.isDirectory) {
+      // Varredura recursiva para subpastas
+      const subFolderPaths = await scanFolderRecursively(entry.fullPath);
+      filePaths.push(...subFolderPaths);
+    } else {
+      // Extrai informações do arquivo
+      const filePath: FilePath = {
+        id: generateId(),
+        fullPath: entry.fullPath,
+        fileName: entry.name,
+        fileExtension: entry.extension,
+        folderPath: entry.directory,
+        fileSize: entry.size,
+        lastModified: entry.lastModified
+      };
+      filePaths.push(filePath);
+    }
   }
 
-  if (!acceptedTypes.includes(file.type)) {
-    return { valid: false, error: 'Unsupported file type' };
-  }
-
-  return { valid: true };
+  return filePaths;
 };
 ```
 
-### Upload Progress Tracking
+### Database Persistence
 ```typescript
-const uploadWithProgress = async (file: File): Promise<UploadedFile> => {
-  const formData = new FormData();
-  formData.append('file', file);
-
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-
-    xhr.upload.addEventListener('progress', (e) => {
-      if (e.lengthComputable) {
-        const progress = Math.round((e.loaded / e.total) * 100);
-        setUploadProgress(progress);
-      }
+const persistFilePaths = async (filePaths: FilePath[]): Promise<void> => {
+  for (const filePath of filePaths) {
+    const response = await fetch('/api/paths', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(filePath),
     });
 
-    xhr.addEventListener('load', () => {
-      if (xhr.status === 200) {
-        const response = JSON.parse(xhr.responseText);
-        resolve(response.data);
-      } else {
-        reject(new Error('Upload failed'));
-      }
-    });
+    if (!response.ok) {
+      throw new Error('Failed to persist file path');
+    }
+  }
+};
+```
 
-    xhr.addEventListener('error', () => {
-      reject(new Error('Network error'));
-    });
-
-    xhr.open('POST', '/api/upload');
-    xhr.send(formData);
-  });
+### Path Display Implementation
+```typescript
+const PathList = ({ paths }: { paths: FilePath[] }) => {
+  return (
+    <div className="path-list">
+      {paths.map((path) => (
+        <div key={path.id} className="path-item">
+          <code>{path.fullPath}</code>
+          <div className="path-meta">
+            <span>{path.fileName}</span>
+            <span>{path.fileExtension}</span>
+            <span>{formatFileSize(path.fileSize)}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 };
 ```
 
 ### Error Handling
-- **Network Errors**: Retry mechanism with exponential backoff
-- **File Validation**: Clear error messages for invalid files
-- **Server Errors**: Graceful degradation with user feedback
-- **Timeout**: Timeout handling for slow uploads
+- **Permission Errors**: Mensagens claras para pastas sem acesso
+- **Network Errors**: Mecanismo de retry com exponential backoff
+- **Large Folders**: Indicador de progresso durante escaneamento
+- **Database Errors**: Feedback claro para falhas de persistência
 
 ## Accessibility Requirements
 
-- **Keyboard Navigation**: Full keyboard support for file selection
-- **Screen Reader Support**: ARIA labels and live regions
-- **Focus Management**: Proper focus states and indicators
-- **High Contrast**: Support for high contrast themes
-- **Error Announcements**: Screen reader announcements for errors
+- **Keyboard Navigation**: Full keyboard support for folder selection
+- **Screen Reader Support**: ARIA labels e live regions para progresso
+- **Focus Management**: Estados de foco adequados para navegação
+- **High Contrast**: Suporte para temas de alto contraste
+- **Error Announcements**: Anúncios para leitores de tela sobre erros
 
 ## Performance Considerations
 
-- **Memory Management**: Handle large file uploads efficiently
-- **Progress Updates**: Throttle progress updates to prevent UI blocking
-- **File Reading**: Use FileReader API efficiently
-- **UI Responsiveness**: Non-blocking file processing
-- **Caching**: Cache file metadata for better UX
+- **Memory Management**: Gerenciamento eficiente de escaneamento de pastas grandes
+- **Progress Updates**: Limitação de atualizações para evitar bloqueio de UI
+- **Recursive Scanning**: Varredura não bloqueante para subpastas
+- **UI Responsiveness**: Processamento de caminhos sem bloquear interface
+- **Database Bulk Insert**: Inserção em lote para melhor performance
+
+## Database Schema
+
+```sql
+CREATE TABLE file_paths (
+    id VARCHAR(255) PRIMARY KEY,
+    full_path TEXT NOT NULL,
+    file_name VARCHAR(500) NOT NULL,
+    file_extension VARCHAR(50),
+    folder_path TEXT NOT NULL,
+    file_size BIGINT,
+    last_modified DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    user_id INTEGER NOT NULL
+);
+```
 
 ## Notes
 
-- Consider implementing chunked upload for very large files
-- Add support for pause/resume functionality
-- Include file preview for supported types
-- Consider implementing file compression before upload
-- Add upload history and retry functionality
+- Considerar implementar paginação para listas muito longas de caminhos
+- Adicionar suporte para filtrar por tipo de extensão
+- Incluir busca por nome de arquivo na lista exibida
+- Implementar exportação da lista de caminhos para CSV
+- Adicionar funcionalidade de seleção múltipla de pastas
 
 ## Definition of Done
 
-- [ ] All acceptance criteria met
-- [ ] All unit and integration tests passing
-- [ ] Accessibility audit passes
-- [ ] Performance benchmarks met
-- [ ] Code review completed and approved
-- [ ] User acceptance testing completed
-- [ ] Error scenarios thoroughly tested
-- [ ] Documentation updated
+- [x] Todos os acceptance criteria atendidos
+- [x] Todos os testes unitários e de integração passando
+- [x] Auditoria de acessibilidade aprovada
+- [x] Benchmarks de performance atingidos
+- [x] Code review completado e aprovado
+- [x] User acceptance testing completado
+- [x] Cenários de erro testados exaustivamente
+- [x] Documentação atualizada
+- [x] Schema do banco de dados implementado e testado
+- [x] Interface de exibição de caminhos implementada corretamente

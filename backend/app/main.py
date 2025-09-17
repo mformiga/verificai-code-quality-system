@@ -14,7 +14,7 @@ from app.core.middleware import (
     ErrorHandlerMiddleware,
     RateLimitMiddleware
 )
-from app.api.v1 import auth, users, prompts, analysis, upload
+from app.api.v1 import auth, users, prompts, analysis, upload, file_paths
 import uvicorn
 
 # Initialize logging
@@ -48,11 +48,12 @@ app.add_middleware(RequestIDMiddleware)
 
 # Include API routers
 app.include_router(auth.router, prefix=settings.API_V1_STR, tags=["authentication"])
-app.include_router(prompts.router, prefix=settings.API_V1_STR, tags=["prompts"])
 app.include_router(users.router, prefix=settings.API_V1_STR, tags=["users"])
+app.include_router(file_paths.router, prefix=settings.API_V1_STR + "/file-paths", tags=["file_paths"])
+app.include_router(prompts.router, prefix=settings.API_V1_STR, tags=["prompts"])
 app.include_router(analysis.router, prefix=settings.API_V1_STR, tags=["analysis"])
 app.include_router(upload.router, prefix=settings.API_V1_STR, tags=["upload"])
-# Force reload
+# Force reload - changed to trigger restart
 
 @app.on_event("startup")
 async def startup_event():

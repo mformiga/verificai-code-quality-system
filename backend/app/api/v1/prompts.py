@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, CommonQueryParams, get_pagination_params
 from app.models.user import User
-from app.models.prompt import Prompt, PromptStatus, PromptCategory, PromptConfiguration
+from app.models.prompt import Prompt, PromptConfiguration, PromptCategory, PromptStatus
 from app.schemas.prompt import (
     PromptCreate, PromptUpdate, PromptResponse, PromptListResponse,
     PromptSearchFilters, PromptTestRequest, PromptTestResponse,

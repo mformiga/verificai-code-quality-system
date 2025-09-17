@@ -58,8 +58,8 @@ class PromptListResponse(BaseModel):
 
 class PromptSearchFilters(BaseModel):
     """Prompt search filters schema"""
-    category: Optional[PromptCategory] = Field(None, description="Filter by category")
-    status: Optional[PromptStatus] = Field(None, description="Filter by status")
+    prompt_type: Optional[PromptType] = Field(None, description="Filter by prompt type")
+    is_active: Optional[bool] = Field(None, description="Filter by active status")
     is_public: Optional[bool] = Field(None, description="Filter by public status")
     is_featured: Optional[bool] = Field(None, description="Filter by featured status")
     author_id: Optional[int] = Field(None, description="Filter by author")
@@ -81,9 +81,9 @@ class PromptUsageStats(BaseModel):
     last_used: Optional[datetime]
 
 
-class PromptCategoryStats(BaseModel):
-    """Prompt category statistics schema"""
-    category: PromptCategory
+class PromptTypeStats(BaseModel):
+    """Prompt type statistics schema"""
+    prompt_type: PromptType
     total_prompts: int
     active_prompts: int
     total_usage: int

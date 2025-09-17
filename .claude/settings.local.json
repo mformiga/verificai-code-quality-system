@@ -19,7 +19,11 @@
       "Bash(npm start:*)",
       "Bash(pip install:*)",
       "Bash(psql:*)",
-      "Bash(\"C:\\Program Files\\PostgreSQL\\16\\bin\\psql.exe\":*)"
+      "Bash(\"C:\\Program Files\\PostgreSQL\\16\\bin\\psql.exe\":*)",
+      "Bash(git push:*)",
+      "Bash(npm install:*)",
+      "Bash(wmic:*)",
+      "Bash(pkill:*)"
     ],
     "deny": [],
     "ask": []

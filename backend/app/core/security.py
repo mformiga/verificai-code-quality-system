@@ -183,7 +183,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     from app.models.user import User
 
     db = next(get_db())
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.username == user_id).first()
     if user is None:
         raise credentials_exception
 

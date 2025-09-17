@@ -11,7 +11,7 @@ from typing import Generator
 import logging
 
 from app.core.config import settings
-from app.models.base import BaseModel as Base
+from app.models.base import Base
 
 # Import all models to ensure they are registered with SQLAlchemy
 # This must happen BEFORE creating the engine
@@ -19,6 +19,7 @@ from app.models.user import User
 from app.models.prompt import Prompt, PromptConfiguration
 from app.models.analysis import Analysis, AnalysisResult
 from app.models.uploaded_file import UploadedFile
+from app.models.file_path import FilePath
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,8 @@ convention = {
     "pk": "pk_%(table_name)s"
 }
 
-Base.metadata = MetaData(naming_convention=convention)
+# Apply naming convention to existing metadata
+Base.metadata.naming_convention = convention
 
 
 def get_db() -> Generator[Session, None, None]:

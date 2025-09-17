@@ -22,6 +22,9 @@ Para que possa avaliar o código-fonte baseado em padrões de qualidade gerais d
 6. **[ ]** Botão para download do relatório de análise em formato Markdown
 7. **[ ]** Sistema mostrando apenas a última análise realizada na tela
 8. **[ ]** Sistema apresenta o resultado da análise ao lado de cada critério definido pelo QA
+9. **[ ]** Sistema apresenta opções para usuário editar o critério, excluir o critério e inserir novos critérios
+10. **[ ]** Todos os critérios são armazenados no banco de dados, assim como o resultado da análise correspondenteinteraja em portugues do 
+
 
 ## Technical Specifications
 
