@@ -23,7 +23,7 @@ from app.schemas.common import PaginatedResponse
 router = APIRouter()
 
 
-# Force reload 2 - test file modification
+# Force reload 3 - test file modification again
 @router.get("/prompts/config", response_model=dict)
 def get_prompt_config(
     current_user: User = Depends(get_current_user),

@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(git restore:*)",
+      "Bash(\"C:\\Users\\formi\\AppData\\Local\\Programs\\Python\\Python311\\python.exe\" -c \"\nfrom app.core.database import Base, engine\nfrom app.models.prompt import PromptConfiguration\nfrom sqlalchemy import inspect\n\n# Check what columns SQLAlchemy thinks the table has\nprint(''SQLAlchemy metadata columns for PromptConfiguration:'')\nfor column in PromptConfiguration.__table__.columns:\n    print(f''  {column.name}: {column.type}'')\n\nprint(''\\nActual database columns:'')\ninspector = inspect(engine)\ncolumns = inspector.get_columns(''prompt_configurations'')\nfor col in columns:\n    print(f''  {col[\"\"name\"\"]}: {col[\"\"type\"\"]}'')\n\n# Check if there are multiple table definitions\nprint(f''\\nTable name in model: {PromptConfiguration.__tablename__}'')\nprint(f''Table exists in metadata: {\"\"prompt_configurations\"\" in Base.metadata.tables}'')\n\")"
     ],
     "deny": [],
     "ask": []

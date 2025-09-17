@@ -32,7 +32,7 @@ class PromptStatus(str, Enum):
     DEPRECATED = "deprecated"
 
 
-class PromptConfiguration(BaseModel, AuditMixin):
+class PromptConfiguration(BaseModel):
     """Model for storing user prompt configurations"""
 
     __tablename__ = "prompt_configurations"
