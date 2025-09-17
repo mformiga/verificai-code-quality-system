@@ -2,7 +2,7 @@
 Database configuration and connection management for VerificAI Backend
 """
 
-from sqlalchemy import create_engine, MetaData
+from sqlalchemy import create_engine, MetaData, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import QueuePool
@@ -11,6 +11,19 @@ from typing import Generator
 import logging
 
 from app.core.config import settings
+from app.models.base import BaseModel as Base
+from app.models import *  # Import all models to ensure they are registered
+
+# Register models manually (workaround for SQLAlchemy metaclass issue)
+from app.models.user import User
+from app.models.prompt import Prompt, PromptConfiguration
+from app.models.analysis import Analysis
+
+# Register models in metadata
+Base.metadata._add_table(User.__tablename__, User.__table__.schema, User.__table__)
+Base.metadata._add_table(Prompt.__tablename__, Prompt.__table__.schema, Prompt.__table__)
+Base.metadata._add_table(PromptConfiguration.__tablename__, PromptConfiguration.__table__.schema, PromptConfiguration.__table__)
+Base.metadata._add_table(Analysis.__tablename__, Analysis.__table__.schema, Analysis.__table__)
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +41,6 @@ engine = create_engine(
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Base class for SQLAlchemy models
-Base = declarative_base()
 
 # Naming convention for constraints
 convention = {
@@ -115,7 +126,7 @@ class DatabaseManager:
         """Check database connectivity"""
         try:
             with self.get_session() as session:
-                session.execute("SELECT 1")
+                session.execute(text("SELECT 1"))
                 return True
         except Exception as e:
             logger.error(f"Database health check failed: {e}")
@@ -123,4 +134,4 @@ class DatabaseManager:
 
 
 # Global database manager instance
-db_manager = DatabaseManager()
+db_manager = DatabaseManager()# Force reload 2

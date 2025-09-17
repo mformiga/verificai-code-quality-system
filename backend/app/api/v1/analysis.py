@@ -2,7 +2,7 @@
 Analysis endpoints for VerificAI Backend
 """
 
-from typing import List, Optional
+from typing import List, Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
 from sqlalchemy.orm import Session
 

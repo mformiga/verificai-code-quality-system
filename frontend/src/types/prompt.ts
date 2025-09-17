@@ -55,6 +55,10 @@ export interface PromptState {
   restoreDefaults: () => Promise<void>;
   loadPrompts: () => Promise<void>;
   clearAutoSaveTimer: () => void;
+  reset: () => void;
+  getVersionHistory: (promptType: PromptType) => Promise<PromptVersion[]>;
+  restoreVersion: (promptType: PromptType, version: number) => Promise<void>;
+  createVersionBackup: () => Promise<void>;
 }
 
 export interface PromptEditorProps {

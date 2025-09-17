@@ -2,7 +2,7 @@
 User management endpoints for VerificAI Backend
 """
 
-from typing import List, Optional
+from typing import List, Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 

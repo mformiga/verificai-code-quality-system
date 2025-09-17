@@ -4,7 +4,8 @@ Configuration management for VerificAI Backend
 
 import os
 from typing import List, Optional
-from pydantic import AnyHttpUrl, BaseSettings, Field, validator
+from pydantic import AnyHttpUrl, Field, field_validator
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -22,7 +23,7 @@ class Settings(BaseSettings):
 
     # Database Configuration
     DATABASE_URL: str = Field(
-        default="postgresql://verificai:verificai123@localhost:5432/verificai",
+        default="sqlite:///./verificai.db",
         env="DATABASE_URL"
     )
 
@@ -50,11 +51,12 @@ class Settings(BaseSettings):
 
     # CORS Configuration
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = Field(
-        default=["http://localhost:3000", "http://localhost:5173"],
+        default=["http://localhost:3000", "http://localhost:5173", "http://localhost:3026"],
         env="BACKEND_CORS_ORIGINS"
     )
 
-    @validator("BACKEND_CORS_ORIGINS", pre=True)
+    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
+    @classmethod
     def assemble_cors_origins(cls, v):
         """Parse CORS origins from environment variable"""
         if isinstance(v, str) and not v.startswith("["):
@@ -91,10 +93,11 @@ class Settings(BaseSettings):
     # Environment
     ENVIRONMENT: str = Field(default="development", env="ENVIRONMENT")
 
-    class Config:
-        case_sensitive = True
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = {
+        "case_sensitive": True,
+        "env_file": ".env",
+        "env_file_encoding": "utf-8"
+    }
 
 
 # Global settings instance

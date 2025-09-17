@@ -229,8 +229,8 @@ class SecurityLogger:
         )
 
 
-# Initialize logging
-setup_logging()
+# Initialize logging - moved to main.py to avoid circular import
+# setup_logging()
 
 # Create logger instances
 app_logger = get_logger("verificai")

@@ -5,7 +5,7 @@ Prompt model for VerificAI Backend
 from datetime import datetime
 from enum import Enum
 from typing import Optional
-from sqlalchemy import Column, String, Text, DateTime, Integer, Boolean, ForeignKey, Enum as SQLEnum
+from sqlalchemy import Column, String, Text, DateTime, Integer, Boolean, ForeignKey, Enum as SQLEnum, JSON
 from sqlalchemy.orm import relationship
 
 from app.models.base import BaseModel, AuditMixin
@@ -30,6 +30,23 @@ class PromptStatus(str, Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
     DEPRECATED = "deprecated"
+
+
+class PromptConfiguration(BaseModel, AuditMixin):
+    """Model for storing user prompt configurations"""
+
+    __tablename__ = "prompt_configurations"
+
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    config_key = Column(String(100), nullable=False, index=True)  # e.g., "general", "architectural", "business"
+    config_data = Column(JSON, nullable=False)  # Stores the complete prompt configuration
+    is_active = Column(Boolean, default=True, nullable=False)
+
+    # Relationships
+    user = relationship("User", back_populates="prompt_configurations")
+
+    def __repr__(self) -> str:
+        return f"<PromptConfiguration(id={self.id}, user_id={self.user_id}, config_key='{self.config_key}')>"
 
 
 class Prompt(BaseModel, AuditMixin):

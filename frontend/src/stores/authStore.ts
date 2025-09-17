@@ -25,19 +25,10 @@ export const useAuthStore = create<AuthStore>()(
       login: async (credentials) => {
         set({ isLoading: true });
         try {
-          // Mock login para desenvolvimento
-          const mockUser = {
-            id: '1',
-            email: 'test@example.com',
-            name: 'Test User',
-            username: credentials.username,
-          };
-
-          const mockToken = 'mock-jwt-token-' + Date.now();
-
+          const response = await authService.login(credentials);
           set({
-            user: mockUser,
-            token: mockToken,
+            user: response.user,
+            token: response.access_token,
             isAuthenticated: true,
             isLoading: false,
           });
@@ -50,19 +41,10 @@ export const useAuthStore = create<AuthStore>()(
       register: async (data) => {
         set({ isLoading: true });
         try {
-          // Mock register para desenvolvimento
-          const mockUser = {
-            id: '1',
-            email: data.email,
-            name: data.username,
-            username: data.username,
-          };
-
-          const mockToken = 'mock-jwt-token-' + Date.now();
-
+          const response = await authService.register(data);
           set({
-            user: mockUser,
-            token: mockToken,
+            user: response.user,
+            token: response.access_token,
             isAuthenticated: true,
             isLoading: false,
           });

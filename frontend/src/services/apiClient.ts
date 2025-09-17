@@ -12,10 +12,18 @@ const apiClient = axios.create({
 // Request interceptor
 apiClient.interceptors.request.use(
   (config) => {
-    // Add auth token if available
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Add auth token if available from Zustand store
+    try {
+      const authData = localStorage.getItem('auth-storage');
+      if (authData) {
+        const parsed = JSON.parse(authData);
+        const token = parsed.state?.token;
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+      }
+    } catch (error) {
+      // Ignore parsing errors
     }
     return config;
   },
@@ -31,8 +39,8 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      // Handle unauthorized
-      localStorage.removeItem('auth_token');
+      // Handle unauthorized - clear auth store
+      localStorage.removeItem('auth-storage');
       window.location.href = '/login';
     }
 

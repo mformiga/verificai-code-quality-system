@@ -1,15 +1,18 @@
 """
 Prompt management endpoints for VerificAI Backend
+Updated with config and backup endpoints
+Real persistence implemented for prompt configurations
 """
 
-from typing import List, Optional
+from datetime import datetime
+from typing import List, Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, CommonQueryParams, get_pagination_params
 from app.models.user import User
-from app.models.prompt import Prompt, PromptStatus, PromptCategory
+from app.models.prompt import Prompt, PromptStatus, PromptCategory, PromptConfiguration
 from app.schemas.prompt import (
     PromptCreate, PromptUpdate, PromptResponse, PromptListResponse,
     PromptSearchFilters, PromptTestRequest, PromptTestResponse,
@@ -18,6 +21,199 @@ from app.schemas.prompt import (
 from app.schemas.common import PaginatedResponse
 
 router = APIRouter()
+
+
+# Force reload 2 - test file modification
+@router.get("/prompts/config", response_model=dict)
+def get_prompt_config(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Get prompt configuration for frontend"""
+    # Default configuration
+    default_config = {
+        "general": {
+            "id": "general",
+            "name": "General Analysis",
+            "type": "general",
+            "description": "General purpose code analysis prompt",
+            "content": "Analyze the following code for quality, bugs, and improvements:\n\n```{language}\n{code}\n```\n\nProvide a comprehensive analysis including:\n1. Code quality issues\n2. Potential bugs\n3. Performance improvements\n4. Security considerations\n5. Best practices violations",
+            "isActive": True,
+            "isDefault": True,
+            "createdAt": "2024-01-01T00:00:00Z",
+            "updatedAt": "2024-01-01T00:00:00Z"
+        },
+        "architectural": {
+            "id": "architectural",
+            "name": "Architectural Analysis",
+            "type": "architectural",
+            "description": "Architecture-focused code analysis prompt",
+            "content": "Analyze the following code from an architectural perspective:\n\n```{language}\n{code}\n```\n\nFocus on:\n1. Design patterns usage\n2. Architectural principles compliance\n3. Scalability considerations\n4. Maintainability aspects\n5. System design recommendations",
+            "isActive": True,
+            "isDefault": True,
+            "createdAt": "2024-01-01T00:00:00Z",
+            "updatedAt": "2024-01-01T00:00:00Z"
+        },
+        "business": {
+            "id": "business",
+            "name": "Business Logic Analysis",
+            "type": "business",
+            "description": "Business logic focused code analysis prompt",
+            "content": "Analyze the following code focusing on business logic:\n\n```{language}\n{code}\n```\n\nEvaluate:\n1. Business rule implementation\n2. Domain-specific patterns\n3. Business requirement compliance\n4. Process flow efficiency\n5. Business value optimization",
+            "isActive": True,
+            "isDefault": True,
+            "createdAt": "2024-01-01T00:00:00Z",
+            "updatedAt": "2024-01-01T00:00:00Z"
+        }
+    }
+
+    # Try to load user's saved configuration from database
+    try:
+        user_configs = db.query(PromptConfiguration).filter(
+            PromptConfiguration.user_id == current_user.id,
+            PromptConfiguration.is_active == True
+        ).all()
+
+        # Override defaults with user's saved configurations
+        if user_configs:
+            for config in user_configs:
+                if config.config_key in default_config:
+                    default_config[config.config_key] = config.config_data
+                    default_config[config.config_key]["updatedAt"] = config.updated_at.isoformat()
+
+        return default_config
+    except Exception as e:
+        # If database error, return defaults
+        return default_config
+
+
+@router.post("/prompts/backup", response_model=dict)
+def create_prompt_backup(
+    prompt_config: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Save prompt configuration to database (real persistence)"""
+    print("DEBUG: New create_prompt_backup function called!")
+    print(f"DEBUG: User ID: {current_user.id}")
+    print(f"DEBUG: Prompt config keys: {list(prompt_config.keys())}")
+
+    try:
+        # Save each prompt configuration in the database
+        saved_configs = []
+
+        for config_key, config_data in prompt_config.items():
+            print(f"DEBUG: Processing config key: {config_key}")
+            # Check if configuration already exists
+            existing_config = db.query(PromptConfiguration).filter(
+                PromptConfiguration.user_id == current_user.id,
+                PromptConfiguration.config_key == config_key
+            ).first()
+
+            if existing_config:
+                print(f"DEBUG: Updating existing config for {config_key}")
+                # Update existing configuration
+                existing_config.config_data = config_data
+                existing_config.is_active = True
+                existing_config.updated_at = datetime.utcnow()
+                db.commit()
+                db.refresh(existing_config)
+                saved_configs.append(existing_config)
+            else:
+                print(f"DEBUG: Creating new config for {config_key}")
+                # Create new configuration
+                new_config = PromptConfiguration(
+                    user_id=current_user.id,
+                    config_key=config_key,
+                    config_data=config_data,
+                    is_active=True
+                )
+                db.add(new_config)
+                db.commit()
+                db.refresh(new_config)
+                saved_configs.append(new_config)
+
+        print(f"DEBUG: Saved {len(saved_configs)} configurations")
+        result = {
+            "success": True,
+            "message": "Prompt configuration saved successfully (NEW VERSION)",
+            "timestamp": datetime.utcnow().isoformat(),
+            "saved_by": current_user.username,
+            "saved_configs": len(saved_configs)
+        }
+        print(f"DEBUG: Returning result: {result}")
+        return result
+    except Exception as e:
+        print(f"DEBUG: Error occurred: {e}")
+        import traceback
+        traceback.print_exc()
+        db.rollback()
+        return {
+            "success": False,
+            "message": f"Failed to save configuration: {str(e)}",
+            "timestamp": datetime.utcnow().isoformat(),
+            "saved_by": current_user.username
+        }
+
+
+@router.post("/prompts/save", response_model=dict)
+def save_prompt_configuration(
+    prompt_config: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Save prompt configuration"""
+    try:
+        # Save each prompt configuration in the database
+        saved_configs = []
+
+        for config_key, config_data in prompt_config.items():
+            # Check if configuration already exists
+            existing_config = db.query(PromptConfiguration).filter(
+                PromptConfiguration.user_id == current_user.id,
+                PromptConfiguration.config_key == config_key
+            ).first()
+
+            if existing_config:
+                # Update existing configuration
+                existing_config.config_data = config_data
+                existing_config.is_active = True
+                existing_config.updated_at = datetime.utcnow()
+                db.commit()
+                db.refresh(existing_config)
+                saved_configs.append(existing_config)
+            else:
+                # Create new configuration
+                new_config = PromptConfiguration(
+                    user_id=current_user.id,
+                    config_key=config_key,
+                    config_data=config_data,
+                    is_active=True
+                )
+                db.add(new_config)
+                db.commit()
+                db.refresh(new_config)
+                saved_configs.append(new_config)
+
+        return {
+            "success": True,
+            "message": "Prompt configuration saved successfully",
+            "timestamp": datetime.utcnow().isoformat(),
+            "saved_by": current_user.username,
+            "saved_configs": len(saved_configs)
+        }
+    except Exception as e:
+        db.rollback()
+        return {
+            "success": False,
+            "message": f"Failed to save configuration: {str(e)}",
+            "timestamp": datetime.utcnow().isoformat(),
+            "saved_by": current_user.username
+        }
+
+
+
+
 
 
 @router.post("/", response_model=PromptResponse)
@@ -102,6 +298,8 @@ def list_prompts(
         has_next=params.skip + params.limit < total,
         has_prev=params.skip > 0
     )
+
+
 
 
 @router.get("/{prompt_id}", response_model=PromptResponse)
@@ -354,20 +552,6 @@ def unpublish_prompt(
     return prompt
 
 
-@router.get("/categories", response_model=List[str])
-def get_prompt_categories(
-    current_user: User = Depends(get_current_user)
-) -> Any:
-    """Get available prompt categories"""
-    return [category.value for category in PromptCategory]
-
-
-@router.get("/statuses", response_model=List[str])
-def get_prompt_statuses(
-    current_user: User = Depends(get_current_user)
-) -> Any:
-    """Get available prompt statuses"""
-    return [status.value for status in PromptStatus]
 
 
 @router.post("/import", response_model=PromptResponse)

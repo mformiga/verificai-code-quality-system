@@ -1,10 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePromptStore } from '@/stores/promptStore';
 import { PromptEditor } from './PromptEditor';
 import { AutoSaveIndicator } from './AutoSaveIndicator';
 import { VersionHistory } from './VersionHistory';
 import { PromptToolbar } from './PromptToolbar';
-import { PromptType } from '@/types/prompt';
+import { PromptType, PromptVersion } from '@/types/prompt';
 import './PromptConfig.css';
 
 export const PromptConfig: React.FC = () => {
@@ -22,7 +22,11 @@ export const PromptConfig: React.FC = () => {
     restoreDefaults,
     loadPrompts,
     clearAutoSaveTimer,
+    getVersionHistory,
+    restoreVersion,
   } = usePromptStore();
+
+  const [versionHistory, setVersionHistory] = useState<PromptVersion[]>([]);
 
   useEffect(() => {
     loadPrompts();
@@ -31,12 +35,26 @@ export const PromptConfig: React.FC = () => {
     };
   }, [loadPrompts, clearAutoSaveTimer]);
 
+  useEffect(() => {
+    const loadVersionHistory = async () => {
+      const history = await getVersionHistory(activePromptType);
+      setVersionHistory(history);
+    };
+    loadVersionHistory();
+  }, [activePromptType, getVersionHistory]);
+
   const handlePromptChange = (content: string) => {
     updatePrompt(activePromptType, content);
   };
 
   const handleTabChange = (type: PromptType) => {
     setActivePromptType(type);
+  };
+
+  const handleRestoreVersion = async (version: number) => {
+    await restoreVersion(activePromptType, version);
+    const history = await getVersionHistory(activePromptType);
+    setVersionHistory(history);
   };
 
   const currentPrompt = prompts[activePromptType];
@@ -193,7 +211,7 @@ export const PromptConfig: React.FC = () => {
               </div>
               <div className="card-content">
                 <VersionHistory
-                  versions={[
+                  versions={versionHistory.length > 0 ? versionHistory : [
                     {
                       version: currentPrompt.version || 1,
                       content: currentPrompt.content,
@@ -201,7 +219,7 @@ export const PromptConfig: React.FC = () => {
                       author: 'Usuário',
                     },
                   ]}
-                  onRestore={() => {}}
+                  onRestore={handleRestoreVersion}
                   currentVersion={currentPrompt.version || 1}
                 />
               </div>

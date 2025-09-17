@@ -30,6 +30,15 @@ app = FastAPI(
     redoc_url=f"{settings.API_V1_STR}/redoc",
 )
 
+# Configure CORS middleware first (before other middlewares)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins during development
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Add middleware stack
 app.add_middleware(ErrorHandlerMiddleware)
 app.add_middleware(RateLimitMiddleware, requests_per_minute=settings.RATE_LIMIT_REQUESTS_PER_MINUTE)
@@ -37,20 +46,12 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(RequestIDMiddleware)
 
-# Configure CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # Include API routers
 app.include_router(auth.router, prefix=settings.API_V1_STR, tags=["authentication"])
-app.include_router(users.router, prefix=settings.API_V1_STR, tags=["users"])
 app.include_router(prompts.router, prefix=settings.API_V1_STR, tags=["prompts"])
+app.include_router(users.router, prefix=settings.API_V1_STR, tags=["users"])
 app.include_router(analysis.router, prefix=settings.API_V1_STR, tags=["analysis"])
+# Force reload
 
 @app.on_event("startup")
 async def startup_event():
@@ -95,4 +96,4 @@ if __name__ == "__main__":
         port=settings.PORT,
         reload=settings.DEBUG,
         log_level=settings.LOG_LEVEL.lower()
-    )
+    )# Reload trigger

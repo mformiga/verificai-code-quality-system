@@ -12,10 +12,10 @@ from app.models.user import UserRole
 
 class UserRoleSchema(str, Enum):
     """User role schema"""
-    ADMIN = "admin"
-    QA_ENGINEER = "qa_engineer"
-    DEVELOPER = "developer"
-    VIEWER = "viewer"
+    ADMIN = "ADMIN"
+    QA_ENGINEER = "QA_ENGINEER"
+    DEVELOPER = "DEVELOPER"
+    VIEWER = "VIEWER"
 
 
 class UserBase(BaseModel):

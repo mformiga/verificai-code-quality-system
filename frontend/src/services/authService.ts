@@ -3,7 +3,7 @@ import type { User, LoginCredentials, RegisterData, AuthResponse } from '@/types
 
 export const authService = {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const response = await apiClient.post('/auth/login', new URLSearchParams({
+    const response = await apiClient.post('/v1/login', new URLSearchParams({
       username: credentials.username,
       password: credentials.password,
     }), {
@@ -15,21 +15,21 @@ export const authService = {
   },
 
   async register(data: RegisterData): Promise<AuthResponse> {
-    const response = await apiClient.post('/auth/register', data);
+    const response = await apiClient.post('/v1/register', data);
     return response.data;
   },
 
   async refreshToken(): Promise<{ access_token: string; token_type: string }> {
-    const response = await apiClient.post('/auth/refresh');
+    const response = await apiClient.post('/v1/refresh');
     return response.data;
   },
 
   async getCurrentUser(): Promise<User> {
-    const response = await apiClient.get('/auth/me');
+    const response = await apiClient.get('/v1/me');
     return response.data;
   },
 
   async logout(): Promise<void> {
-    await apiClient.post('/auth/logout');
+    await apiClient.post('/v1/logout');
   },
 };

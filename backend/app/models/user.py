@@ -15,10 +15,10 @@ from app.models.base import BaseModel, AuditMixin
 
 class UserRole(str, Enum):
     """User role enumeration"""
-    ADMIN = "admin"
-    QA_ENGINEER = "qa_engineer"
-    DEVELOPER = "developer"
-    VIEWER = "viewer"
+    ADMIN = "ADMIN"
+    QA_ENGINEER = "QA_ENGINEER"
+    DEVELOPER = "DEVELOPER"
+    VIEWER = "VIEWER"
 
 
 class User(BaseModel, AuditMixin):
@@ -66,6 +66,7 @@ class User(BaseModel, AuditMixin):
     # Relationships
     prompts = relationship("Prompt", back_populates="author", cascade="all, delete-orphan")
     analyses = relationship("Analysis", back_populates="user", cascade="all, delete-orphan")
+    prompt_configurations = relationship("PromptConfiguration", back_populates="user", cascade="all, delete-orphan")
 
     def __init__(self, **kwargs):
         """Initialize user with password hashing"""

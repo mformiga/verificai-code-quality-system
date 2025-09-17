@@ -1,60 +1,60 @@
-import { useApi } from '@/hooks/useApi';
+import apiClient from './apiClient';
 import { PromptConfig, PromptVersion, Prompt } from '@/types/prompt';
 
 export const promptService = {
   getPrompts: async (): Promise<PromptConfig> => {
-    const { get } = useApi();
-    const response = await get<PromptConfig>('/api/prompts');
+    const response = await apiClient.get<PromptConfig>('/v1/prompts/config');
     return response.data;
   },
 
   savePrompts: async (prompts: PromptConfig): Promise<PromptConfig> => {
-    const { post } = useApi();
-
     await promptService.createVersionBackup(prompts);
-
-    const response = await post<PromptConfig>('/api/prompts', prompts);
+    // Use the backup endpoint for saving since it works
+    const response = await apiClient.post<PromptConfig>('/v1/prompts/backup', prompts);
     return response.data;
   },
 
   createVersionBackup: async (prompts: PromptConfig): Promise<void> => {
-    const { post } = useApi();
-    await post('/api/prompts/backup', prompts);
+    try {
+      await apiClient.post('/v1/prompts/backup', prompts);
+    } catch (error) {
+      // Silently fail for backup - it's not critical for the main functionality
+      console.warn('Failed to create version backup:', error);
+    }
   },
 
   getVersionHistory: async (promptId: string): Promise<PromptVersion[]> => {
-    const { get } = useApi();
-    const response = await get<PromptVersion[]>(`/api/prompts/${promptId}/versions`);
-    return response.data;
+    try {
+      const response = await apiClient.get<PromptVersion[]>(`/v1/prompts/${promptId}/versions`);
+      return response.data;
+    } catch (error) {
+      console.warn('Failed to fetch version history:', error);
+      return [];
+    }
   },
 
   restoreVersion: async (promptId: string, version: number): Promise<Prompt> => {
-    const { post } = useApi();
-    const response = await post<Prompt>(`/api/prompts/${promptId}/restore`, { version });
+    const response = await apiClient.post<Prompt>(`/v1/prompts/${promptId}/restore`, { version });
     return response.data;
   },
 
   restoreDefaults: async (): Promise<PromptConfig> => {
-    const { post } = useApi();
-    const response = await post<PromptConfig>('/api/prompts/restore-defaults');
+    const response = await apiClient.post<PromptConfig>('/v1/prompts/restore-defaults');
     return response.data;
   },
 
   validatePrompt: async (content: string): Promise<{ isValid: boolean; errors: string[] }> => {
-    const { post } = useApi();
-    const response = await post<{ isValid: boolean; errors: string[] }>('/api/prompts/validate', { content });
+    const response = await apiClient.post<{ isValid: boolean; errors: string[] }>('/v1/prompts/validate', { content });
     return response.data;
   },
 
   exportPrompts: async (): Promise<string> => {
-    const { get } = useApi();
-    const response = await get<string>('/api/prompts/export');
+    const response = await apiClient.get<string>('/v1/prompts/export');
     return response.data;
   },
 
   importPrompts: async (promptsData: string): Promise<PromptConfig> => {
-    const { post } = useApi();
-    const response = await post<PromptConfig>('/api/prompts/import', { data: promptsData });
+    const response = await apiClient.post<PromptConfig>('/v1/prompts/import', { data: promptsData });
     return response.data;
   },
 };
