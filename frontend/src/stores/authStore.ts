@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User, AuthState } from '@/types/auth';
 import { authService } from '@/services/authService';
+import { storeToken } from '@/utils/auth';
 
 interface AuthStore extends AuthState {
   login: (credentials: { username: string; password: string }) => Promise<void>;
@@ -26,9 +27,14 @@ export const useAuthStore = create<AuthStore>()(
         set({ isLoading: true });
         try {
           const response = await authService.login(credentials);
+          const token = response.access_token;
+
+          // Store token in both Zustand and direct localStorage
+          storeToken(token);
+
           set({
             user: response.user,
-            token: response.access_token,
+            token: token,
             isAuthenticated: true,
             isLoading: false,
           });
@@ -42,9 +48,14 @@ export const useAuthStore = create<AuthStore>()(
         set({ isLoading: true });
         try {
           const response = await authService.register(data);
+          const token = response.access_token;
+
+          // Store token in both Zustand and direct localStorage
+          storeToken(token);
+
           set({
             user: response.user,
-            token: response.access_token,
+            token: token,
             isAuthenticated: true,
             isLoading: false,
           });

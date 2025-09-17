@@ -2,7 +2,7 @@
 User model for VerificAI Backend
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 from typing import Optional
 from sqlalchemy import Column, String, Boolean, DateTime, Text, Enum as SQLEnum
@@ -10,7 +10,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.core.security import get_password_hash
-from app.models.base import BaseModel, AuditMixin
+from app.models.base import Base, BaseModel, AuditMixin
 
 
 class UserRole(str, Enum):
@@ -21,7 +21,7 @@ class UserRole(str, Enum):
     VIEWER = "VIEWER"
 
 
-class User(BaseModel, AuditMixin):
+class User(Base, BaseModel, AuditMixin):
     """User model"""
 
     __tablename__ = "users"

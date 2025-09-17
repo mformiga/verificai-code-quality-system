@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { DragDropZoneProps } from '../../types/fileUpload';
+import { DragDropZoneProps } from '../../../types/fileUpload';
 
 export const DragDropZone: React.FC<DragDropZoneProps> = ({
   isDragActive,
@@ -78,7 +78,7 @@ export const DragDropZone: React.FC<DragDropZoneProps> = ({
         type="file"
         accept={getAcceptedTypesString()}
         multiple={multiple}
-        webkitdirectory="true"
+        webkitdirectory={true}
         className="hidden"
         onChange={handleFileInputChange}
         disabled={disabled}

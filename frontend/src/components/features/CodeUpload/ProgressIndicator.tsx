@@ -1,5 +1,12 @@
 import React from 'react';
-import { ProgressIndicatorProps } from '../../types/fileUpload';
+import { UploadedFile } from '../../../types/fileUpload';
+
+interface ProgressIndicatorProps {
+  progress: number;
+  status: 'uploading' | 'completed' | 'error';
+  fileName?: string;
+  error?: string;
+}
 
 export const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({
   progress,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { UploadedFile } from '../../types/fileUpload';
+import { UploadedFile } from '../../../types/fileUpload';
 import { ProgressIndicator } from './ProgressIndicator';
 
 interface FileListProps {

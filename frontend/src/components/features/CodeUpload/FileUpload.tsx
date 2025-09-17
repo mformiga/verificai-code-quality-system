@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 
 // Define types inline to avoid import issues
 interface FileUploadProps {
@@ -8,6 +8,17 @@ interface FileUploadProps {
   acceptedTypes?: string[];
   multiple?: boolean;
   disabled?: boolean;
+}
+
+interface ProcessedFile {
+  id: string;
+  name: string;
+  path: string;
+  size: number;
+  type: string;
+  uploadDate: Date;
+  status: 'completed' | 'error';
+  error?: string;
 }
 
 const SUPPORTED_FILE_TYPES = [
@@ -45,6 +56,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   const [isDragActive, setIsDragActive] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<any[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -57,37 +70,76 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     }
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragActive(false);
 
-    const files = e.dataTransfer.files;
-    processFiles(files);
+    const items = e.dataTransfer.items;
+    await processFiles(Array.from(items) as any[]);
   }, []);
 
-  const handleFileSelect = useCallback((files: FileList) => {
-    processFiles(files);
+  const handleFileSelect = useCallback(async (files: FileList) => {
+    await processFiles(Array.from(files));
   }, []);
 
-  const processFiles = useCallback(async (files: FileList) => {
-    const fileArray = Array.from(files);
+  const processDirectory = async (entry: FileSystemEntry, path: string = ""): Promise<File[]> => {
+    const files: File[] = [];
+
+    if (entry.isFile) {
+      const fileEntry = entry as FileSystemFileEntry;
+      const file = await new Promise<File>((resolve, reject) => {
+        fileEntry.file(resolve, reject);
+      });
+      files.push(file);
+    } else if (entry.isDirectory) {
+      const dirEntry = entry as FileSystemDirectoryEntry;
+      const reader = dirEntry.createReader();
+
+      const entries = await new Promise<FileSystemEntry[]>((resolve, reject) => {
+        reader.readEntries(resolve, reject);
+      });
+
+      for (const entry of entries) {
+        const newPath = path ? `${path}/${entry.name}` : entry.name;
+        const subFiles = await processDirectory(entry, newPath);
+        files.push(...subFiles);
+      }
+    }
+
+    return files;
+  };
+
+  const processFiles = useCallback(async (files: File[]) => {
+    setIsUploading(true);
+    let fileArray: File[] = files;
 
     if (fileArray.length === 0) {
-      setErrors(prev => [...prev, 'No files selected']);
+      setErrors(prev => [...prev, 'Nenhum arquivo encontrado']);
+      setIsUploading(false);
       return;
     }
 
-    // Simple validation
+    // Filter supported file types
+    const supportedExtensions = ['.js', '.jsx', '.ts', '.tsx', '.py', '.java', '.c', '.cpp', '.h', '.hpp', '.html', '.css', '.json', '.xml', '.yaml', '.yml', '.md', '.txt'];
     const validFiles = fileArray.filter(file => {
+      const extension = '.' + file.name.split('.').pop()?.toLowerCase();
+      const isSupported = supportedExtensions.includes(extension);
+
+      if (!isSupported) {
+        setErrors(prev => [...prev, `${file.name}: Tipo de arquivo não suportado`]);
+      }
+
       if (file.size > maxFileSize) {
-        setErrors(prev => [...prev, `${file.name}: File too large`]);
+        setErrors(prev => [...prev, `${file.name}: Arquivo muito grande (máx ${maxFileSize / (1024 * 1024)}MB)`]);
         return false;
       }
-      return true;
+
+      return isSupported;
     });
 
     if (validFiles.length === 0) {
+      setIsUploading(false);
       return;
     }
 
@@ -95,6 +147,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     const newUploadingFiles = validFiles.map(file => ({
       id: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       name: file.name,
+      path: file.webkitRelativePath || file.name,
       size: file.size,
       type: file.type,
       status: 'uploading',
@@ -103,48 +156,57 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
     setUploadingFiles(prev => [...prev, ...newUploadingFiles]);
 
-    // Simulate upload process
-    for (let i = 0; i < validFiles.length; i++) {
-      const file = validFiles[i];
-      const uploadingFile = newUploadingFiles[i];
+    // Send files to backend
+    try {
+      const formData = new FormData();
+      validFiles.forEach(file => {
+        formData.append('files', file);
+      });
 
-      try {
-        // Simulate progress
-        for (let progress = 0; progress <= 100; progress += 20) {
-          setUploadingFiles(prev =>
-            prev.map(f =>
-              f.id === uploadingFile.id
-                ? { ...f, progress }
-                : f
-            )
-          );
-          await new Promise(resolve => setTimeout(resolve, 100));
+      // Get auth headers using utility function
+      const { getAuthHeaders } = await import('@/utils/auth');
+      const authHeaders = getAuthHeaders();
+
+      console.log('Making upload request with headers:', authHeaders);
+
+      const response = await fetch('/api/v1/upload/folder', {
+        method: 'POST',
+        body: formData,
+        headers: authHeaders,
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Sessão expirada. Por favor, faça login novamente.');
         }
-
-        // Complete upload
-        setUploadingFiles(prev => prev.filter(f => f.id !== uploadingFile.id));
-
-        const completedFile = {
-          id: uploadingFile.id,
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          uploadDate: new Date(),
-          status: 'completed'
-        };
-
-        onUploadComplete([completedFile]);
-
-      } catch (error) {
-        setUploadingFiles(prev =>
-          prev.map(f =>
-            f.id === uploadingFile.id
-              ? { ...f, status: 'error', error: 'Upload failed' }
-              : f
-          )
-        );
-        onError(`${file.name}: Upload failed`);
+        throw new Error('Upload failed');
       }
+
+      const result = await response.json();
+
+      // Process uploaded files
+      const completedFiles: ProcessedFile[] = result.uploaded_files || [];
+
+      // Clear uploading files
+      setUploadingFiles(prev => prev.filter(f => !newUploadingFiles.find(uf => uf.id === f.id)));
+
+      // Call completion callback
+      onUploadComplete(completedFiles);
+
+    } catch (error) {
+      console.error('Upload error:', error);
+      onError('Erro no upload dos arquivos');
+
+      // Mark files as error
+      setUploadingFiles(prev =>
+        prev.map(f =>
+          newUploadingFiles.find(uf => uf.id === f.id)
+            ? { ...f, status: 'error', error: 'Upload failed' }
+            : f
+        )
+      );
+    } finally {
+      setIsUploading(false);
     }
   }, [maxFileSize, onUploadComplete, onError]);
 
@@ -171,21 +233,22 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           isDragActive
             ? 'border-blue-400 bg-blue-50'
             : 'border-gray-300 hover:border-gray-400'
-        } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+        } ${disabled || isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
         onDragEnter={handleDrag}
         onDragOver={handleDrag}
         onDragLeave={handleDrag}
         onDrop={handleDrop}
-        onClick={() => document.getElementById('file-input')?.click()}
       >
         <input
+          ref={fileInputRef}
           id="file-input"
           type="file"
           multiple={multiple}
+          webkitdirectory
           accept={acceptedTypes.join(',')}
           onChange={handleFileInputChange}
           className="hidden"
-          disabled={disabled}
+          disabled={disabled || isUploading}
         />
 
         <div className="space-y-4">
@@ -197,20 +260,44 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
           <div>
             <p className="text-lg font-medium text-gray-900">
-              Arraste arquivos para cá ou clique para selecionar
+              Arraste arquivos ou pastas para cá
             </p>
             <p className="text-sm text-gray-500 mt-1">
-              Suporta múltiplos arquivos até {maxFileSize / (1024 * 1024)}MB
+              Suporta múltiplos arquivos e pastas até {maxFileSize / (1024 * 1024)}MB por arquivo
             </p>
           </div>
 
-          <button
-            type="button"
-            disabled={disabled}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-          >
-            Selecionar Arquivos
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              type="button"
+              disabled={disabled || isUploading}
+              onClick={() => document.getElementById('file-input')?.click()}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+            >
+              {isUploading ? 'Processando...' : 'Selecionar Pasta'}
+            </button>
+
+            <button
+              type="button"
+              disabled={disabled || isUploading}
+              onClick={() => {
+                const fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.multiple = true;
+                fileInput.accept = acceptedTypes.join(',');
+                fileInput.onchange = (e: Event) => {
+                  const target = e.target as HTMLInputElement;
+                  if (target && target.files) {
+                    handleFileSelect(target.files);
+                  }
+                };
+                fileInput.click();
+              }}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+            >
+              Selecionar Arquivos
+            </button>
+          </div>
         </div>
       </div>
 
@@ -249,12 +336,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                       style={{ width: `${file.progress || 0}%` }}
                     />
                   </div>
-                  <span className="text-xs text-blue-600">{file.progress || 0}%</span>
                   <button
                     onClick={() => removeFile(file.id)}
-                    className="text-red-600 hover:text-red-800 text-xs"
+                    className="text-xs text-red-600 hover:text-red-800 ml-2"
                   >
-                    Cancelar
+                    Remover
                   </button>
                 </div>
               </div>

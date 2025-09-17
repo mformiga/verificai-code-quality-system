@@ -23,7 +23,7 @@ class Settings(BaseSettings):
 
     # Database Configuration
     DATABASE_URL: str = Field(
-        default="sqlite:///./verificai.db",
+        default="postgresql://verificai:verificai123@localhost:5432/verificai",
         env="DATABASE_URL"
     )
 

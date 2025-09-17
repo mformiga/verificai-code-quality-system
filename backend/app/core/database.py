@@ -12,18 +12,13 @@ import logging
 
 from app.core.config import settings
 from app.models.base import BaseModel as Base
-from app.models import *  # Import all models to ensure they are registered
 
-# Register models manually (workaround for SQLAlchemy metaclass issue)
+# Import all models to ensure they are registered with SQLAlchemy
+# This must happen BEFORE creating the engine
 from app.models.user import User
 from app.models.prompt import Prompt, PromptConfiguration
-from app.models.analysis import Analysis
-
-# Register models in metadata
-Base.metadata._add_table(User.__tablename__, User.__table__.schema, User.__table__)
-Base.metadata._add_table(Prompt.__tablename__, Prompt.__table__.schema, Prompt.__table__)
-Base.metadata._add_table(PromptConfiguration.__tablename__, PromptConfiguration.__table__.schema, PromptConfiguration.__table__)
-Base.metadata._add_table(Analysis.__tablename__, Analysis.__table__.schema, Analysis.__table__)
+from app.models.analysis import Analysis, AnalysisResult
+from app.models.uploaded_file import UploadedFile
 
 logger = logging.getLogger(__name__)
 

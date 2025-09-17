@@ -8,7 +8,7 @@ from typing import Optional
 from sqlalchemy import Column, String, Text, DateTime, Integer, Boolean, ForeignKey, Enum as SQLEnum, JSON
 from sqlalchemy.orm import relationship
 
-from app.models.base import BaseModel, AuditMixin
+from app.models.base import Base, BaseModel, AuditMixin
 
 
 class AnalysisStatus(str, Enum):
@@ -20,7 +20,7 @@ class AnalysisStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
-class AnalysisResult(BaseModel):
+class AnalysisResult(Base, BaseModel):
     """Analysis result model for storing detailed results"""
 
     __tablename__ = "analysis_results"
@@ -108,7 +108,7 @@ class AnalysisResult(BaseModel):
         return data
 
 
-class Analysis(BaseModel, AuditMixin):
+class Analysis(Base, BaseModel, AuditMixin):
     """Analysis model for tracking code analysis jobs"""
 
     __tablename__ = "analyses"

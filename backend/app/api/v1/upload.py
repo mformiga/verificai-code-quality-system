@@ -92,6 +92,93 @@ async def validate_upload(
     return validate_file(file, current_user.id)
 
 
+@router.post("/folder", response_model=dict)
+async def upload_folder(
+    background_tasks: BackgroundTasks,
+    files: List[UploadFile] = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Upload multiple files from a folder"""
+    ensure_upload_dir()
+
+    uploaded_files = []
+    failed_files = []
+
+    for file in files:
+        try:
+            # Validate file
+            validation = validate_file(file, current_user.id)
+            if not validation.is_valid:
+                failed_files.append({
+                    "filename": file.filename,
+                    "error": validation.errors[0].message if validation.errors else "Validation failed"
+                })
+                continue
+
+            # Generate file ID
+            file_id = f"file_{uuid.uuid4().hex}"
+
+            # Get relative path from webkitRelativePath if available
+            relative_path = getattr(file, 'webkitRelativePath', None) or file.filename
+
+            # Generate file path
+            file_upload_path = get_file_upload_path(file_id, file.filename or "unknown")
+
+            # Save file to disk
+            with open(file_upload_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+
+            # Create database record
+            uploaded_file = UploadedFile(
+                file_id=file_id,
+                original_name=file.filename or "unknown",
+                file_path=str(file_upload_path.relative_to(Path.cwd())),
+                relative_path=relative_path,
+                file_size=file.size or 0,
+                mime_type=file.content_type or "application/octet-stream",
+                file_extension=Path(file.filename or "unknown").suffix.lower().lstrip('.'),
+                storage_path=str(file_upload_path.absolute()),
+                status=FileStatus.COMPLETED,
+                upload_progress=100,
+                user_id=current_user.id
+            )
+
+            db.add(uploaded_file)
+            db.commit()
+            db.refresh(uploaded_file)
+
+            # Add background task for file processing
+            background_tasks.add_task(process_uploaded_file, uploaded_file.id, db)
+
+            uploaded_files.append({
+                "id": uploaded_file.file_id,
+                "name": uploaded_file.original_name,
+                "path": uploaded_file.relative_path,
+                "size": uploaded_file.file_size,
+                "type": uploaded_file.mime_type,
+                "upload_date": uploaded_file.created_at.isoformat(),
+                "status": "completed"
+            })
+
+            logger.info(f"File uploaded successfully: {file_id} by user {current_user.id}")
+
+        except Exception as e:
+            logger.error(f"Error uploading file {file.filename}: {str(e)}")
+            failed_files.append({
+                "filename": file.filename,
+                "error": str(e)
+            })
+
+    return {
+        "uploaded_files": uploaded_files,
+        "failed_files": failed_files,
+        "total_uploaded": len(uploaded_files),
+        "total_failed": len(failed_files),
+        "message": f"Successfully uploaded {len(uploaded_files)} files, {len(failed_files)} failed"
+    }
+
+
 @router.post("/", response_model=FileUploadResponse)
 async def upload_file(
     background_tasks: BackgroundTasks,

@@ -18,7 +18,7 @@ O VerificAI é um sistema evolutivo que começa como um assistente de análise d
 
 - **Frontend:** React + TypeScript + Design System do Governo
 - **Backend:** Python + FastAPI + LangChain
-- **Database:** PostgreSQL + Redis
+- **Database:** SQLite + Redis
 - **Infrastructure:** Docker + GitHub Actions + Vercel/Cloud Run
 
 ## 📁 Estrutura do Projeto
@@ -46,7 +46,7 @@ verificai-code-quality-system/
 - Python 3.11+
 - FastAPI para API RESTful
 - LangChain para integração com LLMs
-- PostgreSQL com SQLAlchemy
+- SQLite com SQLAlchemy
 - Redis para cache e sessões
 - Celery para processamento assíncrono
 

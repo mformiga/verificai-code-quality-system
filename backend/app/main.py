@@ -14,7 +14,7 @@ from app.core.middleware import (
     ErrorHandlerMiddleware,
     RateLimitMiddleware
 )
-from app.api.v1 import auth, users, prompts, analysis
+from app.api.v1 import auth, users, prompts, analysis, upload
 import uvicorn
 
 # Initialize logging
@@ -51,6 +51,7 @@ app.include_router(auth.router, prefix=settings.API_V1_STR, tags=["authenticatio
 app.include_router(prompts.router, prefix=settings.API_V1_STR, tags=["prompts"])
 app.include_router(users.router, prefix=settings.API_V1_STR, tags=["users"])
 app.include_router(analysis.router, prefix=settings.API_V1_STR, tags=["analysis"])
+app.include_router(upload.router, prefix=settings.API_V1_STR, tags=["upload"])
 # Force reload
 
 @app.on_event("startup")

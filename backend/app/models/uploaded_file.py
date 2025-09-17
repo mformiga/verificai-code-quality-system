@@ -10,7 +10,7 @@ from typing import Optional
 from sqlalchemy import Column, String, Text, DateTime, Integer, Boolean, ForeignKey, LargeBinary, JSON
 from sqlalchemy.orm import relationship
 
-from app.models.base import BaseModel
+from app.models.base import Base, BaseModel
 
 
 class FileStatus(str, Enum):
@@ -29,7 +29,7 @@ class ProcessingStatus(str, Enum):
     ERROR = "error"
 
 
-class UploadedFile(BaseModel):
+class UploadedFile(Base, BaseModel):
     """Model for storing uploaded file information"""
 
     __tablename__ = "uploaded_files"

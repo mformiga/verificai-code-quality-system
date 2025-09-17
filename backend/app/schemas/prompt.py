@@ -6,25 +6,18 @@ from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel, Field, validator
 
-from app.models.prompt import PromptCategory, PromptStatus
+from app.models.prompt import PromptType, PromptCategory, PromptStatus
 
 
 class PromptBase(BaseModel):
     """Base prompt schema"""
     name: str = Field(..., min_length=1, max_length=200, description="Prompt name")
     description: Optional[str] = Field(None, description="Prompt description")
-    category: PromptCategory = Field(..., description="Prompt category")
-    system_prompt: str = Field(..., description="System prompt")
-    user_prompt_template: str = Field(..., description="User prompt template")
-    output_format_instructions: Optional[str] = Field(None, description="Output format instructions")
-    temperature: float = Field(default=0.1, ge=0.0, le=2.0, description="Temperature setting")
-    max_tokens: int = Field(default=4096, ge=1, le=100000, description="Maximum tokens")
-    model_name: str = Field(default="gpt-4-turbo-preview", description="Model name")
-    tags: Optional[List[str]] = Field(default_factory=list, description="Tags")
-    is_public: bool = Field(default=False, description="Is public")
-    is_featured: bool = Field(default=False, description="Is featured")
-    supported_languages: Optional[List[str]] = Field(default_factory=list, description="Supported languages")
-    supported_file_types: Optional[List[str]] = Field(default_factory=list, description="Supported file types")
+    prompt_type: PromptType = Field(..., description="Prompt type")
+    content: str = Field(..., description="Prompt content")
+    is_active: bool = Field(default=True, description="Is active")
+    is_default: bool = Field(default=False, description="Is default")
+    settings: Optional[dict] = Field(None, description="Additional configuration settings")
 
 
 class PromptCreate(PromptBase):
@@ -36,32 +29,20 @@ class PromptUpdate(BaseModel):
     """Prompt update schema"""
     name: Optional[str] = Field(None, min_length=1, max_length=200, description="Prompt name")
     description: Optional[str] = Field(None, description="Prompt description")
-    category: Optional[PromptCategory] = Field(None, description="Prompt category")
-    system_prompt: Optional[str] = Field(None, description="System prompt")
-    user_prompt_template: Optional[str] = Field(None, description="User prompt template")
-    output_format_instructions: Optional[str] = Field(None, description="Output format instructions")
-    temperature: Optional[float] = Field(None, ge=0.0, le=2.0, description="Temperature setting")
-    max_tokens: Optional[int] = Field(None, ge=1, le=100000, description="Maximum tokens")
-    model_name: Optional[str] = Field(None, description="Model name")
-    tags: Optional[List[str]] = Field(None, description="Tags")
-    is_public: Optional[bool] = Field(None, description="Is public")
-    is_featured: Optional[bool] = Field(None, description="Is featured")
-    supported_languages: Optional[List[str]] = Field(None, description="Supported languages")
-    supported_file_types: Optional[List[str]] = Field(None, description="Supported file types")
-    status: Optional[PromptStatus] = Field(None, description="Prompt status")
+    prompt_type: Optional[PromptType] = Field(None, description="Prompt type")
+    content: Optional[str] = Field(None, description="Prompt content")
+    is_active: Optional[bool] = Field(None, description="Is active")
+    is_default: Optional[bool] = Field(None, description="Is default")
+    settings: Optional[dict] = Field(None, description="Additional configuration settings")
 
 
 class PromptResponse(PromptBase):
     """Prompt response schema"""
     id: int = Field(..., description="Prompt ID")
-    status: PromptStatus = Field(..., description="Prompt status")
-    version: str = Field(..., description="Version")
-    usage_count: int = Field(..., description="Usage count")
-    success_rate: float = Field(..., description="Success rate")
-    average_response_time: float = Field(..., description="Average response time")
+    user_id: int = Field(..., description="User ID")
+    version: int = Field(..., description="Version")
     created_at: datetime = Field(..., description="Creation time")
     updated_at: datetime = Field(..., description="Update time")
-    author_id: int = Field(..., description="Author ID")
 
     class Config:
         from_attributes = True

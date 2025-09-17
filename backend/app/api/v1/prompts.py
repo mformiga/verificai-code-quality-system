@@ -77,9 +77,20 @@ def get_prompt_config(
         # Override defaults with user's saved configurations
         if user_configs:
             for config in user_configs:
-                if config.config_key in default_config:
-                    default_config[config.config_key] = config.config_data
-                    default_config[config.config_key]["updatedAt"] = config.updated_at.isoformat()
+                if config.prompt_type.value in default_config:
+                    config_data = {
+                        "id": config.prompt_type.value,
+                        "name": config.name,
+                        "type": config.prompt_type.value,
+                        "description": config.description,
+                        "content": config.content,
+                        "isActive": config.is_active,
+                        "isDefault": config.is_default,
+                        "settings": config.settings or {},
+                        "createdAt": config.created_at.isoformat(),
+                        "updatedAt": config.updated_at.isoformat()
+                    }
+                    default_config[config.prompt_type.value] = config_data
 
         return default_config
     except Exception as e:
@@ -107,13 +118,16 @@ def create_prompt_backup(
             # Check if configuration already exists
             existing_config = db.query(PromptConfiguration).filter(
                 PromptConfiguration.user_id == current_user.id,
-                PromptConfiguration.config_key == config_key
+                PromptConfiguration.prompt_type == config_key,
+                PromptConfiguration.name == f"{config_key}_config"
             ).first()
 
             if existing_config:
                 print(f"DEBUG: Updating existing config for {config_key}")
                 # Update existing configuration
-                existing_config.config_data = config_data
+                existing_config.content = config_data.get('content', '')
+                existing_config.settings = config_data.get('settings', {})
+                existing_config.description = config_data.get('description', f'{config_key} configuration')
                 existing_config.is_active = True
                 existing_config.updated_at = datetime.utcnow()
                 db.commit()
@@ -124,8 +138,11 @@ def create_prompt_backup(
                 # Create new configuration
                 new_config = PromptConfiguration(
                     user_id=current_user.id,
-                    config_key=config_key,
-                    config_data=config_data,
+                    prompt_type=config_key,
+                    name=f"{config_key}_config",
+                    description=config_data.get('description', f'{config_key} configuration'),
+                    content=config_data.get('content', ''),
+                    settings=config_data.get('settings', {}),
                     is_active=True
                 )
                 db.add(new_config)
@@ -171,12 +188,15 @@ def save_prompt_configuration(
             # Check if configuration already exists
             existing_config = db.query(PromptConfiguration).filter(
                 PromptConfiguration.user_id == current_user.id,
-                PromptConfiguration.config_key == config_key
+                PromptConfiguration.prompt_type == config_key,
+                PromptConfiguration.name == f"{config_key}_config"
             ).first()
 
             if existing_config:
                 # Update existing configuration
-                existing_config.config_data = config_data
+                existing_config.content = config_data.get('content', '')
+                existing_config.settings = config_data.get('settings', {})
+                existing_config.description = config_data.get('description', f'{config_key} configuration')
                 existing_config.is_active = True
                 existing_config.updated_at = datetime.utcnow()
                 db.commit()
@@ -186,8 +206,11 @@ def save_prompt_configuration(
                 # Create new configuration
                 new_config = PromptConfiguration(
                     user_id=current_user.id,
-                    config_key=config_key,
-                    config_data=config_data,
+                    prompt_type=config_key,
+                    name=f"{config_key}_config",
+                    description=config_data.get('description', f'{config_key} configuration'),
+                    content=config_data.get('content', ''),
+                    settings=config_data.get('settings', {}),
                     is_active=True
                 )
                 db.add(new_config)
