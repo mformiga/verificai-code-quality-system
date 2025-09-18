@@ -23,7 +23,9 @@
       "Bash(git push:*)",
       "Bash(npm install:*)",
       "Bash(wmic:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(chmod:*)",
+      "Bash(./quick-start.sh:*)"
     ],
     "deny": [],
     "ask": []

@@ -13,7 +13,7 @@ RUN npm install
 COPY . .
 
 # Expose port for Vite dev server
-EXPOSE 5173
+EXPOSE 3011
 
-# Command to start Vite dev server
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+# Command to start Vite dev server with hot reload
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3011"]

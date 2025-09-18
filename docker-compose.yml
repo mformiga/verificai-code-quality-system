@@ -29,37 +29,49 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      cache_from:
+        - verificai-backend:latest
     ports:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql://verificai:verificai123@postgres:5432/verificai
       - REDIS_URL=redis://redis:6379
       - ENVIRONMENT=development
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
     depends_on:
       - postgres
       - redis
     volumes:
       - ./backend:/app
+      - backend-cache:/tmp/cache
     networks:
       - verificai-network
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --log-level debug
+    restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --log-level debug --reload-delay 1
 
   # Frontend
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      cache_from:
+        - verificai-frontend:latest
     ports:
       - "3000:3011"
     environment:
       - REACT_APP_API_URL=http://localhost:8000
+      - CHOKIDAR_USEPOLLING=true
+      - NODE_ENV=development
     volumes:
       - ./frontend:/app
       - /app/node_modules
+      - /app/.vite
     depends_on:
       - backend
     networks:
       - verificai-network
+    restart: unless-stopped
     
 
   # Celery Worker (for async tasks)
@@ -98,6 +110,7 @@ services:
 
 volumes:
   postgres_data:
+  backend-cache:
 
 networks:
   verificai-network:
