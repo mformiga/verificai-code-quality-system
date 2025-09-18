@@ -27,6 +27,26 @@ class Settings(BaseSettings):
         env="DATABASE_URL"
     )
 
+    # Ensure we always use PostgreSQL
+    @field_validator('DATABASE_URL', mode='before')
+    @classmethod
+    def validate_database_url(cls, v):
+        """Force PostgreSQL configuration"""
+        if not v:
+            return "postgresql://verificai:verificai123@localhost:5432/verificai"
+
+        # If it's SQLite, force PostgreSQL
+        if v.startswith('sqlite'):
+            print("WARNING: SQLite detected, forcing PostgreSQL configuration")
+            return "postgresql://verificai:verificai123@localhost:5432/verificai"
+
+        # Ensure it's PostgreSQL
+        if not v.startswith('postgresql'):
+            print(f"WARNING: Non-PostgreSQL database detected: {v}")
+            return "postgresql://verificai:verificai123@localhost:5432/verificai"
+
+        return v
+
     # Database Connection Pool Settings
     DATABASE_POOL_SIZE: int = Field(default=20, env="DATABASE_POOL_SIZE")
     DATABASE_MAX_OVERFLOW: int = Field(default=10, env="DATABASE_MAX_OVERFLOW")
