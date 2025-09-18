@@ -33,7 +33,7 @@ app = FastAPI(
 # Configure CORS middleware first (before other middlewares)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins during development
+    allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -53,8 +53,8 @@ app.include_router(file_paths.router, prefix=settings.API_V1_STR + "/file-paths"
 app.include_router(prompts.router, prefix=settings.API_V1_STR, tags=["prompts"])
 app.include_router(analysis.router, prefix=settings.API_V1_STR, tags=["analysis"])
 app.include_router(upload.router, prefix=settings.API_V1_STR, tags=["upload"])
-app.include_router(general_analysis.router, prefix=settings.API_V1_STR, tags=["general_analysis"])
-# Force reload - changed to trigger restart
+app.include_router(general_analysis.router, prefix=settings.API_V1_STR + "/general-analysis", tags=["general_analysis"])
+# Reload trigger - touched at 2025-09-18 19:32 - FORCE RELOAD
 
 @app.on_event("startup")
 async def startup_event():
@@ -97,6 +97,6 @@ if __name__ == "__main__":
         "main:app",
         host=settings.HOST,
         port=settings.PORT,
-        reload=settings.DEBUG,
+ reload=True,  # Force reload for development
         log_level=settings.LOG_LEVEL.lower()
-    )# Reload trigger
+    )# Reload trigger - touched at 2025-09-18 19:06

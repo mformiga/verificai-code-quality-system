@@ -66,7 +66,7 @@ class Settings(BaseSettings):
 
     # CORS Configuration
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = Field(
-        default=["http://localhost:3000", "http://localhost:5173", "http://localhost:3026"],
+        default=["http://localhost:3000", "http://localhost:5173", "http://localhost:3026", "http://localhost:3015", "http://localhost:3014", "http://localhost:3013", "http://localhost:3011"],
         env="BACKEND_CORS_ORIGINS"
     )
 

@@ -3,7 +3,7 @@ General analysis endpoints for VerificAI Backend - STO-007
 """
 
 from typing import List, Optional, Any
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks, Body
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -12,6 +12,7 @@ from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.models.analysis import Analysis, AnalysisStatus
 from app.models.prompt import Prompt, PromptCategory
+from app.models.prompt import GeneralCriteria
 from app.schemas.analysis import AnalysisCreate, AnalysisResponse
 from app.api.v1.analysis import process_analysis
 
@@ -29,11 +30,16 @@ class GeneralAnalysisRequest(BaseModel):
     max_tokens: int = 4000
 
 
-class GeneralCriteria(BaseModel):
+class GeneralCriteriaResponse(BaseModel):
     """Criteria model for general analysis"""
     id: str
     text: str
     active: bool = True
+
+
+class CriterionCreate(BaseModel):
+    """Request model for creating a criterion"""
+    text: str
 
 
 class GeneralAnalysisResult(BaseModel):
@@ -150,121 +156,109 @@ Format your response in markdown.
     return analysis
 
 
-@router.get("/criteria", response_model=List[GeneralCriteria])
+@router.get("/criteria")
 async def get_user_criteria(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> Any:
-    """Get user's criteria from their general analysis prompts"""
-    # Get user's general prompts
-    general_prompts = db.query(Prompt).filter(
-        Prompt.author_id == current_user.id,
-        Prompt.category == PromptCategory.GENERAL
-    ).all()
+    """Get shared criteria from all users"""
+    try:
+        # Get all criteria from database (shared access)
+        all_criteria = db.query(GeneralCriteria).filter(
+            GeneralCriteria.is_active == True
+        ).order_by(GeneralCriteria.order, GeneralCriteria.created_at).all()
 
-    criteria = []
-    criteria_id = 0
+        # Deduplicate by text and convert to response format
+        seen_texts = set()
+        result = []
+        for criterion in all_criteria:
+            if criterion.text not in seen_texts:
+                seen_texts.add(criterion.text)
+                result.append({
+                    "id": f"criteria_{criterion.id}",
+                    "text": criterion.text,
+                    "active": criterion.is_active
+                })
 
-    for prompt in general_prompts:
-        # Extract criteria from prompt content
-        lines = prompt.content.split('\n')
-        for line in lines:
-            line = line.strip()
-            if line.startswith('- '):
-                criteria.append(GeneralCriteria(
-                    id=f"criteria_{criteria_id}",
-                    text=line[2:],  # Remove '- ' prefix
-                    active=True
-                ))
-                criteria_id += 1
-
-    return criteria
+        return result
+    except Exception as e:
+        print(f"ERROR in get_user_criteria: {e}")
+        import traceback
+        traceback.print_exc()
+        raise e
 
 
-@router.post("/criteria", response_model=GeneralCriteria)
+@router.post("/criteria", response_model=GeneralCriteriaResponse)
 async def create_criteria(
-    text: str,
+    request: CriterionCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> Any:
     """Create a new criterion"""
-    # Get or create user's general prompt
-    general_prompt = db.query(Prompt).filter(
-        Prompt.name == "General Analysis",
-        Prompt.category == PromptCategory.GENERAL,
-        Prompt.author_id == current_user.id
-    ).first()
+    # Get the highest order number for this user
+    max_order = db.query(GeneralCriteria).filter(
+        GeneralCriteria.user_id == current_user.id
+    ).order_by(GeneralCriteria.order.desc()).first()
 
-    if not general_prompt:
-        # Create new general prompt
-        prompt_content = f"You are a code quality expert. Analyze the provided code based on the following criteria:\n\n- {text}\n\n..."
-        general_prompt = Prompt(
-            name="General Analysis",
-            content=prompt_content,
-            category=PromptCategory.GENERAL,
-            author_id=current_user.id,
-            is_public=False
-        )
-        db.add(general_prompt)
-    else:
-        # Add criterion to existing prompt
-        if 'criteria:' in general_prompt.content:
-            # Insert after criteria section
-            parts = general_prompt.content.split('criteria:')
-            general_prompt.content = parts[0] + 'criteria:\n- ' + text + '\n' + parts[1]
-        else:
-            # Add to end
-            general_prompt.content += f"\n- {text}"
+    next_order = (max_order.order + 1) if max_order else 0
 
+    # Create new criterion
+    new_criterion = GeneralCriteria(
+        user_id=current_user.id,
+        text=request.text,
+        is_active=True,
+        order=next_order
+    )
+
+    db.add(new_criterion)
     db.commit()
-    db.refresh(general_prompt)
+    db.refresh(new_criterion)
 
-    return GeneralCriteria(
-        id=f"criteria_{general_prompt.id}",
-        text=text,
-        active=True
+    # Return created criterion
+    return GeneralCriteriaResponse(
+        id=f"criteria_{new_criterion.id}",
+        text=new_criterion.text,
+        active=new_criterion.is_active
     )
 
 
-@router.put("/criteria/{criteria_id}", response_model=GeneralCriteria)
+@router.put("/criteria/{criteria_id}", response_model=GeneralCriteriaResponse)
 async def update_criteria(
     criteria_id: str,
-    text: str,
+    request: CriterionCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> Any:
     """Update an existing criterion"""
-    # Find the criterion in user's prompts
-    general_prompts = db.query(Prompt).filter(
-        Prompt.author_id == current_user.id,
-        Prompt.category == PromptCategory.GENERAL
-    ).all()
+    # Extract the actual ID from the criteria_id string
+    try:
+        actual_id = int(criteria_id.replace("criteria_", ""))
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid criteria ID format"
+        )
 
-    for prompt in general_prompts:
-        if f"- {text}" not in prompt.content:
-            continue
+    # Find the criterion (allow update of any criteria since they are shared)
+    criterion = db.query(GeneralCriteria).filter(
+        GeneralCriteria.id == actual_id
+    ).first()
 
-        # Replace the criterion
-        old_text = None
-        lines = prompt.content.split('\n')
-        for i, line in enumerate(lines):
-            if line.strip().startswith('- '):
-                if f"criteria_{prompt.id}_{i}" == criteria_id:
-                    old_text = line
-                    break
+    if not criterion:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Criterion not found"
+        )
 
-        if old_text:
-            prompt.content = prompt.content.replace(old_text, f"- {text}")
-            db.commit()
-            return GeneralCriteria(
-                id=criteria_id,
-                text=text,
-                active=True
-            )
+    # Update the criterion
+    criterion.text = request.text
+    db.commit()
+    db.refresh(criterion)
 
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Criterion not found"
+    return GeneralCriteriaResponse(
+        id=f"criteria_{criterion.id}",
+        text=criterion.text,
+        active=criterion.is_active
     )
 
 
@@ -275,27 +269,190 @@ async def delete_criteria(
     db: Session = Depends(get_db)
 ) -> Any:
     """Delete a criterion"""
-    # Find and remove the criterion from user's prompts
-    general_prompts = db.query(Prompt).filter(
-        Prompt.author_id == current_user.id,
-        Prompt.category == PromptCategory.GENERAL
-    ).all()
+    # Extract the actual ID from the criteria_id string
+    try:
+        actual_id = int(criteria_id.replace("criteria_", ""))
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid criteria ID format"
+        )
 
-    for prompt in general_prompts:
-        lines = prompt.content.split('\n')
-        for i, line in enumerate(lines):
-            if line.strip().startswith('- '):
-                if f"criteria_{prompt.id}_{i}" == criteria_id:
-                    # Remove this line
-                    lines.pop(i)
-                    prompt.content = '\n'.join(lines)
-                    db.commit()
-                    return {"message": "Criterion deleted successfully"}
+    # Debug: Log the ID being searched
+    print(f"DEBUG: Searching for criterion with ID: {actual_id}")
+    print(f"DEBUG: Original criteria_id: {criteria_id}")
 
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Criterion not found"
-    )
+    # Find the criterion (allow deletion of any criteria since they are shared)
+    criterion = db.query(GeneralCriteria).filter(
+        GeneralCriteria.id == actual_id
+    ).first()
+
+    if not criterion:
+        # Debug: Check if criterion exists with different query
+        all_criteria = db.query(GeneralCriteria).all()
+        print(f"DEBUG: All criteria IDs: {[c.id for c in all_criteria]}")
+        print(f"DEBUG: Criterion with ID {actual_id} not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Criterion not found"
+        )
+
+    # Delete the criterion
+    db.delete(criterion)
+    db.commit()
+
+    return {"message": "Criterion deleted successfully"}
+
+
+@router.post("/criteria/{criteria_id}/delete")
+async def delete_criteria_post(
+    criteria_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Delete criterion using POST method"""
+    try:
+        actual_id = int(criteria_id.replace("criteria_", ""))
+    except ValueError:
+        return {"error": "Invalid criteria ID format"}
+
+    criterion = db.query(GeneralCriteria).filter(
+        GeneralCriteria.id == actual_id
+    ).first()
+
+    if not criterion:
+        return {"error": f"Criterion not found with ID {actual_id}"}
+
+    db.delete(criterion)
+    db.commit()
+
+    return {"message": "Criterion deleted successfully", "deleted_id": actual_id}
+
+
+@router.delete("/criteria-temp/{criteria_id}")
+async def delete_criteria_temp(
+    criteria_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Temporary delete criterion endpoint"""
+    try:
+        actual_id = int(criteria_id.replace("criteria_", ""))
+    except ValueError:
+        return {"error": "Invalid criteria ID format"}
+
+    criterion = db.query(GeneralCriteria).filter(
+        GeneralCriteria.id == actual_id
+    ).first()
+
+    if not criterion:
+        return {"error": f"Criterion not found with ID {actual_id}"}
+
+    db.delete(criterion)
+    db.commit()
+
+    return {"message": "Criterion deleted successfully", "deleted_id": actual_id}
+
+
+@router.post("/criteria-simple/{criteria_id}/delete")
+async def delete_criteria_simple(
+    criteria_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Simple delete criterion endpoint"""
+    try:
+        actual_id = int(criteria_id.replace("criteria_", ""))
+    except ValueError:
+        return {"error": "Invalid criteria ID format"}
+
+    criterion = db.query(GeneralCriteria).filter(
+        GeneralCriteria.id == actual_id
+    ).first()
+
+    if not criterion:
+        return {"error": f"Criterion not found with ID {actual_id}"}
+
+    db.delete(criterion)
+    db.commit()
+
+    return {"message": "Criterion deleted successfully", "deleted_id": actual_id}
+
+
+@router.get("/debug-direct")
+async def debug_direct(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Direct database test"""
+    try:
+        # Test direct database access
+        criterion = db.query(GeneralCriteria).filter(GeneralCriteria.id == 57).first()
+        return {
+            "criterion_57_found": criterion is not None,
+            "criterion_57_text": criterion.text if criterion else None,
+            "criterion_57_user_id": criterion.user_id if criterion else None,
+            "total_criteria": db.query(GeneralCriteria).count()
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@router.get("/debug-delete-test")
+async def debug_delete_test(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Test DELETE logic directly"""
+    try:
+        # Test the exact logic from DELETE endpoint
+        criteria_id = 'criteria_23'
+        actual_id = int(criteria_id.replace('criteria_', ''))
+
+        criterion = db.query(GeneralCriteria).filter(
+            GeneralCriteria.id == actual_id
+        ).first()
+
+        if criterion:
+            result = {
+                "found": True,
+                "id": criterion.id,
+                "user_id": criterion.user_id,
+                "text": criterion.text,
+                "is_active": criterion.is_active
+            }
+        else:
+            all_criteria = db.query(GeneralCriteria).all()
+            all_ids = [c.id for c in all_criteria]
+            result = {
+                "found": False,
+                "searched_id": actual_id,
+                "available_ids": all_ids
+            }
+
+        return result
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@router.get("/debug-test")
+async def debug_test(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Debug endpoint to verify if changes are applied"""
+    # Test finding a criterion without user_id filter
+    criterion = db.query(GeneralCriteria).filter(
+        GeneralCriteria.id == 55
+    ).first()
+
+    return {
+        "message": "Debug test successful",
+        "criterion_found": criterion is not None,
+        "criterion_text": criterion.text if criterion else None,
+        "criterion_user_id": criterion.user_id if criterion else None,
+        "current_user_id": current_user.id
+    }
 
 
 @router.get("/results/{analysis_id}", response_model=GeneralAnalysisResult)

@@ -93,18 +93,34 @@ const DashboardPage: React.FC = () => {
 function App() {
   // Efeito para inicialização do aplicativo
   React.useEffect(() => {
-    // Remover apenas dados de autenticação inválidos se existirem
+    // Criar usuário de desenvolvimento para testes
+    const devUser = {
+      user: {
+        id: 'dev-user-1',
+        username: 'dev',
+        email: 'dev@verificai.com',
+        full_name: 'Developer User'
+      },
+      token: 'dev-token-12345',
+      isAuthenticated: true,
+      isLoading: false
+    };
+
+    // Verificar se já existe um usuário autenticado
     const authData = localStorage.getItem('auth-storage');
-    if (authData) {
+    if (!authData) {
+      // Criar usuário de desenvolvimento
+      localStorage.setItem('auth-storage', JSON.stringify({ state: devUser }));
+    } else {
       try {
         const parsed = JSON.parse(authData);
         // Verificar se há estado inválido (sem usuário ou token)
         if (!parsed.state?.user || !parsed.state?.token) {
-          localStorage.removeItem('auth-storage');
+          localStorage.setItem('auth-storage', JSON.stringify({ state: devUser }));
         }
       } catch (error) {
-        // Remover dados corrompidos
-        localStorage.removeItem('auth-storage');
+        // Remover dados corrompidos e criar usuário de desenvolvimento
+        localStorage.setItem('auth-storage', JSON.stringify({ state: devUser }));
       }
     }
   }, []);

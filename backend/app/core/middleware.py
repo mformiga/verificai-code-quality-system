@@ -121,7 +121,11 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
             request_id = getattr(request.state, 'request_id', None)
             ip_address = request.client.host if request.client else None
 
-            # Log the error
+            # Log the error with full traceback
+            import traceback
+            print(f"ERROR: {exc}")
+            print(f"TRACEBACK: {traceback.format_exc()}")
+
             security_logger.log_security_event(
                 event_type="request_error",
                 description=f"Error processing request: {str(exc)}",

@@ -101,6 +101,28 @@ class PromptHistory(Base, BaseModel):
         return f"<PromptHistory(prompt_id={self.prompt_id}, version={self.version})>"
 
 
+class GeneralCriteria(Base, BaseModel, AuditMixin):
+    """
+    Stores user-specific criteria for general analysis.
+    """
+    __tablename__ = "general_criteria"
+
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    text = Column(Text, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    order = Column(Integer, default=0, nullable=False)
+
+    # Relationships
+    user = relationship("User", back_populates="general_criteria")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "text", name="uq_user_criteria_text"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<GeneralCriteria(user_id={self.user_id}, text='{self.text[:50]}...', active={self.is_active})>"
+
+
 class PromptConfiguration(Base, BaseModel, AuditMixin):
     """
     Stores user-specific prompt configurations and settings.
