@@ -14,7 +14,7 @@ from app.core.middleware import (
     ErrorHandlerMiddleware,
     RateLimitMiddleware
 )
-from app.api.v1 import auth, users, prompts, analysis, upload, file_paths
+from app.api.v1 import auth, users, prompts, analysis, upload, file_paths, general_analysis
 import uvicorn
 
 # Initialize logging
@@ -53,6 +53,7 @@ app.include_router(file_paths.router, prefix=settings.API_V1_STR + "/file-paths"
 app.include_router(prompts.router, prefix=settings.API_V1_STR, tags=["prompts"])
 app.include_router(analysis.router, prefix=settings.API_V1_STR, tags=["analysis"])
 app.include_router(upload.router, prefix=settings.API_V1_STR, tags=["upload"])
+app.include_router(general_analysis.router, prefix=settings.API_V1_STR, tags=["general_analysis"])
 # Force reload - changed to trigger restart
 
 @app.on_event("startup")

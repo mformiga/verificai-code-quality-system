@@ -400,8 +400,9 @@ def upload_analysis_file(
 
 # Background task for processing analysis
 async def process_analysis(analysis_id: int, db: Session) -> None:
-    """Process analysis in background"""
+    """Process analysis in background using the orchestrator"""
     from app.models.analysis import AnalysisResult
+    from app.services.analysis_orchestrator import AnalysisOrchestrator
 
     try:
         # Get analysis
@@ -409,39 +410,13 @@ async def process_analysis(analysis_id: int, db: Session) -> None:
         if not analysis:
             return
 
-        # Start processing
-        analysis.start_processing()
-        db.commit()
+        # Initialize orchestrator
+        orchestrator = AnalysisOrchestrator()
 
-        # TODO: Implement actual analysis logic
-        # This is a placeholder implementation
-        import time
-        time.sleep(2)  # Simulate processing
+        # Start analysis using orchestrator
+        job_id = await orchestrator.start_analysis(analysis)
 
-        # Create result
-        result = AnalysisResult(
-            analysis_id=analysis.id,
-            summary="Sample analysis result",
-            detailed_findings="Detailed findings would go here",
-            recommendations="Recommendations would go here",
-            score=85,
-            confidence=0.9,
-            model_used="gpt-4-turbo-preview",
-            tokens_used=1000,
-            processing_time="2.0",
-            quality_score=85,
-            security_score=90,
-            performance_score=80,
-            maintainability_score=85
-        )
-
-        db.add(result)
-        db.commit()
-
-        # Complete analysis
-        analysis.complete_processing()
-        analysis.calculate_scores()
-        db.commit()
+        logger.info(f"Analysis {analysis_id} started with job ID: {job_id}")
 
     except Exception as e:
         # Mark analysis as failed
@@ -449,3 +424,159 @@ async def process_analysis(analysis_id: int, db: Session) -> None:
         if analysis:
             analysis.fail_processing(str(e))
             db.commit()
+
+        logger.error(f"Error starting analysis {analysis_id}: {str(e)}")
+
+
+@router.post("/{analysis_id}/start", response_model=dict)
+async def start_analysis(
+    analysis_id: int,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Start analysis processing"""
+    analysis = db.query(Analysis).filter(Analysis.id == analysis_id).first()
+    if not analysis:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Analysis not found"
+        )
+
+    # Check permissions
+    if analysis.user_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied"
+        )
+
+    # Can only start pending analyses
+    if analysis.status != AnalysisStatus.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Can only start pending analyses"
+        )
+
+    # Start background processing
+    background_tasks.add_task(process_analysis, analysis.id, db)
+
+    return {"message": "Analysis started successfully", "job_id": str(analysis.id)}
+
+
+@router.get("/queue/status", response_model=dict)
+async def get_queue_status(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Get analysis queue status"""
+    from app.services.analysis_orchestrator import AnalysisOrchestrator
+
+    orchestrator = AnalysisOrchestrator()
+    queue_status = await orchestrator.queue.get_queue_status()
+
+    # Filter active job by user permission
+    if queue_status.get('active_job') and not current_user.is_admin:
+        active_job = queue_status['active_job']
+        if active_job['user_id'] != current_user.id:
+            queue_status['active_job'] = None
+
+    return queue_status
+
+
+@router.get("/queue/active", response_model=dict)
+async def get_active_analysis(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Get currently active analysis"""
+    from app.services.analysis_orchestrator import AnalysisOrchestrator
+
+    orchestrator = AnalysisOrchestrator()
+    active_analysis = await orchestrator.get_active_analysis()
+
+    # Check permissions
+    if active_analysis and not current_user.is_admin:
+        if active_analysis['user_id'] != current_user.id:
+            return None
+
+    return active_analysis
+
+
+@router.post("/{analysis_id}/cancel", response_model=dict)
+async def cancel_analysis(
+    analysis_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Cancel analysis"""
+    analysis = db.query(Analysis).filter(Analysis.id == analysis_id).first()
+    if not analysis:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Analysis not found"
+        )
+
+    # Check permissions
+    if analysis.user_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied"
+        )
+
+    # Can only cancel processing analyses
+    if analysis.status != AnalysisStatus.PROCESSING:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Can only cancel processing analyses"
+        )
+
+    # Cancel using orchestrator
+    from app.services.analysis_orchestrator import AnalysisOrchestrator
+    orchestrator = AnalysisOrchestrator()
+    cancelled = await orchestrator.cancel_analysis(str(analysis_id))
+
+    if cancelled:
+        analysis.cancel_processing()
+        db.commit()
+        return {"message": "Analysis cancelled successfully"}
+    else:
+        return {"message": "Analysis was not found in active jobs"}
+
+
+@router.get("/{analysis_id}/status", response_model=dict)
+async def get_analysis_status(
+    analysis_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Get detailed analysis status"""
+    analysis = db.query(Analysis).filter(Analysis.id == analysis_id).first()
+    if not analysis:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Analysis not found"
+        )
+
+    # Check permissions
+    if analysis.user_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied"
+        )
+
+    # Get detailed status from orchestrator
+    from app.services.analysis_orchestrator import AnalysisOrchestrator
+    orchestrator = AnalysisOrchestrator()
+    detailed_status = await orchestrator.get_analysis_status(str(analysis_id))
+
+    return {
+        "analysis_id": analysis_id,
+        "name": analysis.name,
+        "status": analysis.status,
+        "progress": analysis.progress_percentage,
+        "created_at": analysis.created_at.isoformat(),
+        "started_at": analysis.started_at.isoformat() if analysis.started_at else None,
+        "completed_at": analysis.completed_at.isoformat() if analysis.completed_at else None,
+        "error_message": analysis.error_message,
+        "queue_status": detailed_status
+    }
