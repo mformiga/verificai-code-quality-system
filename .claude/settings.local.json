@@ -25,7 +25,8 @@
       "Bash(wmic:*)",
       "Bash(pkill:*)",
       "Bash(chmod:*)",
-      "Bash(./quick-start.sh:*)"
+      "Bash(./quick-start.sh:*)",
+      "Bash(start:*)"
     ],
     "deny": [],
     "ask": []

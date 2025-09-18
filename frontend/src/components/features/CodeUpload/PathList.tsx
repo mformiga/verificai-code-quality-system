@@ -1,5 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { v4 as uuidv4 } from 'uuid';
+// Função alternativa para gerar UUID sem dependência externa
+const generateUUID = (): string => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
 import './PathList.css';
 
 interface FilePath {
@@ -109,7 +116,7 @@ const PathList: React.FC<PathListProps> = ({
         const simulatedFullPath = `C:\\Users\\formi\\Desktop\\teste_sistema\\${relativePath.replace(/\//g, '\\')}`;
 
         const filePath: FilePath = {
-          id: uuidv4(),
+          id: generateUUID(),
           fullPath: simulatedFullPath, // Use the simulated full path
           fileName,
           fileExtension: getFileExtension(fileName),
