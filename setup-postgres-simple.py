@@ -144,7 +144,6 @@ def verify_backend_config():
 
         if 'validate_database_url' not in content:
             print("ATENÇÃO: Configuração do backend não tem validador PostgreSQL")
-            print("O backend pode tentar usar SQLite. Verifique o arquivo backend/app/core/config.py")
         else:
             print("Configuração do backend está correta")
     else:

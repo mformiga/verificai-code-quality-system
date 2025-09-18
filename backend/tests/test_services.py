@@ -16,7 +16,7 @@ from app.models.prompt import Prompt, PromptCategory, PromptStatus
 @pytest.fixture(scope="function")
 def test_db():
     """Test database fixture"""
-    engine = create_engine("sqlite:///:memory:")
+    engine = create_engine("postgresql://verificai:verificai123@localhost:5432/verificai_test_services")
     Base.metadata.create_all(bind=engine)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = SessionLocal()

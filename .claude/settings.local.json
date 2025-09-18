@@ -26,7 +26,15 @@
       "Bash(pkill:*)",
       "Bash(chmod:*)",
       "Bash(./quick-start.sh:*)",
-      "Bash(start:*)"
+      "Bash(start:*)",
+      "Bash(npm run setup:*)",
+      "Bash(npm run status:*)",
+      "Bash(echo:*)",
+      "Bash(set:*)",
+      "Read(//c/Program Files/Docker/Docker/**)",
+      "Bash(npm run)",
+      "Bash(rm:*)",
+      "Bash(powershell:*)"
     ],
     "deny": [],
     "ask": []

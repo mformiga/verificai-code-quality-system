@@ -30,7 +30,7 @@ verificAI-code/
 │   │   ├── core/           # Configuração e utilitários
 │   │   ├── api/            # Rotas da API
 │   │   └── models/         # Modelos de dados
-│   ├── verificai.db        # Banco de dados SQLite
+│   ├── (banco de dados PostgreSQL)
 │   └── requirements.txt    # Dependências Python
 ├── frontend/               # React + Vite
 │   ├── src/
@@ -46,7 +46,7 @@ verificAI-code/
 
 ### Backend
 - **Porta**: 8000
-- **Banco de dados**: SQLite (criado automaticamente)
+- **Banco de dados**: PostgreSQL (configurado permanentemente)
 - **API**: http://localhost:8000/api/v1/
 - **Documentação**: http://localhost:8000/api/v1/docs
 
@@ -103,7 +103,7 @@ Após executar `npm run dev`:
 - Reinicie o servidor se persistir
 
 ### Problemas com Banco de Dados
-- Delete `backend/verificai.db` e reinicie o backend
+- Use `python setup-postgres-simple.py` para reconfigurar PostgreSQL
 - O banco será recriado automaticamente
 
 ### Dependências Ausentes
@@ -117,7 +117,7 @@ Após executar `npm run dev`:
 - ✅ Upload de arquivos com arrastar e soltar
 - ✅ Dashboard principal
 - ✅ Navegação entre páginas
-- ✅ Banco de dados SQLite
+- ✅ Banco de dados PostgreSQL
 - ✅ API REST com FastAPI
 
 ### Configurações Importantes

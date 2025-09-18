@@ -35,11 +35,6 @@ class Settings(BaseSettings):
         if not v:
             return "postgresql://verificai:verificai123@localhost:5432/verificai"
 
-        # If it's SQLite, force PostgreSQL
-        if v.startswith('sqlite'):
-            print("WARNING: SQLite detected, forcing PostgreSQL configuration")
-            return "postgresql://verificai:verificai123@localhost:5432/verificai"
-
         # Ensure it's PostgreSQL
         if not v.startswith('postgresql'):
             print(f"WARNING: Non-PostgreSQL database detected: {v}")
