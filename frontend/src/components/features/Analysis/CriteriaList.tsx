@@ -1,22 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Save, X, Loader2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Loader2, Play, Square, CheckSquare } from 'lucide-react';
 import { criteriaService } from '@/services/criteriaService';
 
 interface Criterion {
   id: string;
   text: string;
   active: boolean;
+  order: number;
 }
 
 interface CriteriaListProps {
   onCriteriaSelect: (selected: string[]) => void;
+  onAnalyzeCriterion?: (criterion: string) => void;
+  onAnalyzeSelected?: (selected: string[]) => void;
 }
 
-const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect }) => {
+const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect, onAnalyzeCriterion, onAnalyzeSelected }) => {
   const [criteria, setCriteria] = useState<Criterion[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingCriterion, setEditingCriterion] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
+  const [selectedCriteria, setSelectedCriteria] = useState<Set<string>>(new Set());
+
+  // Debug: Log criteria changes
+  useEffect(() => {
+    console.log('🔍 DEBUG: Criteria state changed:', criteria);
+  }, [criteria]);
+
+  // Sort criteria by order number
+  const sortedCriteria = [...criteria].sort((a, b) => a.order - b.order);
 
   useEffect(() => {
     loadCriteria();
@@ -25,10 +37,15 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect }) => {
   const loadCriteria = async () => {
     setLoading(true);
     try {
+      console.log('🔍 DEBUG: Loading criteria...');
       const data = await criteriaService.getCriteria();
+      console.log('🔍 DEBUG: Data received from service:', data);
+      console.log('🔍 DEBUG: About to setCriteria with data length:', data.length);
       setCriteria(data);
+      console.log('🔍 DEBUG: setCriteria called, current criteria state length:', criteria.length);
+      console.log('🔍 DEBUG: State updated with', data.length, 'criteria');
     } catch (error) {
-      console.error('Failed to load criteria:', error);
+      console.error('🔍 DEBUG: Failed to load criteria:', error);
     } finally {
       setLoading(false);
     }
@@ -47,14 +64,26 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect }) => {
 
   const updateCriterion = async (id: string, updates: Partial<Criterion>) => {
     try {
+      console.log('🔍 DEBUG: updateCriterion called with:', id, updates);
       if (updates.text) {
+        console.log('🔍 DEBUG: Calling criteriaService.updateCriterion...');
         await criteriaService.updateCriterion(id, updates.text);
+        console.log('🔍 DEBUG: Service update completed');
+
+        // Update the specific criterion in state directly
+        const updatedCriteria = criteria.map(criterion =>
+          criterion.id === id ? { ...criterion, text: updates.text } : criterion
+        );
+        console.log('🔍 DEBUG: Updating state directly with:', updatedCriteria);
+        setCriteria(updatedCriteria);
+
+        // Also reload to ensure consistency with localStorage
+        console.log('🔍 DEBUG: Reloading criteria for consistency...');
+        await loadCriteria();
+        console.log('🔍 DEBUG: Criteria reloaded');
       }
-      setCriteria(criteria.map(c =>
-        c.id === id ? { ...c, ...updates } : c
-      ));
     } catch (error) {
-      console.error('Failed to update criterion:', error);
+      console.error('🔍 DEBUG: Failed to update criterion:', error);
     }
   };
 
@@ -77,10 +106,30 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect }) => {
   };
 
   const saveEdit = async () => {
+    console.log('🔍 DEBUG: saveEdit called');
+    console.log('🔍 DEBUG: editingCriterion:', editingCriterion);
+    console.log('🔍 DEBUG: editingText:', editingText);
+
     if (editingCriterion && editingText.trim()) {
-      await updateCriterion(editingCriterion, { text: editingText.trim() });
-      setEditingCriterion(null);
-      setEditingText('');
+      console.log('🔍 DEBUG: Starting save edit...');
+      console.log('🔍 DEBUG: Editing criterion:', editingCriterion);
+      console.log('🔍 DEBUG: New text:', editingText.trim());
+
+      try {
+        console.log('🔍 DEBUG: About to call updateCriterion...');
+        await updateCriterion(editingCriterion, { text: editingText.trim() });
+        console.log('🔍 DEBUG: Update completed successfully');
+        setEditingCriterion(null);
+        setEditingText('');
+        console.log('🔍 DEBUG: Edit mode closed');
+      } catch (error) {
+        console.error('🔍 DEBUG: Error in saveEdit:', error);
+        console.error('🔍 DEBUG: Error details:', JSON.stringify(error, null, 2));
+      }
+    } else {
+      console.log('🔍 DEBUG: Invalid input for save edit');
+      console.log('🔍 DEBUG: editingCriterion is null/empty:', !editingCriterion);
+      console.log('🔍 DEBUG: editingText is empty:', !editingText.trim());
     }
   };
 
@@ -92,141 +141,239 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect }) => {
   const toggleCriterion = async (id: string) => {
     const criterion = criteria.find(c => c.id === id);
     if (criterion) {
-      await updateCriterion(id, { active: !criterion.active });
+      try {
+        await criteriaService.toggleCriterion(id, !criterion.active);
+        // Reload criteria to ensure consistency with localStorage
+        await loadCriteria();
+      } catch (error) {
+        console.error('Failed to toggle criterion:', error);
+      }
+    }
+  };
+
+  const handleAnalyze = (criterionText: string) => {
+    if (onAnalyzeCriterion) {
+      onAnalyzeCriterion(criterionText);
+    }
+  };
+
+  const toggleCriterionSelection = (id: string) => {
+    const newSelected = new Set(selectedCriteria);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedCriteria(newSelected);
+    onCriteriaSelect(Array.from(newSelected));
+  };
+
+  const selectAllCriteria = () => {
+    const allCriteriaIds = sortedCriteria.map(c => c.id);
+    if (selectedCriteria.size === sortedCriteria.length) {
+      setSelectedCriteria(new Set());
+    } else {
+      setSelectedCriteria(new Set(allCriteriaIds));
+      // Ativar todos os critérios quando selecionar todos
+      sortedCriteria.forEach(criterion => {
+        if (!criterion.active) {
+          toggleCriterion(criterion.id);
+        }
+      });
+    }
+    onCriteriaSelect(selectedCriteria.size === sortedCriteria.length ? [] : allCriteriaIds);
+  };
+
+  const isAllSelected = () => {
+    return sortedCriteria.length > 0 && selectedCriteria.size === sortedCriteria.length;
+  };
+
+  const handleAnalyzeSelected = () => {
+    if (onAnalyzeSelected && selectedCriteria.size > 0) {
+      const selectedTexts = sortedCriteria
+        .filter(c => selectedCriteria.has(c.id))
+        .map(c => c.text);
+      onAnalyzeSelected(selectedTexts);
     }
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold text-gray-800">Critérios de Avaliação</h2>
-        <button
-          onClick={addCriterion}
-          disabled={loading}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50"
-        >
-          {loading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Plus className="w-4 h-4" />
-          )}
-          Novo Critério
-        </button>
+    <div className="br-card">
+      <div className="card-header">
+        <div className="row align-items-center">
+          <div className="br-col">
+            <h2 className="text-h2">Critérios de Avaliação</h2>
+            <p className="text-regular text-muted">
+              Configure os critérios que serão usados para análise do código-fonte
+            </p>
+          </div>
+          <div className="br-col-auto">
+            <div className="btn-group">
+              <button
+                onClick={selectAllCriteria}
+                disabled={loading || sortedCriteria.length === 0}
+                className="br-button secondary"
+              >
+                {isAllSelected() ? <CheckSquare className="w-4 h-4 mr-2" /> : <Square className="w-4 h-4 mr-2" />}
+                Selecionar Todos
+              </button>
+              <button
+                onClick={handleAnalyzeSelected}
+                disabled={loading || selectedCriteria.size === 0}
+                className="br-button primary"
+              >
+                <Play className="w-4 h-4 mr-2" />
+                Analisar Selecionados ({selectedCriteria.size})
+              </button>
+              <button
+                onClick={addCriterion}
+                disabled={loading}
+                className="br-button primary"
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Plus className="w-4 h-4 mr-2" />
+                )}
+                Novo Critério
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {loading ? (
-        <div className="text-center py-8">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-400" />
-          <p className="text-gray-500">Carregando critérios...</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {criteria.map((criterion) => (
+      <div className="card-content">
+        {loading ? (
+          <div className="text-center py-8">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-400" />
+            <p className="text-gray-500">Carregando critérios...</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+          {sortedCriteria.map((criterion) => (
             <div
               key={criterion.id}
-              className={`border rounded-lg p-4 transition-all ${
-                criterion.active
-                  ? 'border-blue-200 bg-blue-50'
-                  : 'border-gray-200 bg-gray-50'
-              } ${editingCriterion === criterion.id ? 'ring-2 ring-blue-400' : ''}`}
+              className={`br-item ${criterion.active ? 'is-active' : ''} ${editingCriterion === criterion.id ? 'ring-2 ring-blue-400' : ''}`}
             >
-              <div className="flex items-start gap-3">
-                {/* Toggle Switch */}
-                <div className="flex items-center h-6">
-                  <button
-                    onClick={() => toggleCriterion(criterion.id)}
-                    disabled={loading}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      criterion.active ? 'bg-blue-600' : 'bg-gray-300'
-                    } disabled:opacity-50`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        criterion.active ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
+              <div className="row align-items-start">
+                {/* Order Number Column - Primeira coluna */}
+                <div className="br-col-auto d-flex align-items-center justify-content-center" style={{ minWidth: '60px', backgroundColor: '#f8f9fa', borderRight: '1px solid #dee2e6', height: '100%' }}>
+                  <span className="text-regular text-dark fw-bold fs-5">
+                    {criterion.order}
+                  </span>
                 </div>
 
-                {/* Criterion Content */}
-                <div className="flex-1 min-w-0">
+                {/* Selection/Activation Checkbox */}
+                <div className="br-col-auto">
+                  <div className="br-checkbox">
+                    <input
+                      type="checkbox"
+                      id={`criterion-${criterion.id}`}
+                      checked={selectedCriteria.has(criterion.id)}
+                      onChange={() => {
+                        toggleCriterionSelection(criterion.id);
+                        if (!criterion.active) {
+                          toggleCriterion(criterion.id);
+                        }
+                      }}
+                      disabled={loading}
+                    />
+                    <label htmlFor={`criterion-${criterion.id}`} className="br-checkbox-label"></label>
+                  </div>
+                </div>
+
+                {/* Criterion Content - Largura máxima */}
+                <div className="br-col" style={{ maxWidth: 'none', flex: '1 1 0%' }}>
                   {editingCriterion === criterion.id ? (
                     <div className="space-y-3">
                       <textarea
                         value={editingText}
                         onChange={(e) => setEditingText(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                        className="br-textarea"
                         rows={3}
                         placeholder="Digite o critério de avaliação..."
+                        style={{ width: '100%', minWidth: '800px' }}
                       />
-                      <div className="flex gap-2">
+                      <div className="btn-group">
                         <button
                           onClick={saveEdit}
                           disabled={loading}
-                          className="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 transition-colors flex items-center gap-1 disabled:opacity-50"
+                          className="br-button success"
                         >
                           {loading ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
                           ) : (
-                            <Save className="w-4 h-4" />
+                            <Save className="w-4 h-4 mr-2" />
                           )}
                           Salvar
                         </button>
                         <button
                           onClick={cancelEdit}
-                          className="bg-gray-600 text-white px-3 py-1 rounded-md hover:bg-gray-700 transition-colors flex items-center gap-1"
+                          className="br-button secondary"
                         >
-                          <X className="w-4 h-4" />
+                          <X className="w-4 h-4 mr-2" />
                           Cancelar
                         </button>
                       </div>
                     </div>
                   ) : (
                     <div>
-                      <p className="text-gray-800">{criterion.text}</p>
+                      <p className="text-regular">{criterion.text}</p>
                     </div>
                   )}
                 </div>
 
                 {/* Action Buttons */}
                 {editingCriterion !== criterion.id && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => startEdit(criterion)}
-                      disabled={loading}
-                      className="text-blue-600 hover:text-blue-800 transition-colors disabled:opacity-50"
-                      title="Editar critério"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => deleteCriterion(criterion.id)}
-                      disabled={loading}
-                      className="text-red-600 hover:text-red-800 transition-colors disabled:opacity-50"
-                      title="Excluir critério"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <div className="br-col-auto">
+                    <div className="btn-group">
+                      <button
+                        onClick={() => startEdit(criterion)}
+                        disabled={loading}
+                        className="br-button circle"
+                        title="Editar critério"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => deleteCriterion(criterion.id)}
+                        disabled={loading}
+                        className="br-button circle"
+                        title="Excluir critério"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                      {onAnalyzeCriterion && (
+                        <button
+                          onClick={() => handleAnalyze(criterion.text)}
+                          disabled={loading || !criterion.active}
+                          className={`br-button circle ${criterion.active ? 'primary' : 'secondary'}`}
+                          title="Analisar critério"
+                        >
+                          <Play className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
             </div>
           ))}
 
-          {criteria.length === 0 && (
+          {sortedCriteria.length === 0 && (
             <div className="text-center py-8">
-              <p className="text-gray-500 mb-4">
+              <p className="text-regular text-muted mb-4">
                 Nenhum critério configurado ainda.
               </p>
               <button
                 onClick={addCriterion}
                 disabled={loading}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2 mx-auto disabled:opacity-50"
+                className="br-button primary mx-auto"
               >
                 {loading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 ) : (
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-4 h-4 mr-2" />
                 )}
                 Adicionar Primeiro Critério
               </button>
@@ -234,6 +381,7 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect }) => {
           )}
         </div>
       )}
+    </div>
     </div>
   );
 };
