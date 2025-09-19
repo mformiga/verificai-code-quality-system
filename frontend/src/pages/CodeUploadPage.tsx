@@ -19,34 +19,6 @@ const CodeUploadPage: React.FC = () => {
     setRefreshKey(prev => prev + 1);
   };
 
-  const handleClearAll = async () => {
-    try {
-      const { getAuthHeaders } = await import('@/utils/auth');
-      const authHeaders = getAuthHeaders();
-
-      const response = await fetch('/api/v1/file-paths/', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders
-        },
-        body: JSON.stringify([]) // Send empty array directly to delete all
-      });
-
-      if (response.ok) {
-        toast.success('Todos os caminhos foram limpos!');
-        setRefreshKey(prev => prev + 1); // Force refresh
-      } else {
-        const errorText = await response.text();
-        console.error('Erro ao limpar caminhos:', errorText);
-        toast.error('Erro ao limpar caminhos');
-      }
-    } catch (error) {
-      console.error('Erro ao limpar caminhos:', error);
-      toast.error('Erro ao limpar caminhos');
-    }
-  };
-
   return (
     <div className="code-upload-page">
       {/* File Paths List */}
@@ -54,8 +26,6 @@ const CodeUploadPage: React.FC = () => {
         <PathList
           key={refreshKey}
           autoRefresh={true}
-          onClearAll={handleClearAll}
-          onRefresh={() => setRefreshKey(prev => prev + 1)}
           onFolderSelect={handleFolderSelect}
           onError={handleFolderError}
           onSelectionComplete={handleSelectionComplete}

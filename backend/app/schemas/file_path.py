@@ -66,3 +66,8 @@ class FilePathListResponse(BaseModel):
     page: int = Field(1, description="Current page")
     per_page: int = Field(20, description="Items per page")
     total_pages: int = Field(..., description="Total number of pages")
+
+
+class FilePathDeleteRequest(BaseModel):
+    """Schema for file path deletion request"""
+    file_ids: List[str] = Field(default_factory=list, description="List of file IDs to delete")

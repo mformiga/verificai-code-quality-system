@@ -7,7 +7,7 @@ from typing import List
 from uuid import uuid4
 from datetime import datetime
 from pathlib import Path
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 
@@ -21,7 +21,8 @@ from app.schemas.file_path import (
     FilePathBulkCreate,
     FilePathBulkResponse,
     FilePathListResponse,
-    FilePathUpdate
+    FilePathUpdate,
+    FilePathDeleteRequest
 )
 
 logger = logging.getLogger(__name__)
@@ -134,7 +135,7 @@ async def get_file_paths(
 ):
     """Get file paths with pagination and filtering"""
     try:
-        # Build query
+        # Build query - get file paths only for current user
         query = db.query(FilePath).filter(FilePath.user_id == current_user.id)
 
         # Apply filters
@@ -226,6 +227,54 @@ async def update_file_path(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@router.delete("/all")
+async def delete_all_file_paths(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete all file paths for current user"""
+    try:
+        logger.info(f"Starting delete all file paths for user {current_user.id}")
+
+        # Get all file paths for this user first
+        file_paths = db.query(FilePath).filter(
+            FilePath.user_id == current_user.id
+        ).all()
+
+        logger.info(f"Found {len(file_paths)} file paths to delete for user {current_user.id}")
+
+        if len(file_paths) == 0:
+            return {
+                "message": "No file paths found to delete",
+                "deleted_count": 0
+            }
+
+        # Delete one by one to identify any problematic records
+        deleted_count = 0
+        for file_path in file_paths:
+            try:
+                db.delete(file_path)
+                deleted_count += 1
+            except Exception as e:
+                logger.error(f"Error deleting file path {file_path.file_id}: {str(e)}")
+                db.rollback()
+                raise HTTPException(status_code=500, detail=f"Error deleting file path {file_path.file_id}")
+
+        db.commit()
+
+        logger.info(f"Successfully deleted {deleted_count} file paths for user {current_user.id}")
+
+        return {
+            "message": f"Successfully deleted {deleted_count} file paths",
+            "deleted_count": deleted_count
+        }
+
+    except Exception as e:
+        logger.error(f"Error in delete all file paths: {str(e)}", exc_info=True)
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
 @router.delete("/{file_id}")
 async def delete_file_path(
     file_id: str,
@@ -256,40 +305,29 @@ async def delete_file_path(
 
 @router.delete("/")
 async def delete_file_paths_bulk(
-    file_ids: List[str] = [],
+    file_ids: List[str] = Body(default=[]),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Delete multiple file paths or all if empty list"""
+    """Delete multiple file paths"""
     try:
-        # If empty list, delete all file paths for this user
-        if not file_ids:
-            file_paths = db.query(FilePath).filter(
-                FilePath.user_id == current_user.id
-            ).all()
-        else:
-            # Get specific file paths to delete
-            file_paths = db.query(FilePath).filter(
-                FilePath.file_id.in_(file_ids),
-                FilePath.user_id == current_user.id
-            ).all()
+        if len(file_ids) == 0:
+            raise HTTPException(status_code=400, detail="No file IDs provided. Use /all to delete all.")
 
-        if not file_paths:
-            raise HTTPException(status_code=404, detail="No file paths found")
-
-        # Delete file paths
-        for file_path in file_paths:
-            db.delete(file_path)
-
+        # Delete specific file paths
+        result = db.query(FilePath).filter(
+            FilePath.file_id.in_(file_ids),
+            FilePath.user_id == current_user.id
+        ).delete()
         db.commit()
 
-        logger.info(f"Bulk deleted {len(file_paths)} file paths by user {current_user.id}")
-
         return {
-            "message": f"Successfully deleted {len(file_paths)} file paths",
-            "deleted_count": len(file_paths)
+            "message": f"Successfully deleted {result} file paths",
+            "deleted_count": result
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in bulk file path deletion: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")

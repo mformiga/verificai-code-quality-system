@@ -24,8 +24,6 @@ interface PathListProps {
   paths?: FilePath[];
   onLoadPaths?: (paths: FilePath[]) => void;
   autoRefresh?: boolean;
-  onClearAll?: () => void;
-  onRefresh?: () => void;
   onFolderSelect?: (paths: FilePath[]) => void;
   onError?: (error: string) => void;
   onSelectionComplete?: () => void;
@@ -35,8 +33,6 @@ const PathList: React.FC<PathListProps> = ({
   paths: initialPaths = [],
   onLoadPaths,
   autoRefresh = true,
-  onClearAll,
-  onRefresh,
   onFolderSelect,
   onError,
   onSelectionComplete
@@ -51,6 +47,7 @@ const PathList: React.FC<PathListProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [sortBy, setSortBy] = useState<'fileName' | 'fullPath' | 'fileSize' | 'lastModified'>('fileName');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -255,7 +252,7 @@ const PathList: React.FC<PathListProps> = ({
 
       // Transform backend snake_case to frontend camelCase
       const transformedPaths = (result.file_paths || []).map((path: any) => ({
-        id: path.id,
+        id: path.file_id, // Use file_id instead of id for consistent identification
         fullPath: path.full_path,
         fileName: path.file_name,
         fileExtension: path.file_extension,
@@ -321,6 +318,85 @@ const PathList: React.FC<PathListProps> = ({
     } else {
       setSortBy(column);
       setSortOrder('asc');
+    }
+  };
+
+  const handleFileSelect = (fileId: string) => {
+    setSelectedFiles(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(fileId)) {
+        newSet.delete(fileId);
+      } else {
+        newSet.add(fileId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedFiles.size === filteredAndSortedPaths.length) {
+      setSelectedFiles(new Set());
+    } else {
+      setSelectedFiles(new Set(filteredAndSortedPaths.map(path => path.id)));
+    }
+  };
+
+  const handleRemoveSelected = async () => {
+    if (selectedFiles.size === 0) return;
+
+    try {
+      const { getAuthHeaders } = await import('@/utils/auth');
+      const authHeaders = getAuthHeaders();
+
+      const response = await fetch('/api/v1/file-paths/', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders
+        },
+        body: JSON.stringify(Array.from(selectedFiles))
+      });
+
+      if (response.ok) {
+        // Remove selected files from the local state
+        setPaths(prev => prev.filter(path => !selectedFiles.has(path.id)));
+        setSelectedFiles(new Set());
+              } else {
+        console.error('Erro ao remover arquivos selecionados');
+      }
+    } catch (error) {
+      console.error('Erro ao remover arquivos selecionados:', error);
+    }
+  };
+
+  const handleRemoveFile = async (fileId: string) => {
+    try {
+      const { getAuthHeaders } = await import('@/utils/auth');
+      const authHeaders = getAuthHeaders();
+
+      const response = await fetch('/api/v1/file-paths/', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders
+        },
+        body: JSON.stringify([fileId])
+      });
+
+      if (response.ok) {
+        // Remove file from the local state
+        setPaths(prev => prev.filter(path => path.id !== fileId));
+        // Also remove from selected files if it was selected
+        setSelectedFiles(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(fileId);
+          return newSet;
+        });
+      } else {
+        console.error('Erro ao remover arquivo');
+      }
+    } catch (error) {
+      console.error('Erro ao remover arquivo:', error);
     }
   };
 
@@ -431,6 +507,29 @@ const PathList: React.FC<PathListProps> = ({
         </div>
 
         <div className="action-buttons">
+          {/* Selection controls */}
+          {filteredAndSortedPaths.length > 0 && (
+            <div className="selection-controls">
+              <button
+                onClick={handleSelectAll}
+                className="br-button secondary small"
+                type="button"
+              >
+                {selectedFiles.size === filteredAndSortedPaths.length ? 'Desmarcar Todos' : 'Selecionar Todos'}
+              </button>
+
+              {selectedFiles.size > 0 && (
+                <button
+                  onClick={handleRemoveSelected}
+                  className="br-button danger small"
+                  type="button"
+                >
+                  Remover Selecionados ({selectedFiles.size})
+                </button>
+              )}
+            </div>
+          )}
+
           <button
             onClick={() => document.getElementById('folder-input')?.click()}
             disabled={isScanning}
@@ -451,14 +550,6 @@ const PathList: React.FC<PathListProps> = ({
           </button>
 
           <button
-            onClick={onRefresh || loadPaths}
-            className="br-button"
-            type="button"
-          >
-            Atualizar
-          </button>
-
-          <button
             onClick={exportToCSV}
             disabled={filteredAndSortedPaths.length === 0}
             className="br-button secondary"
@@ -466,17 +557,6 @@ const PathList: React.FC<PathListProps> = ({
           >
             Exportar CSV
           </button>
-
-          {onClearAll && (
-            <button
-              onClick={onClearAll}
-              disabled={filteredAndSortedPaths.length === 0}
-              className="br-button danger"
-              type="button"
-            >
-              Limpar Todos
-            </button>
-          )}
         </div>
       </div>
 
@@ -516,9 +596,24 @@ const PathList: React.FC<PathListProps> = ({
         ) : (
           <div className="path-items">
             {filteredAndSortedPaths.map((path) => (
-              <div key={path.id} className="path-item">
-                <div className="path-content">
-                  <code className="path-text">{path.fullPath}</code>
+              <div key={path.id} className={`path-item ${selectedFiles.has(path.id) ? 'selected' : ''}`}>
+                <div className="path-item-header">
+                  <div className="path-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={selectedFiles.has(path.id)}
+                      onChange={() => handleFileSelect(path.id)}
+                      className="br-checkbox"
+                    />
+                  </div>
+                  <div className="path-content">
+                    <code className="path-text">{path.fullPath}</code>
+                    <div className="path-meta">
+                      <span className="path-filename">{path.fileName}</span>
+                      <span className="path-size">{path.fileSize ? formatFileSize(path.fileSize) : ''}</span>
+                      <span className="path-extension">.{path.fileExtension}</span>
+                    </div>
+                  </div>
                 </div>
                 <div className="path-actions">
                   <button
@@ -529,6 +624,16 @@ const PathList: React.FC<PathListProps> = ({
                   >
                     <svg className="br-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => handleRemoveFile(path.id)}
+                    className="br-button circle small danger"
+                    type="button"
+                    title="Remover arquivo"
+                  >
+                    <svg className="br-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
                   </button>
                 </div>
