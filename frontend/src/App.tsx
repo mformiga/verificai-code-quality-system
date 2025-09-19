@@ -7,6 +7,7 @@ import CodeUploadPage from '@/pages/CodeUploadPage';
 import GeneralAnalysisPage from '@/pages/GeneralAnalysisPage';
 import ArchitecturalAnalysisPage from '@/pages/ArchitecturalAnalysisPage';
 import BusinessAnalysisPage from '@/pages/BusinessAnalysisPage';
+import './pages/DashboardPage.css';
 
 // Componente de proteção de rotas
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -29,59 +30,111 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 // Componente simples de Dashboard
 const DashboardPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-6xl mx-auto">
+    <div className="dashboard-page">
+      {/* Header */}
+      <div className="dashboard-header">
         <div className="br-card">
           <div className="card-header text-center">
             <h1 className="text-h3">Bem-vindo ao VerificAI!</h1>
-            <p className="text-regular text-muted mt-2">
+            <p className="text-regular">
               Sistema de Qualidade de Código com IA
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="dashboard-content">
+        <div className="br-card">
           <div className="card-content">
-            <div className="br-grid">
-              <div className="text-center">
-                <h2 className="text-h2 mb-4">🎉 Login realizado com sucesso!</h2>
-                <p className="text-regular mb-6">
-                  Você está autenticado no sistema. Abaixo estão as funcionalidades disponíveis:
+            <div className="welcome-section">
+              <h2 className="text-h2">🎉 Login realizado com sucesso!</h2>
+              <p className="text-regular">
+                Você está autenticado no sistema. Abaixo estão as funcionalidades disponíveis:
+              </p>
+            </div>
+
+            {/* Features Grid */}
+            <div className="features-grid">
+              <Link to="/prompt-config" className="feature-card">
+                <span className="feature-icon">⚙️</span>
+                <h3 className="feature-title">Configuração de Prompts</h3>
+                <p className="feature-description">
+                  Configure e gerencie os prompts de análise de código
                 </p>
+              </Link>
 
-                <div className="br-list">
-                  <Link to="/prompt-config" className="br-item">
-                    <span className="br-list-title">⚙️</span>
-                    <span className="br-list-text">Configuração de Prompts</span>
-                  </Link>
-                  <Link to="/code-upload" className="br-item">
-                    <span className="br-list-title">📁</span>
-                    <span className="br-list-text">Upload de Código</span>
-                  </Link>
-                  <Link to="/general-analysis" className="br-item">
-                    <span className="br-list-title">📊</span>
-                    <span className="br-list-text">Análise Geral</span>
-                  </Link>
-                  <Link to="/architectural-analysis" className="br-item">
-                    <span className="br-list-title">🏗️</span>
-                    <span className="br-list-text">Análise Arquitetural</span>
-                  </Link>
-                  <Link to="/business-analysis" className="br-item">
-                    <span className="br-list-title">💼</span>
-                    <span className="br-list-text">Análise de Negócio</span>
-                  </Link>
-                </div>
+              <Link to="/code-upload" className="feature-card">
+                <span className="feature-icon">📁</span>
+                <h3 className="feature-title">Upload de Código</h3>
+                <p className="feature-description">
+                  Faça upload dos arquivos de código para análise
+                </p>
+              </Link>
 
-                <div className="mt-6">
-                  <button
-                    onClick={() => {
-                      // Simples logout - limpar o storage
-                      localStorage.removeItem('auth-storage');
-                      window.location.reload();
-                    }}
-                    className="br-button secondary"
-                  >
-                    Sair do Sistema
-                  </button>
-                </div>
+              <Link to="/general-analysis" className="feature-card">
+                <span className="feature-icon">📊</span>
+                <h3 className="feature-title">Análise Geral</h3>
+                <p className="feature-description">
+                  Análise de código baseada em critérios gerais de qualidade
+                </p>
+              </Link>
+
+              <Link to="/architectural-analysis" className="feature-card">
+                <span className="feature-icon">🏗️</span>
+                <h3 className="feature-title">Análise Arquitetural</h3>
+                <p className="feature-description">
+                  Avaliação da arquitetura e estrutura do projeto
+                </p>
+              </Link>
+
+              <Link to="/business-analysis" className="feature-card">
+                <span className="feature-icon">💼</span>
+                <h3 className="feature-title">Análise de Negócio</h3>
+                <p className="feature-description">
+                  Análise de impacto e valor de negócio do código
+                </p>
+              </Link>
+            </div>
+
+            {/* Features List (fallback for mobile) */}
+            <div className="features-list">
+              <div className="br-list">
+                <Link to="/prompt-config" className="br-item">
+                  <span className="br-list-title">⚙️</span>
+                  <span className="br-list-text">Configuração de Prompts</span>
+                </Link>
+                <Link to="/code-upload" className="br-item">
+                  <span className="br-list-title">📁</span>
+                  <span className="br-list-text">Upload de Código</span>
+                </Link>
+                <Link to="/general-analysis" className="br-item">
+                  <span className="br-list-title">📊</span>
+                  <span className="br-list-text">Análise Geral</span>
+                </Link>
+                <Link to="/architectural-analysis" className="br-item">
+                  <span className="br-list-title">🏗️</span>
+                  <span className="br-list-text">Análise Arquitetural</span>
+                </Link>
+                <Link to="/business-analysis" className="br-item">
+                  <span className="br-list-title">💼</span>
+                  <span className="br-list-text">Análise de Negócio</span>
+                </Link>
               </div>
+            </div>
+
+            {/* Logout Section */}
+            <div className="logout-section">
+              <button
+                onClick={() => {
+                  // Simples logout - limpar o storage
+                  localStorage.removeItem('auth-storage');
+                  window.location.reload();
+                }}
+                className="logout-button"
+              >
+                Sair do Sistema
+              </button>
             </div>
           </div>
         </div>

@@ -67,21 +67,27 @@ def get_prompt_config(
         }
     }
 
-    # Try to load user's saved configuration from database
+    # Try to load saved configuration from database - get most recent configs from any user (shared access)
     try:
         user_configs = db.query(PromptConfiguration).filter(
-            PromptConfiguration.user_id == current_user.id,
             PromptConfiguration.is_active == True
-        ).all()
+        ).order_by(PromptConfiguration.updated_at.desc()).all()
 
-        # Override defaults with user's saved configurations
-        if user_configs:
-            for config in user_configs:
-                if config.prompt_type.value in default_config:
+        # Get the most recent configuration for each type
+        latest_configs = {}
+        for config in user_configs:
+            config_type = config.prompt_type.value
+            if config_type not in latest_configs:
+                latest_configs[config_type] = config
+
+        # Override defaults with latest saved configurations
+        if latest_configs:
+            for config_type, config in latest_configs.items():
+                if config_type in default_config:
                     config_data = {
-                        "id": config.prompt_type.value,
+                        "id": config_type,
                         "name": config.name,
-                        "type": config.prompt_type.value,
+                        "type": config_type,
                         "description": config.description,
                         "content": config.content,
                         "isActive": config.is_active,
@@ -90,7 +96,7 @@ def get_prompt_config(
                         "createdAt": config.created_at.isoformat(),
                         "updatedAt": config.updated_at.isoformat()
                     }
-                    default_config[config.prompt_type.value] = config_data
+                    default_config[config_type] = config_data
 
         return default_config
     except Exception as e:

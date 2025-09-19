@@ -4,9 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import Button from '@/components/common/Button';
-import Input from '@/components/common/Input';
-import { Card, CardHeader, CardContent } from '@/components/common/Card';
+import './LoginPage.css';
 
 const loginSchema = z.object({
   username: z.string().min(1, 'Nome de usuário é obrigatório'),
@@ -41,70 +39,87 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center">
-          <div className="w-16 h-16 bg-blue-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-2xl">V</span>
-          </div>
+    <div className="login-page">
+      {/* Logo and App Title */}
+      <div className="logo-container">
+        <div className="logo">
+          <span className="logo-text">V</span>
         </div>
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          VerificAI
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Sistema de Qualidade de Código com IA
-        </p>
+        <h1 className="app-title">VerificAI</h1>
+        <p className="app-subtitle">Sistema de Qualidade de Código com IA</p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <Card>
-          <CardHeader
-            title="Entrar na sua conta"
-            subtitle="Digite suas credenciais para acessar o sistema"
-          />
-          <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              <Input
-                {...register('username')}
-                label="Nome de usuário"
-                type="text"
-                error={errors.username?.message}
-                placeholder="Digite seu nome de usuário"
-                disabled={isLoading}
-              />
+      {/* Login Form */}
+      <div className="login-form-container">
+        <div className="br-card">
+          <div className="card-header text-center">
+            <h2 className="text-h2">Entrar na sua conta</h2>
+            <p className="text-regular">
+              Digite suas credenciais para acessar o sistema
+            </p>
+          </div>
+          <div className="card-content">
+            <form onSubmit={handleSubmit(onSubmit)} className="login-form">
+              <div className="form-group">
+                <label htmlFor="username" className="form-label">
+                  Nome de usuário
+                </label>
+                <input
+                  {...register('username')}
+                  type="text"
+                  id="username"
+                  placeholder="Digite seu nome de usuário"
+                  disabled={isLoading}
+                  className={`form-input ${errors.username ? 'error' : ''}`}
+                />
+                {errors.username && (
+                  <span className="error-message">{errors.username.message}</span>
+                )}
+              </div>
 
-              <Input
-                {...register('password')}
-                label="Senha"
-                type="password"
-                error={errors.password?.message}
-                placeholder="Digite sua senha"
-                disabled={isLoading}
-              />
+              <div className="form-group">
+                <label htmlFor="password" className="form-label">
+                  Senha
+                </label>
+                <input
+                  {...register('password')}
+                  type="password"
+                  id="password"
+                  placeholder="Digite sua senha"
+                  disabled={isLoading}
+                  className={`form-input ${errors.password ? 'error' : ''}`}
+                />
+                {errors.password && (
+                  <span className="error-message">{errors.password.message}</span>
+                )}
+              </div>
 
-              <Button
+              <button
                 type="submit"
-                loading={isLoading}
                 disabled={isLoading}
-                className="w-full"
+                className="login-button"
               >
-                Entrar
-              </Button>
+                {isLoading ? (
+                  <>
+                    <div className="loading-spinner"></div>
+                    Entrando...
+                  </>
+                ) : (
+                  'Entrar'
+                )}
+              </button>
 
-              <div className="text-center">
-                <span className="text-sm text-gray-600">
+              <div className="register-link">
+                <p className="text-regular">
                   Não tem uma conta?{' '}
-                  <Link
-                    to="/register"
-                    className="font-medium text-blue-600 hover:text-blue-500"
-                  >
+                  <Link to="/register" className="link">
                     Registre-se
                   </Link>
-                </span>
+                </p>
               </div>
             </form>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

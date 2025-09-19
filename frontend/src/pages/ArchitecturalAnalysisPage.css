@@ -1,0 +1,369 @@
+/* DSGov-based styles for ArchitecturalAnalysisPage component */
+.architectural-analysis-page {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.architectural-analysis-header {
+  margin-bottom: 32px;
+}
+
+.architectural-analysis-header .br-card {
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.architectural-analysis-header .card-header {
+  background: linear-gradient(135deg, #1351b4 0%, #1a5fc4 100%);
+  color: white;
+  padding: 32px 24px;
+  border-radius: 8px 8px 0 0;
+  text-align: center;
+}
+
+.architectural-analysis-header .text-h1 {
+  color: white;
+  margin-bottom: 12px;
+  font-weight: 700;
+  font-size: 2rem;
+  text-align: center;
+}
+
+.architectural-analysis-header .text-regular {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 16px;
+  line-height: 1.5;
+  text-align: center;
+  margin: 0;
+}
+
+/* Main content */
+.main-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.main-content .br-card {
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.main-content .card-content {
+  padding: 24px;
+}
+
+/* Upload section */
+.upload-section {
+  grid-column: span 2;
+}
+
+.upload-section .br-card {
+  border: 2px dashed #ced4da;
+  background: #f8f9fa;
+  transition: all 0.3s ease;
+}
+
+.upload-section .br-card:hover {
+  border-color: #1351b4;
+  background: #f0f4ff;
+}
+
+.upload-area {
+  padding: 48px;
+  text-align: center;
+}
+
+.upload-icon {
+  font-size: 64px;
+  color: #1351b4;
+  margin-bottom: 16px;
+}
+
+.upload-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #1351b4;
+  margin-bottom: 8px;
+}
+
+.upload-description {
+  color: #6c757d;
+  margin-bottom: 24px;
+}
+
+.upload-button {
+  background: linear-gradient(135deg, #1351b4 0%, #1a5fc4 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.upload-button:hover {
+  background: linear-gradient(135deg, #0d4d9f 0%, #1655b3 100%);
+  transform: translateY(-1px);
+}
+
+/* Configuration section */
+.config-section h3 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1351b4;
+  margin-bottom: 16px;
+}
+
+.config-item {
+  margin-bottom: 16px;
+}
+
+.config-label {
+  font-weight: 500;
+  color: #495057;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.config-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+}
+
+.config-input:focus {
+  outline: none;
+  border-color: #1351b4;
+  box-shadow: 0 0 0 3px rgba(19, 81, 180, 0.1);
+}
+
+.config-textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+/* Analysis section */
+.analysis-section h3 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1351b4;
+  margin-bottom: 16px;
+}
+
+.analysis-item {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.analysis-item-title {
+  font-weight: 500;
+  color: #1351b4;
+  margin-bottom: 8px;
+}
+
+.analysis-item-description {
+  color: #6c757d;
+  font-size: 14px;
+  margin: 0;
+}
+
+/* Results section */
+.results-section {
+  grid-column: span 2;
+}
+
+.results-tabs {
+  display: flex;
+  border-bottom: 2px solid #e9ecef;
+  margin-bottom: 24px;
+}
+
+.results-tab {
+  padding: 12px 24px;
+  border: none;
+  background: transparent;
+  color: #6c757d;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.results-tab:hover {
+  background: #f8f9fa;
+  color: #495057;
+}
+
+.results-tab.active {
+  color: #1351b4;
+  background: transparent;
+  border-bottom: 3px solid #1351b4;
+  margin-bottom: -2px;
+}
+
+.results-content {
+  padding: 24px;
+  background: #f8f9fa;
+  border-radius: 4px;
+}
+
+.result-item {
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.result-title {
+  font-weight: 600;
+  color: #1351b4;
+}
+
+.result-status {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.result-status.compliant {
+  background: #d4edda;
+  color: #155724;
+}
+
+.result-status.warning {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.result-status.non-compliant {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.result-description {
+  color: #495057;
+  margin-bottom: 12px;
+}
+
+.result-details {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 12px;
+  font-family: monospace;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+/* Action buttons */
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.action-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-button.primary {
+  background: linear-gradient(135deg, #1351b4 0%, #1a5fc4 100%);
+  color: white;
+}
+
+.action-button.primary:hover {
+  background: linear-gradient(135deg, #0d4d9f 0%, #1655b3 100%);
+  transform: translateY(-1px);
+}
+
+.action-button.secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.action-button.secondary:hover {
+  background: #5a6268;
+  transform: translateY(-1px);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .architectural-analysis-page {
+    padding: 16px;
+  }
+
+  .main-content {
+    grid-template-columns: 1fr;
+  }
+
+  .upload-section,
+  .results-section {
+    grid-column: span 1;
+  }
+
+  .upload-area {
+    padding: 32px 16px;
+  }
+
+  .upload-icon {
+    font-size: 48px;
+  }
+
+  .results-tabs {
+    flex-wrap: wrap;
+  }
+
+  .results-tab {
+    padding: 8px 16px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .architectural-analysis-header .card-header {
+    padding: 24px 16px;
+  }
+
+  .main-content .card-content {
+    padding: 16px;
+  }
+
+  .upload-area {
+    padding: 24px 12px;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .action-button {
+    width: 100%;
+  }
+}

@@ -1,17 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Play, FileText, Settings, Download } from 'lucide-react';
+import { Download, Upload, Settings, FileText } from 'lucide-react';
 import CriteriaList from '@/components/features/Analysis/CriteriaList';
 import ProgressTracker from '@/components/features/Analysis/ProgressTracker';
 import ResultsTable from '@/components/features/Analysis/ResultsTable';
 import ManualEditor from '@/components/features/Analysis/ManualEditor';
 import { useUploadStore } from '@/stores/uploadStore';
-
-interface Criterion {
-  id: string;
-  text: string;
-  active: boolean;
-  createdAt: Date;
-}
+import { criteriaService } from '@/services/criteriaService';
+import './GeneralAnalysisPage.css';
 
 interface CriteriaResult {
   criterion: string;
@@ -29,63 +24,75 @@ interface CriteriaResult {
 
 const GeneralAnalysisPage: React.FC = () => {
   const { uploadedFiles } = useUploadStore();
-  const [criteria, setCriteria] = useState<Criterion[]>([]);
   const [currentAnalysis, setCurrentAnalysis] = useState<any>(null);
   const [results, setResults] = useState<CriteriaResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingResult, setEditingResult] = useState<CriteriaResult | null>(null);
-  const [activeTab, setActiveTab] = useState<'criteria' | 'analysis' | 'results'>('criteria');
+  const [activeTab, setActiveTab] = useState<'criteria' | 'results'>('criteria');
 
-  // Initialize with default criteria
+  // Carregar critérios cadastrados e mostrar como resultados
   useEffect(() => {
-    const defaultCriteria: Criterion[] = [
-      {
-        id: 'criteria_1',
-        text: 'O código deve seguir convenções de nomenclatura consistentes',
-        active: true,
-        createdAt: new Date()
-      },
-      {
-        id: 'criteria_2',
-        text: 'Funções e métodos devem ter documentação adequada',
-        active: true,
-        createdAt: new Date()
-      },
-      {
-        id: 'criteria_3',
-        text: 'O código deve ter tratamento adequado de erros',
-        active: true,
-        createdAt: new Date()
-      },
-      {
-        id: 'criteria_4',
-        text: 'Variáveis devem ter nomes descritivos e significativos',
-        active: true,
-        createdAt: new Date()
+    const loadCriteriaAsResults = async () => {
+      try {
+        const criteria = await criteriaService.getCriteria();
+
+        // Converter critérios para formato de resultados
+        const criteriaAsResults: CriteriaResult[] = criteria.map((criterion, index) => ({
+          criterion: criterion.text,
+          assessment: `Análise do critério "${criterion.text}" - Aguardando análise completa.`,
+          status: 'compliant' as const,
+          confidence: 0.8,
+          order: criterion.order || index + 1,
+          evidence: [],
+          recommendations: []
+        }));
+
+        setResults(criteriaAsResults);
+      } catch (error) {
+        console.error('Erro ao carregar critérios como resultados:', error);
       }
-    ];
-    setCriteria(defaultCriteria);
+    };
+
+    loadCriteriaAsResults();
   }, []);
 
-  const handleStartAnalysis = async () => {
-    const activeCriteria = criteria.filter(c => c.active);
-    if (activeCriteria.length === 0) {
-      alert('Por favor, ative pelo menos um critério para análise.');
-      return;
-    }
+  // Função para recarregar resultados quando critérios são modificados
+  const refreshResults = async () => {
+    try {
+      const criteria = await criteriaService.getCriteria();
 
+      // Preservar avaliações existentes quando possível
+      const updatedResults = criteria.map((criterion, index) => {
+        const existingResult = results.find(r => r.criterion === criterion.text);
+        return {
+          criterion: criterion.text,
+          assessment: existingResult?.assessment || `Análise do critério "${criterion.text}" - Aguardando análise completa.`,
+          status: existingResult?.status || 'compliant' as const,
+          confidence: existingResult?.confidence || 0.8,
+          order: criterion.order || index + 1,
+          evidence: existingResult?.evidence || [],
+          recommendations: existingResult?.recommendations || []
+        };
+      });
+
+      setResults(updatedResults);
+    } catch (error) {
+      console.error('Erro ao recarregar resultados:', error);
+    }
+  };
+
+  const handleStartAnalysis = async (specificCriteria?: string[]) => {
     if (uploadedFiles.length === 0) {
       alert('Por favor, faça upload dos arquivos para análise.');
       return;
     }
 
     setLoading(true);
-    setActiveTab('analysis');
 
     // Mock analysis progress
     const mockAnalysis = {
       id: Date.now().toString(),
-      name: 'Análise de Critérios Gerais',
+      name: specificCriteria ? `Análise de ${specificCriteria.length} Critérios Selecionados` : 'Análise de Critérios Gerais',
       status: 'processing',
       progress: 0,
       startTime: new Date()
@@ -104,15 +111,24 @@ const GeneralAnalysisPage: React.FC = () => {
       });
     }, 500);
 
+    // Mock criteria for analysis - use specific criteria if provided
+    const mockCriteria = specificCriteria || [
+      'O código deve seguir convenções de nomenclatura consistentes',
+      'Funções e métodos devem ter documentação adequada',
+      'O código deve ter tratamento adequado de erros',
+      'Variáveis devem ter nomes descritivos e significativos'
+    ];
+
     // Simulate analysis completion
     setTimeout(() => {
       clearInterval(progressInterval);
 
-      const mockResults: CriteriaResult[] = activeCriteria.map((criterion, index) => ({
-        criterion: criterion.text,
-        assessment: `Análise do critério "${criterion.text}" revela que o código apresenta boa aderência aos padrões estabelecidos. Foram identificados pontos fortes na implementação e algumas oportunidades de melhoria que podem ser abordadas em futuras refatorações.`,
+      const mockResults: CriteriaResult[] = mockCriteria.map((criterion, index) => ({
+        criterion,
+        assessment: `Análise do critério "${criterion}" revela que o código apresenta boa aderência aos padrões estabelecidos. Foram identificados pontos fortes na implementação e algumas oportunidades de melhoria que podem ser abordadas em futuras refatorações.`,
         status: index % 3 === 0 ? 'compliant' : index % 3 === 1 ? 'partially_compliant' : 'non_compliant',
         confidence: 0.7 + (Math.random() * 0.3),
+        order: index + 1,
         evidence: [
           {
             code: '// Exemplo de código analisado\nfunction exampleFunction() {\n  // Implementação\n  return true;\n}',
@@ -157,7 +173,26 @@ const GeneralAnalysisPage: React.FC = () => {
     setCurrentAnalysis(null);
     setResults([]);
     setLoading(false);
-    setActiveTab('criteria');
+  };
+
+  const handleReanalyze = (criterion: string) => {
+    alert(`Re-analisando critério: ${criterion}`);
+    // Implementar lógica de re-análise para o critério específico
+  };
+
+  const handleAnalyzeCriterion = (criterion: string) => {
+    alert(`Analisando critério específico: ${criterion}`);
+    // Implementar lógica de análise para o critério específico
+  };
+
+  const handleAnalyzeSelected = (selectedCriteria: string[]) => {
+    if (uploadedFiles.length === 0) {
+      alert('Por favor, faça upload dos arquivos para análise.');
+      return;
+    }
+
+    alert(`Analisando ${selectedCriteria.length} critérios selecionados:\n${selectedCriteria.join('\n')}`);
+    handleStartAnalysis(selectedCriteria);
   };
 
   const handleDownloadReport = () => {
@@ -165,7 +200,7 @@ const GeneralAnalysisPage: React.FC = () => {
     let report = '# Relatório de Análise de Critérios Gerais\n\n';
     report += `**Data:** ${new Date().toLocaleDateString('pt-BR')}\n`;
     report += `**Arquivos analisados:** ${uploadedFiles.length}\n`;
-    report += `**Critérios avaliados:** ${criteria.filter(c => c.active).length}\n\n`;
+    report += `**Critérios avaliados:** ${results.length}\n\n`;
 
     results.forEach(result => {
       report += `## ${result.criterion}\n\n`;
@@ -195,30 +230,33 @@ const GeneralAnalysisPage: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Análise de Critérios Gerais</h1>
-        <p className="text-gray-600">
-          Configure seus critérios de avaliação e execute análises de código baseadas em padrões de qualidade gerais
-        </p>
+    <div className="general-analysis-page">
+      {/* Page Header */}
+      <div className="general-analysis-header">
+        <div className="br-card">
+          <div className="card-header text-center">
+            <h1 className="text-h1">Análise de Critérios Gerais</h1>
+            <p className="text-regular">
+              Configure seus critérios de avaliação, faça upload dos arquivos e execute análises de código baseadas em padrões de qualidade gerais
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Tab Navigation */}
-      <div className="mb-6">
-        <nav className="flex space-x-8" aria-label="Tabs">
+      <div className="br-tabs" data-tabs="analysis-tabs">
+        <nav className="tab-navigation" role="tablist">
           {[
             { id: 'criteria', name: 'Critérios', icon: Settings },
-            { id: 'analysis', name: 'Análise', icon: Play },
             { id: 'results', name: 'Resultados', icon: FileText }
           ].map((tab) => (
             <button
               key={tab.id}
+              className={`tab-item ${activeTab === tab.id ? 'is-active' : ''}`}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              aria-controls={`tab-${tab.id}`}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`group inline-flex items-center py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === tab.id
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
             >
               <tab.icon className="w-4 h-4 mr-2" />
               {tab.name}
@@ -228,44 +266,14 @@ const GeneralAnalysisPage: React.FC = () => {
       </div>
 
       {/* Tab Content */}
-      <div className="space-y-6">
+      <div className="br-container">
         {activeTab === 'criteria' && (
           <CriteriaList
-            criteria={criteria}
-            onCriteriaChange={setCriteria}
             onCriteriaSelect={(selected) => console.log('Selected criteria:', selected)}
+            onAnalyzeCriterion={handleAnalyzeCriterion}
+            onAnalyzeSelected={handleAnalyzeSelected}
+            onCriteriaChange={refreshResults}
           />
-        )}
-
-        {activeTab === 'analysis' && (
-          <>
-            {currentAnalysis ? (
-              <ProgressTracker
-                progress={currentAnalysis.progress}
-                status={currentAnalysis.status}
-                message="Analisando código com base nos critérios configurados..."
-                onCancel={handleCancelAnalysis}
-              />
-            ) : (
-              <div className="bg-white rounded-lg shadow-md p-6 text-center">
-                <Play className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-800 mb-2">
-                  Iniciar Análise
-                </h3>
-                <p className="text-gray-600 mb-6">
-                  Configure seus critérios e arquivos, depois inicie a análise para avaliar o código.
-                </p>
-                <button
-                  onClick={handleStartAnalysis}
-                  disabled={loading}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2 mx-auto disabled:opacity-50"
-                >
-                  <Play className="w-4 h-4" />
-                  {loading ? 'Iniciando...' : 'Iniciar Análise'}
-                </button>
-              </div>
-            )}
-          </>
         )}
 
         {activeTab === 'results' && (
@@ -273,7 +281,28 @@ const GeneralAnalysisPage: React.FC = () => {
             results={results}
             onEditResult={handleEditResult}
             onDownloadReport={handleDownloadReport}
+            onReanalyze={handleReanalyze}
           />
+        )}
+
+        {/* Analysis Progress - shown in both tabs */}
+        {currentAnalysis && (
+          <div className="br-card mt-4">
+            <div className="card-header">
+              <h2 className="text-h2">Executar Análise</h2>
+              <p className="text-regular text-muted">
+                Inicie a análise de código com base nos critérios configurados
+              </p>
+            </div>
+            <div className="card-content">
+              <ProgressTracker
+                progress={currentAnalysis.progress}
+                status={currentAnalysis.status}
+                message="Analisando código com base nos critérios configurados..."
+                onCancel={handleCancelAnalysis}
+              />
+            </div>
+          </div>
         )}
       </div>
 

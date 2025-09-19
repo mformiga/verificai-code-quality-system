@@ -1,0 +1,513 @@
+/* DSGov-based styles for BusinessAnalysisPage component */
+.business-analysis-page {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.business-analysis-header {
+  margin-bottom: 32px;
+}
+
+.business-analysis-header .br-card {
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.business-analysis-header .card-header {
+  background: linear-gradient(135deg, #1351b4 0%, #1a5fc4 100%);
+  color: white;
+  padding: 32px 24px;
+  border-radius: 8px 8px 0 0;
+  text-align: center;
+}
+
+.business-analysis-header .text-h1 {
+  color: white;
+  margin-bottom: 12px;
+  font-weight: 700;
+  font-size: 2rem;
+  text-align: center;
+}
+
+.business-analysis-header .text-regular {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 16px;
+  line-height: 1.5;
+  text-align: center;
+  margin: 0;
+}
+
+/* Main content grid */
+.main-content {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.main-content .br-card {
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.main-content .card-content {
+  padding: 24px;
+}
+
+/* Business rules section */
+.business-rules-section {
+  grid-column: span 1;
+}
+
+.business-rules-section h3 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1351b4;
+  margin-bottom: 16px;
+}
+
+.business-rule-item {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+}
+
+.business-rule-item:hover {
+  border-color: #1351b4;
+  background: #f0f4ff;
+}
+
+.business-rule-title {
+  font-weight: 500;
+  color: #1351b4;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.business-rule-description {
+  color: #6c757d;
+  font-size: 14px;
+  margin: 0 0 8px 0;
+}
+
+.business-rule-priority {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.priority-high {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.priority-medium {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.priority-low {
+  background: #d4edda;
+  color: #155724;
+}
+
+/* Impact analysis section */
+.impact-analysis-section {
+  grid-column: span 1;
+}
+
+.impact-analysis-section h3 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1351b4;
+  margin-bottom: 16px;
+}
+
+.impact-metric {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.impact-metric:last-child {
+  border-bottom: none;
+}
+
+.impact-metric-label {
+  font-weight: 500;
+  color: #495057;
+}
+
+.impact-metric-value {
+  font-weight: 600;
+  color: #1351b4;
+}
+
+.impact-meter {
+  width: 100%;
+  height: 8px;
+  background: #e9ecef;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.impact-meter-fill {
+  height: 100%;
+  background: linear-gradient(135deg, #1351b4 0%, #1a5fc4 100%);
+  transition: width 0.3s ease;
+}
+
+/* Project context section */
+.project-context-section {
+  grid-column: span 2;
+}
+
+.project-context-section h3 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1351b4;
+  margin-bottom: 16px;
+}
+
+.context-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+}
+
+.context-item {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 16px;
+}
+
+.context-item-label {
+  font-weight: 500;
+  color: #495057;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.context-item-value {
+  color: #1351b4;
+  font-weight: 600;
+}
+
+/* Results section */
+.results-section {
+  grid-column: span 2;
+}
+
+.results-tabs {
+  display: flex;
+  border-bottom: 2px solid #e9ecef;
+  margin-bottom: 24px;
+}
+
+.results-tab {
+  padding: 12px 24px;
+  border: none;
+  background: transparent;
+  color: #6c757d;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.results-tab:hover {
+  background: #f8f9fa;
+  color: #495057;
+}
+
+.results-tab.active {
+  color: #1351b4;
+  background: transparent;
+  border-bottom: 3px solid #1351b4;
+  margin-bottom: -2px;
+}
+
+/* Analysis results */
+.analysis-results {
+  display: grid;
+  gap: 20px;
+}
+
+.analysis-result-card {
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.result-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1351b4;
+  margin: 0;
+}
+
+.result-impact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.impact-high {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.impact-medium {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.impact-low {
+  background: #d4edda;
+  color: #155724;
+}
+
+.result-description {
+  color: #495057;
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+.result-details {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.result-details h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1351b4;
+  margin: 0 0 8px 0;
+}
+
+.result-details ul {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 14px;
+  color: #6c757d;
+}
+
+.result-details li {
+  margin-bottom: 4px;
+}
+
+.result-recommendations {
+  background: #e3f2fd;
+  border: 1px solid #bbdefb;
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.result-recommendations h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1351b4;
+  margin: 0 0 8px 0;
+}
+
+.result-recommendations ul {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 14px;
+  color: #1351b4;
+}
+
+/* Action buttons */
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  justify-content: center;
+}
+
+.action-button {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-button.primary {
+  background: linear-gradient(135deg, #1351b4 0%, #1a5fc4 100%);
+  color: white;
+}
+
+.action-button.primary:hover {
+  background: linear-gradient(135deg, #0d4d9f 0%, #1655b3 100%);
+  transform: translateY(-1px);
+}
+
+.action-button.secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.action-button.secondary:hover {
+  background: #5a6268;
+  transform: translateY(-1px);
+}
+
+/* Upload section */
+.upload-section {
+  grid-column: span 2;
+  margin-bottom: 32px;
+}
+
+.upload-section .br-card {
+  border: 2px dashed #ced4da;
+  background: #f8f9fa;
+  transition: all 0.3s ease;
+}
+
+.upload-section .br-card:hover {
+  border-color: #1351b4;
+  background: #f0f4ff;
+}
+
+.upload-area {
+  padding: 48px;
+  text-align: center;
+}
+
+.upload-icon {
+  font-size: 64px;
+  color: #1351b4;
+  margin-bottom: 16px;
+}
+
+.upload-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #1351b4;
+  margin-bottom: 8px;
+}
+
+.upload-description {
+  color: #6c757d;
+  margin-bottom: 24px;
+}
+
+.upload-button {
+  background: linear-gradient(135deg, #1351b4 0%, #1a5fc4 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.upload-button:hover {
+  background: linear-gradient(135deg, #0d4d9f 0%, #1655b3 100%);
+  transform: translateY(-1px);
+}
+
+/* Responsive design */
+@media (max-width: 1024px) {
+  .main-content {
+    grid-template-columns: 1fr;
+  }
+
+  .business-rules-section,
+  .impact-analysis-section,
+  .project-context-section,
+  .results-section {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .business-analysis-page {
+    padding: 16px;
+  }
+
+  .main-content .card-content {
+    padding: 16px;
+  }
+
+  .upload-area {
+    padding: 32px 16px;
+  }
+
+  .upload-icon {
+    font-size: 48px;
+  }
+
+  .context-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .results-tabs {
+    flex-wrap: wrap;
+  }
+
+  .results-tab {
+    padding: 8px 16px;
+    font-size: 14px;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .action-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .business-analysis-header .card-header {
+    padding: 24px 16px;
+  }
+
+  .upload-area {
+    padding: 24px 12px;
+  }
+
+  .business-rule-item {
+    padding: 12px;
+  }
+
+  .analysis-result-card {
+    padding: 16px;
+  }
+}

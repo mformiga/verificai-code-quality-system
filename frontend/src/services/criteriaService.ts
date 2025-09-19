@@ -78,18 +78,22 @@ export const criteriaService = {
       const storedCriteria = localStorage.getItem('criteria-storage');
       const currentCriteria = storedCriteria ? JSON.parse(storedCriteria) : [];
 
+      // Find the highest order number and add 1
+      const maxOrder = currentCriteria.length > 0 ? Math.max(...currentCriteria.map(c => c.order || 0)) : 0;
+      const newOrder = maxOrder + 1;
+
       const newCriterion = {
         id: `criteria_${Date.now()}`,
         text,
         active: true,
-        order: currentCriteria.length + 1
+        order: newOrder
       };
 
       // Add new criterion and save to localStorage
       const updatedCriteria = [...currentCriteria, newCriterion];
       localStorage.setItem('criteria-storage', JSON.stringify(updatedCriteria));
 
-      console.log('Saved new criterion to localStorage');
+      console.log('Saved new criterion to localStorage with order:', newOrder);
       return newCriterion;
     }
 
@@ -111,17 +115,21 @@ export const criteriaService = {
       const storedCriteria = localStorage.getItem('criteria-storage');
       const currentCriteria = storedCriteria ? JSON.parse(storedCriteria) : [];
 
+      // Find the highest order number and add 1
+      const maxOrder = currentCriteria.length > 0 ? Math.max(...currentCriteria.map(c => c.order || 0)) : 0;
+      const newOrder = maxOrder + 1;
+
       const newCriterion = {
         id: `criteria_${Date.now()}`,
         text,
         active: true,
-        order: currentCriteria.length + 1
+        order: newOrder
       };
 
       // Add new criterion and save to localStorage
       const updatedCriteria = [...currentCriteria, newCriterion];
       localStorage.setItem('criteria-storage', JSON.stringify(updatedCriteria));
-      console.log('Created new criterion in localStorage fallback');
+      console.log('Created new criterion in localStorage fallback with order:', newOrder);
 
       return newCriterion;
     }

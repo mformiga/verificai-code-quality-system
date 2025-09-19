@@ -4,10 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import Button from '@/components/common/Button';
-import Input from '@/components/common/Input';
-import { Card, CardHeader, CardContent } from '@/components/common/Card';
 import { validatePassword } from '@/utils/helpers';
+import './RegisterPage.css';
 
 const registerSchema = z.object({
   username: z.string().min(3, 'Nome de usuário deve ter pelo menos 3 caracteres'),
@@ -54,89 +52,141 @@ const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center">
-          <div className="w-16 h-16 bg-blue-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-2xl">V</span>
-          </div>
+    <div className="register-page">
+      {/* Logo and Page Title */}
+      <div className="logo-container">
+        <div className="logo">
+          <span className="logo-text">V</span>
         </div>
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Criar conta
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Junte-se ao VerificAI para analisar seu código com IA
-        </p>
+        <h1 className="page-title">Criar conta</h1>
+        <p className="page-subtitle">Junte-se ao VerificAI para analisar seu código com IA</p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <Card>
-          <CardHeader
-            title="Criar nova conta"
-            subtitle="Preencha os dados abaixo para se registrar"
-          />
-          <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              <Input
-                {...register('username')}
-                label="Nome de usuário"
-                type="text"
-                error={errors.username?.message}
-                placeholder="Digite seu nome de usuário"
-                disabled={isLoading}
-              />
+      {/* Register Form */}
+      <div className="register-form-container">
+        <div className="br-card">
+          <div className="card-header text-center">
+            <h2 className="text-h2">Criar nova conta</h2>
+            <p className="text-regular">
+              Preencha os dados abaixo para se registrar
+            </p>
+          </div>
+          <div className="card-content">
+            <form onSubmit={handleSubmit(onSubmit)} className="register-form">
+              <div className="form-group">
+                <label htmlFor="username" className="form-label">
+                  Nome de usuário
+                </label>
+                <input
+                  {...register('username')}
+                  type="text"
+                  id="username"
+                  placeholder="Digite seu nome de usuário"
+                  disabled={isLoading}
+                  className={`form-input ${errors.username ? 'error' : ''}`}
+                />
+                {errors.username && (
+                  <span className="error-message">{errors.username.message}</span>
+                )}
+              </div>
 
-              <Input
-                {...register('email')}
-                label="Email"
-                type="email"
-                error={errors.email?.message}
-                placeholder="Digite seu email"
-                disabled={isLoading}
-              />
+              <div className="form-group">
+                <label htmlFor="email" className="form-label">
+                  Email
+                </label>
+                <input
+                  {...register('email')}
+                  type="email"
+                  id="email"
+                  placeholder="Digite seu email"
+                  disabled={isLoading}
+                  className={`form-input ${errors.email ? 'error' : ''}`}
+                />
+                {errors.email && (
+                  <span className="error-message">{errors.email.message}</span>
+                )}
+              </div>
 
-              <Input
-                {...register('password')}
-                label="Senha"
-                type="password"
-                error={errors.password?.message}
-                placeholder="Digite sua senha"
-                disabled={isLoading}
-                helperText="Mínimo 8 caracteres, incluindo maiúscula, minúscula, número e caractere especial"
-              />
+              <div className="form-group">
+                <label htmlFor="password" className="form-label">
+                  Senha
+                </label>
+                <input
+                  {...register('password')}
+                  type="password"
+                  id="password"
+                  placeholder="Digite sua senha"
+                  disabled={isLoading}
+                  className={`form-input ${errors.password ? 'error' : ''}`}
+                />
+                {errors.password && (
+                  <span className="error-message">{errors.password.message}</span>
+                )}
+                <div className="password-requirements">
+                  <h4>Requisitos da senha:</h4>
+                  <ul>
+                    <li className={password && password.length >= 8 ? 'valid' : 'invalid'}>
+                      Mínimo 8 caracteres
+                    </li>
+                    <li className={password && /[a-z]/.test(password) ? 'valid' : 'invalid'}>
+                      Pelo menos uma letra minúscula
+                    </li>
+                    <li className={password && /[A-Z]/.test(password) ? 'valid' : 'invalid'}>
+                      Pelo menos uma letra maiúscula
+                    </li>
+                    <li className={password && /\d/.test(password) ? 'valid' : 'invalid'}>
+                      Pelo menos um número
+                    </li>
+                    <li className={password && /[!@#$%^&*(),.?":{}|<>]/.test(password) ? 'valid' : 'invalid'}>
+                      Pelo menos um caractere especial
+                    </li>
+                  </ul>
+                </div>
+              </div>
 
-              <Input
-                {...register('confirmPassword')}
-                label="Confirmar senha"
-                type="password"
-                error={errors.confirmPassword?.message}
-                placeholder="Confirme sua senha"
-                disabled={isLoading}
-              />
+              <div className="form-group">
+                <label htmlFor="confirmPassword" className="form-label">
+                  Confirmar senha
+                </label>
+                <input
+                  {...register('confirmPassword')}
+                  type="password"
+                  id="confirmPassword"
+                  placeholder="Confirme sua senha"
+                  disabled={isLoading}
+                  className={`form-input ${errors.confirmPassword ? 'error' : ''}`}
+                />
+                {errors.confirmPassword && (
+                  <span className="error-message">{errors.confirmPassword.message}</span>
+                )}
+              </div>
 
-              <Button
+              <button
                 type="submit"
-                loading={isLoading}
                 disabled={isLoading}
-                className="w-full"
+                className="register-button"
               >
-                Criar conta
-              </Button>
+                {isLoading ? (
+                  <>
+                    <div className="loading-spinner"></div>
+                    Criando conta...
+                  </>
+                ) : (
+                  'Criar conta'
+                )}
+              </button>
 
-              <div className="text-center">
-                <span className="text-sm text-gray-600">
+              <div className="login-link">
+                <p className="text-regular">
                   Já tem uma conta?{' '}
-                  <Link
-                    to="/login"
-                    className="font-medium text-blue-600 hover:text-blue-500"
-                  >
+                  <Link to="/login" className="link">
                     Faça login
                   </Link>
-                </span>
+                </p>
               </div>
             </form>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );
