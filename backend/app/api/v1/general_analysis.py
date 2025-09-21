@@ -539,7 +539,11 @@ async def analyze_selected_criteria(
 
         # Step 1: Read the general prompt from database
         print("DEBUG: Getting general prompt from database...")
-        general_prompt = prompt_service.get_general_prompt(7)  # Using the updated prompt with code structure
+        try:
+            general_prompt = prompt_service.get_general_prompt(7)  # Try the updated prompt with code structure
+        except Exception as e:
+            print(f"DEBUG: Error getting prompt 7, using default: {e}")
+            general_prompt = prompt_service.get_general_prompt()  # Use default prompt
         print(f"DEBUG: Retrieved general prompt length: {len(general_prompt)}")
 
         # Step 2: Get selected criteria from database
@@ -639,6 +643,54 @@ async def analyze_selected_criteria(
                     print(f"DEBUG: criteria_results keys: {list(criteria_results.keys())}")
                     for key, value in criteria_results.items():
                         print(f"DEBUG: {key}: {type(value)} - {str(value)[:100] if value else 'None'}")
+
+            # Step 7.5: Map extracted criteria results to actual criteria IDs
+            print(f"DEBUG: Starting criteria ID mapping...")
+            print(f"DEBUG: Selected criteria: {selected_criteria}")
+            print(f"DEBUG: Request criteria IDs: {request.criteria_ids}")
+
+            # Create mapping from criteria name to criteria ID
+            criteria_name_to_id = {}
+            for criteria in selected_criteria:
+                # criteria is a GeneralCriteria object with id and text attributes
+                criteria_name_to_id[criteria.text.strip().lower()] = criteria.id
+                print(f"DEBUG: Mapping '{criteria.text.strip().lower()}' to ID {criteria.id}")
+
+            # Remap criteria_results to use actual criteria IDs instead of position-based keys
+            remapped_criteria_results = {}
+            for extracted_key, result_data in extracted_content.get("criteria_results", {}).items():
+                print(f"DEBUG: Processing extracted key: {extracted_key}, result: {result_data}")
+
+                # Try to find matching criteria by name
+                result_name = result_data.get("name", "").strip().lower()
+                print(f"DEBUG: Looking for criteria with name: '{result_name}'")
+
+                # Try exact match first
+                if result_name in criteria_name_to_id:
+                    criteria_id = criteria_name_to_id[result_name]
+                    remapped_criteria_results[f"criteria_{criteria_id}"] = result_data
+                    print(f"DEBUG: Found exact match - mapped to criteria_{criteria_id}")
+                else:
+                    # Try fuzzy matching
+                    found_match = False
+                    for criteria_text, candidate_id in criteria_name_to_id.items():
+                        # Check if the result name contains the criteria text or vice versa
+                        if (result_name in criteria_text or
+                            criteria_text in result_name or
+                            result_name.split(':')[0].strip() in criteria_text or
+                            criteria_text.split(':')[0].strip() in result_name):
+                            remapped_criteria_results[f"criteria_{candidate_id}"] = result_data
+                            print(f"DEBUG: Found fuzzy match - mapped '{result_name}' to criteria_{candidate_id}")
+                            found_match = True
+                            break
+
+                    if not found_match:
+                        # Keep original key if no match found
+                        remapped_criteria_results[extracted_key] = result_data
+                        print(f"DEBUG: No match found for '{result_name}', keeping original key")
+
+            print(f"DEBUG: Remapped criteria_results: {remapped_criteria_results}")
+            extracted_content["criteria_results"] = remapped_criteria_results
 
         # Step 8: Save analysis results to database
         import json

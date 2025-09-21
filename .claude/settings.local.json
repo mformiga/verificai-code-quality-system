@@ -45,7 +45,9 @@
       "Bash(copy:*)",
       "Bash(git rm:*)",
       "Bash(cat:*)",
-      "Bash(docker-compose:*)"
+      "Bash(docker-compose:*)",
+      "Bash(git tag:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []

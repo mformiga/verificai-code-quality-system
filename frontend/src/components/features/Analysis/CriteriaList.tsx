@@ -3,14 +3,14 @@ import { Plus, Edit2, Trash2, Save, X, Loader2, Play, Square, CheckSquare } from
 import { criteriaService } from '@/services/criteriaService';
 
 interface Criterion {
-  id: string;
+  id: number;
   text: string;
   active: boolean;
   order: number;
 }
 
 interface CriteriaListProps {
-  onCriteriaSelect: (selected: string[]) => void;
+  onCriteriaSelect: (selected: number[]) => void;
   onAnalyzeCriterion?: (criterion: string) => void;
   onAnalyzeSelected?: (selected: string[]) => void;
   onCriteriaChange?: () => void;
@@ -19,9 +19,9 @@ interface CriteriaListProps {
 const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect, onAnalyzeCriterion, onAnalyzeSelected, onCriteriaChange }) => {
   const [criteria, setCriteria] = useState<Criterion[]>([]);
   const [loading, setLoading] = useState(false);
-  const [editingCriterion, setEditingCriterion] = useState<string | null>(null);
+  const [editingCriterion, setEditingCriterion] = useState<number | null>(null);
   const [editingText, setEditingText] = useState('');
-  const [selectedCriteria, setSelectedCriteria] = useState<Set<string>>(new Set());
+  const [selectedCriteria, setSelectedCriteria] = useState<Set<number>>(new Set());
 
   // Debug: Log criteria changes
   useEffect(() => {
@@ -72,7 +72,7 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect, onAnalyze
     }
   };
 
-  const updateCriterion = async (id: string, updates: Partial<Criterion>) => {
+  const updateCriterion = async (id: number, updates: Partial<Criterion>) => {
     try {
       console.log('🔍 DEBUG: updateCriterion called with:', id, updates);
       if (updates.text) {
@@ -82,7 +82,7 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect, onAnalyze
 
         // Update the specific criterion in state directly
         const updatedCriteria = criteria.map(criterion =>
-          criterion.id === id ? { ...criterion, text: updates.text } : criterion
+          criterion.id === id ? { ...criterion, text: updates.text || '' } : criterion
         );
         console.log('🔍 DEBUG: Updating state directly with:', updatedCriteria);
         setCriteria(updatedCriteria);
@@ -102,7 +102,7 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect, onAnalyze
     }
   };
 
-  const deleteCriterion = async (id: string) => {
+  const deleteCriterion = async (id: number) => {
     try {
       await criteriaService.deleteCriterion(id);
       // Reload the criteria list to ensure we have the latest data
@@ -158,7 +158,7 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect, onAnalyze
     setEditingText('');
   };
 
-  const toggleCriterion = async (id: string) => {
+  const toggleCriterion = async (id: number) => {
     const criterion = criteria.find(c => c.id === id);
     if (criterion) {
       try {
@@ -182,7 +182,7 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect, onAnalyze
     }
   };
 
-  const toggleCriterionSelection = (id: string) => {
+  const toggleCriterionSelection = (id: number) => {
     const newSelected = new Set(selectedCriteria);
     if (newSelected.has(id)) {
       newSelected.delete(id);
@@ -190,6 +190,8 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect, onAnalyze
       newSelected.add(id);
     }
     setSelectedCriteria(newSelected);
+    // Converter para formato de string esperado pelo callback
+    const stringIds = Array.from(newSelected).map(numericId => `criteria_${numericId}`);
     onCriteriaSelect(Array.from(newSelected));
   };
 
@@ -206,7 +208,9 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect, onAnalyze
         }
       });
     }
-    onCriteriaSelect(selectedCriteria.size === sortedCriteria.length ? [] : allCriteriaIds);
+    // Converter para formato de string esperado pelo callback
+    const selectedIds = selectedCriteria.size === sortedCriteria.length ? [] : allCriteriaIds;
+    onCriteriaSelect(selectedIds);
   };
 
   const isAllSelected = () => {
@@ -217,7 +221,8 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect, onAnalyze
     if (onAnalyzeSelected && selectedCriteria.size > 0) {
       const selectedIds = sortedCriteria
         .filter(c => selectedCriteria.has(c.id))
-        .map(c => c.id);  // ✅ ENVIANDO OS IDs CORRETAMENTE!
+        .map(c => c.id)
+        .map(id => `criteria_${id}`);  // ✅ Convertendo para formato esperado pelo backend!
       onAnalyzeSelected(selectedIds);
     }
   };

@@ -3,7 +3,7 @@ import { useAuthStore } from '@/stores/authStore';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 interface Criterion {
-  id: string;
+  id: number;
   text: string;
   active: boolean;
   order: number;
@@ -63,9 +63,9 @@ export const criteriaService = {
       console.log('🔍 SERVICE DEBUG: No stored criteria found, using default criteria');
       // Return default criteria as fallback
       const defaultCriteria = [
-        {"id": "criteria_64", "text": "Violação de Camadas: Identificar se a lógica de negócio está incorretamente localizada em camadas de interface (como controladores de API), em vez de residir em camadas de serviço ou domínio dedicadas.", "active": true, "order": 6},
-        {"id": "criteria_66", "text": "Princípios SOLID: Analisar violações do Princípio da Responsabilidade Única (SRP), como controllers com múltiplos endpoints, e do Princípio da Inversão de Dependência (DI), como a instanciação manual de dependências em vez de usar a injeção padrão do NestJS.", "active": true, "order": 7},
-        {"id": "criteria_67", "text": "Acoplamento a Frameworks: Detectar o uso de funcionalidades que acoplam o código a implementações específicas do framework (ex: uso de @Res() do Express no NestJS), o que dificulta a manutenção e a aplicação de interceptors e pipes globais.", "active": true, "order": 8}
+        {"id": 64, "text": "Violação de Camadas: Identificar se a lógica de negócio está incorretamente localizada em camadas de interface (como controladores de API), em vez de residir em camadas de serviço ou domínio dedicadas.", "active": true, "order": 6},
+        {"id": 66, "text": "Princípios SOLID: Analisar violações do Princípio da Responsabilidade Única (SRP), como controllers com múltiplos endpoints, e do Princípio da Inversão de Dependência (DI), como a instanciação manual de dependências em vez de usar a injeção padrão do NestJS.", "active": true, "order": 7},
+        {"id": 67, "text": "Acoplamento a Frameworks: Detectar o uso de funcionalidades que acoplam o código a implementações específicas do framework (ex: uso de @Res() do Express no NestJS), o que dificulta a manutenção e a aplicação de interceptors e pipes globais.", "active": true, "order": 8}
       ];
       localStorage.setItem('criteria-storage', JSON.stringify(defaultCriteria));
       console.log('🔍 SERVICE DEBUG: Saved default criteria to localStorage');
@@ -107,11 +107,11 @@ export const criteriaService = {
       const currentCriteria = storedCriteria ? JSON.parse(storedCriteria) : [];
 
       // Find the highest order number and add 1
-      const maxOrder = currentCriteria.length > 0 ? Math.max(...currentCriteria.map(c => c.order || 0)) : 0;
+      const maxOrder = currentCriteria.length > 0 ? Math.max(...currentCriteria.map((c: any) => c.order || 0)) : 0;
       const newOrder = maxOrder + 1;
 
       const newCriterion = {
-        id: `criteria_${Date.now()}`,
+        id: Date.now(), // Usar timestamp como ID numérico
         text,
         active: true,
         order: newOrder
@@ -144,11 +144,11 @@ export const criteriaService = {
       const currentCriteria = storedCriteria ? JSON.parse(storedCriteria) : [];
 
       // Find the highest order number and add 1
-      const maxOrder = currentCriteria.length > 0 ? Math.max(...currentCriteria.map(c => c.order || 0)) : 0;
+      const maxOrder = currentCriteria.length > 0 ? Math.max(...currentCriteria.map((c: any) => c.order || 0)) : 0;
       const newOrder = maxOrder + 1;
 
       const newCriterion = {
-        id: `criteria_${Date.now()}`,
+        id: Date.now(), // Usar timestamp como ID numérico
         text,
         active: true,
         order: newOrder
@@ -165,7 +165,7 @@ export const criteriaService = {
     return response.json();
   },
 
-  async updateCriterion(id: string, text: string): Promise<Criterion> {
+  async updateCriterion(id: number, text: string): Promise<Criterion> {
     const { token, isAuthenticated } = useAuthStore.getState();
     console.log('🔍 SERVICE DEBUG: updateCriterion called with id:', id, 'text:', text);
     console.log('🔍 SERVICE DEBUG: Token value:', token);
@@ -194,7 +194,7 @@ export const criteriaService = {
       console.log('🔍 SERVICE DEBUG: Current criteria length:', currentCriteria.length);
 
       // Find and update the criterion
-      const updatedCriteria = currentCriteria.map(criterion => {
+      const updatedCriteria = currentCriteria.map((criterion: any) => {
         console.log(`🔍 SERVICE DEBUG: Checking criterion ${criterion.id} against ${id}`);
         return criterion.id === id ? { ...criterion, text } : criterion;
       });
@@ -231,7 +231,7 @@ export const criteriaService = {
     return response.json();
   },
 
-  async deleteCriterion(id: string): Promise<void> {
+  async deleteCriterion(id: number): Promise<void> {
     const { token } = useAuthStore.getState();
 
     if (!token) {
@@ -240,7 +240,7 @@ export const criteriaService = {
       const currentCriteria = storedCriteria ? JSON.parse(storedCriteria) : [];
 
       // Remove the criterion
-      const updatedCriteria = currentCriteria.filter(criterion => criterion.id !== id);
+      const updatedCriteria = currentCriteria.filter((criterion: any) => criterion.id !== id);
 
       // Save updated criteria to localStorage
       localStorage.setItem('criteria-storage', JSON.stringify(updatedCriteria));
@@ -296,7 +296,7 @@ export const criteriaService = {
     }
   },
 
-  async toggleCriterion(id: string, active: boolean): Promise<Criterion> {
+  async toggleCriterion(id: number, active: boolean): Promise<Criterion> {
     const { token, isAuthenticated } = useAuthStore.getState();
 
     if (!token || !isAuthenticated) {
@@ -305,7 +305,7 @@ export const criteriaService = {
       const currentCriteria = storedCriteria ? JSON.parse(storedCriteria) : [];
 
       // Find and update the criterion's active status
-      const updatedCriteria = currentCriteria.map(criterion =>
+      const updatedCriteria = currentCriteria.map((criterion: any) =>
         criterion.id === id ? { ...criterion, active } : criterion
       );
 
@@ -313,7 +313,7 @@ export const criteriaService = {
       localStorage.setItem('criteria-storage', JSON.stringify(updatedCriteria));
 
       console.log('Toggled criterion active status in localStorage');
-      return currentCriteria.find(criterion => criterion.id === id)!;
+      return currentCriteria.find((criterion: any) => criterion.id === id)!;
     }
 
     // If authenticated, use the API
@@ -332,7 +332,7 @@ export const criteriaService = {
       // Fallback to mock if API fails
       const storedCriteria = localStorage.getItem('criteria-storage');
       const currentCriteria = storedCriteria ? JSON.parse(storedCriteria) : [];
-      return currentCriteria.find(criterion => criterion.id === id) || { id, active, text: '' };
+      return currentCriteria.find((criterion: any) => criterion.id === id) || { id, active, text: '' };
     }
 
     return response.json();

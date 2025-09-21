@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Upload, Settings, FileText, AlertCircle } from 'lucide-react';
+import { Download, Upload, Settings, FileText, AlertCircle, Trash2 } from 'lucide-react';
 import CriteriaList from '@/components/features/Analysis/CriteriaList';
 import ProgressTracker from '@/components/features/Analysis/ProgressTracker';
 import ResultsTable from '@/components/features/Analysis/ResultsTable';
@@ -24,6 +24,7 @@ interface CriteriaResult {
   recommendations: string[];
   resultId?: number; // ID do resultado pai no banco de dados
   criterionKey?: string; // Chave do critério original
+  criteriaId?: number; // ID numérico único do critério do banco de dados
 }
 
 const GeneralAnalysisPage: React.FC = () => {
@@ -40,11 +41,32 @@ const GeneralAnalysisPage: React.FC = () => {
   // Carregar resultados salvos do banco de dados na inicialização
   useEffect(() => {
     const loadSavedResults = async () => {
+      // Não carregar resultados se já houver resultados na tela
+      if (results.length > 0) {
+        console.log('Já existem resultados na tela, pulando carregamento do banco de dados');
+        return;
+      }
+
       try {
         console.log('Carregando resultados salvos do banco de dados...');
         const savedResults = await analysisService.getAnalysisResults();
 
         if (savedResults.success && savedResults.results && savedResults.results.length > 0) {
+          // Carregar todos os critérios para obter o mapeamento de ID numérico
+          const allCriteria = await criteriaService.getCriteria();
+
+          // Criar mapeamento de texto do critério para ID numérico
+          const criteriaTextToIdMap = new Map<string, number>();
+          console.log('🔍 Carregando critérios para mapeamento:', allCriteria.length);
+          allCriteria.forEach(criterion => {
+            criteriaTextToIdMap.set(criterion.text, criterion.id);
+            // Também mapear versões curtas do texto
+            const shortText = criterion.text.split(':')[0].trim();
+            if (shortText !== criterion.text) {
+              criteriaTextToIdMap.set(shortText, criterion.id);
+            }
+          });
+
           // Converter resultados salvos para o formato esperado pelo componente
           const formattedResults: CriteriaResult[] = savedResults.results.map((result: any) => {
             // Converter criteria_results do formato salvo para o formato esperado
@@ -70,8 +92,17 @@ const GeneralAnalysisPage: React.FC = () => {
                     status = 'partially_compliant';
                   }
 
+                  // Tentar encontrar o ID numérico do critério
+                  const criterionName = criterionData.name || `Critério ${key}`;
+                  const criteriaId = criteriaTextToIdMap.get(criterionName) ||
+                                   criteriaTextToIdMap.get(criterionName.split(':')[0].trim());
+
+                  if (!criteriaId) {
+                    console.log(`⚠️ Critério não encontrado no mapa: "${criterionName}"`);
+                  }
+
                   criteriaResultsList.push({
-                    id: result.id * 1000 + parseInt(key.replace(/\D/g, '')) || result.id * 1000, // Gerar ID único baseado no result.id + chave numérica
+                    id: criteriaId || (result.id * 1000 + parseInt(key.replace(/\D/g, ''))), // Usar criteriaId como ID principal
                     criterion: criterionData.name || `Critério ${key}`,
                     assessment: criterionData.content,
                     status: status,
@@ -79,7 +110,8 @@ const GeneralAnalysisPage: React.FC = () => {
                     evidence: [],
                     recommendations: [],
                     resultId: result.id, // Adicionar referência ao ID do resultado pai no banco
-                    criterionKey: key // Adicionar a chave do critério original
+                    criterionKey: key, // Adicionar a chave do critério original
+                    criteriaId: criteriaId // Adicionar o ID numérico único do critério
                   });
                 }
               });
@@ -131,7 +163,7 @@ const GeneralAnalysisPage: React.FC = () => {
 
     // Simulate progress
     const progressInterval = setInterval(() => {
-      setCurrentAnalysis(prev => {
+      setCurrentAnalysis((prev: any) => {
         if (prev && prev.progress < 100) {
           const newProgress = Math.min(prev.progress + 10, 100);
           return { ...prev, progress: newProgress };
@@ -186,8 +218,8 @@ const GeneralAnalysisPage: React.FC = () => {
     }, 5000);
   };
 
-  const handleEditResult = (criterion: string, result: CriteriaResult) => {
-    setEditingResult(result);
+  const handleEditResult = (criterion: string, result: Partial<CriteriaResult>) => {
+    setEditingResult(result as CriteriaResult);
   };
 
   const handleSaveResult = (updatedResult: CriteriaResult) => {
@@ -205,6 +237,16 @@ const GeneralAnalysisPage: React.FC = () => {
     setLoading(false);
   };
 
+  const handleClearResults = () => {
+    if (results.length === 0) return;
+
+    const confirmClear = confirm('Tem certeza que deseja limpar todos os resultados? Esta ação não pode ser desfeita.');
+    if (confirmClear) {
+      setResults([]);
+      console.log('Resultados limpos pelo usuário');
+    }
+  };
+
   const handleReanalyze = (criterion: string) => {
     alert(`Re-analisando critério: ${criterion}`);
     // Implementar lógica de re-análise para o critério específico
@@ -214,7 +256,7 @@ const GeneralAnalysisPage: React.FC = () => {
     if (selectedIds.length === 0) return;
 
     // Mapear os IDs de seleção para os resultados correspondentes
-    const selectedResults = results.filter(result => selectedIds.includes(result.id || -1));
+    const selectedResults = results.filter(result => result.id !== undefined && selectedIds.includes(result.id));
 
     // Separar resultados que estão no banco (têm resultId) dos que são novos (só na tela)
     const databaseResults = selectedResults.filter(result => result.resultId);
@@ -253,7 +295,7 @@ const GeneralAnalysisPage: React.FC = () => {
       }
 
       // Remover todos os resultados selecionados da lista local
-      setResults(prev => prev.filter(result => !selectedIds.includes(result.id || -1)));
+      setResults(prev => prev.filter(result => result.id === undefined || !selectedIds.includes(result.id)));
 
       let successMessage = '';
       if (uniqueDatabaseResultIds.length > 0) {
@@ -320,6 +362,14 @@ const GeneralAnalysisPage: React.FC = () => {
       clearInterval(progressInterval);
       setProgress(100);
 
+      // Criar mapeamento direto dos critérios selecionados para seus IDs numéricos
+      const selectedCriteriaMap = new Map<string, number>();
+      selectedCriteriaIds.forEach(criteriaId => {
+        // Converter "criteria_64" para o ID numérico 64
+        const numericId = parseInt(criteriaId.replace('criteria_', ''));
+        selectedCriteriaMap.set(criteriaId, numericId);
+      });
+
       // Extract confidence from LLM response content
       const newResults: CriteriaResult[] = Object.entries(response.criteria_results).map(([key, result]) => {
         const content = result.content;
@@ -349,8 +399,18 @@ const GeneralAnalysisPage: React.FC = () => {
           status = 'partially_compliant';
         }
 
+        // Mapear a chave do resultado de volta para o critério original selecionado
+        // A chave key aqui corresponde à posição no array de critérios selecionados
+        const keyIndex = parseInt(key.replace('criteria_', '')) - 1;
+        const originalCriteriaId = selectedCriteriaIds[keyIndex] || selectedCriteriaIds[0];
+        const criteriaId = selectedCriteriaMap.get(originalCriteriaId);
+
+        console.log(`🔍 MAPEAMENTO: key=${key}, keyIndex=${keyIndex}, originalCriteriaId=${originalCriteriaId}, criteriaId=${criteriaId}`);
+        console.log(`🔍 TODOS OS SELECTED:`, selectedCriteriaIds);
+        console.log(`🔍 MAPA COMPLETO:`, Array.from(selectedCriteriaMap.entries()));
+
         return {
-          id: Date.now() + parseInt(key.replace(/\D/g, '')) || Date.now(), // Gerar ID único baseado no timestamp + chave numérica
+          id: criteriaId || Date.now() + parseInt(key.replace(/\D/g, '')), // Usar o ID numérico do critério se disponível
           criterion: result.name,
           assessment: content,
           status: status,
@@ -358,7 +418,8 @@ const GeneralAnalysisPage: React.FC = () => {
           evidence: [],
           recommendations: [],
           resultId: undefined, // Novos resultados não têm ID no banco ainda
-          criterionKey: key // Adicionar a chave do critério original
+          criterionKey: originalCriteriaId, // Usar o ID original do critério selecionado
+          criteriaId: criteriaId // Adicionar o ID numérico único do critério
         };
       });
 
@@ -366,8 +427,122 @@ const GeneralAnalysisPage: React.FC = () => {
       setShowProgress(false);
       setProgress(0);
 
-      // Replace results with only the analyzed criteria (not all criteria)
-      setResults(newResults);
+      // Update results: replace only the criteria that were analyzed, keep existing ones
+      setResults(prevResults => {
+        console.log(`📊 Processando ${prevResults.length} resultados existentes e ${newResults.length} novos resultados`);
+
+        // Log detalhado para depuração
+        console.log('🔍 EXISTENTES DETALHADOS:');
+        prevResults.forEach((r, i) => console.log(`  ${i}: criteriaId=${r.criteriaId}, criterion="${r.criterion.substring(0, 40)}..."`));
+
+        console.log('🔍 NOVOS DETALHADOS:');
+        newResults.forEach((r, i) => console.log(`  ${i}: criteriaId=${r.criteriaId}, criterion="${r.criterion.substring(0, 40)}..."`));
+
+        // Merge results: keep existing results for non-analyzed criteria, update analyzed ones
+        const mergedResults = prevResults.map(existingResult => {
+          // Check if this criterion was analyzed in the current run using numeric ID
+          const analyzedResult = newResults.find(newResult =>
+            newResult.criteriaId && existingResult.criteriaId &&
+            newResult.criteriaId === existingResult.criteriaId
+          );
+
+          if (analyzedResult) {
+            console.log(`🔄 ENCONTROU MATCH por ID - Atualizando resultado existente para critério ID ${existingResult.criteriaId}`);
+            console.log(`   Existente: "${existingResult.criterion.substring(0, 30)}..."`);
+            console.log(`   Novo:      "${analyzedResult.criterion.substring(0, 30)}..."`);
+            // Update with new analysis result
+            return {
+              ...existingResult,
+              assessment: analyzedResult.assessment,
+              status: analyzedResult.status,
+              confidence: analyzedResult.confidence,
+              evidence: analyzedResult.evidence,
+              recommendations: analyzedResult.recommendations,
+              criterionKey: analyzedResult.criterionKey // Update the key as well
+            };
+          }
+
+          // Se não encontrou por ID, tentar correspondência por texto do critério (fallback)
+          if (!existingResult.criteriaId) {
+            const textMatch = newResults.find(newResult => {
+              const existingText = existingResult.criterion.toLowerCase().trim();
+              const newText = newResult.criterion.toLowerCase().trim();
+
+              // Tentar correspondência exata primeiro
+              if (existingText === newText) return true;
+
+              // Tentar correspondência por substring (se um contém o outro)
+              if (existingText.includes(newText) || newText.includes(existingText)) return true;
+
+              // Tentar correspondência por palavras-chave (remover sufixos como ":", "Princípios", etc.)
+              const existingKey = existingText.split(':')[0].replace(/princípios?/i, '').trim();
+              const newKey = newText.split(':')[0].replace(/princípios?/i, '').trim();
+
+              return existingKey === newKey || existingKey.includes(newKey) || newKey.includes(existingKey);
+            });
+
+            if (textMatch) {
+              console.log(`🔄 ENCONTROU MATCH por texto - Atualizando resultado sem ID`);
+              console.log(`   Existente: "${existingResult.criterion.substring(0, 30)}..."`);
+              console.log(`   Novo:      "${textMatch.criterion.substring(0, 30)}..."`);
+              return {
+                ...existingResult,
+                assessment: textMatch.assessment,
+                status: textMatch.status,
+                confidence: textMatch.confidence,
+                evidence: textMatch.evidence,
+                recommendations: textMatch.recommendations,
+                criterionKey: textMatch.criterionKey
+              };
+            }
+          }
+
+          // Keep existing result if not analyzed in this run
+          return existingResult;
+        });
+
+        // Add any new criteria that weren't in the previous results
+        // Usar correspondência mais inteligente para evitar duplicações
+        const newCriteriaResults = newResults.filter(newResult => {
+          // Se tem criteriaId, verificar se já existe nos resultados mesclados
+          if (newResult.criteriaId) {
+            const alreadyExists = mergedResults.some(existing =>
+              existing.criteriaId && existing.criteriaId === newResult.criteriaId
+            );
+            if (alreadyExists) {
+              console.log(`🚫 Ignorando novo resultado com criteriaId ${newResult.criteriaId} - já existe nos mesclados`);
+              return false;
+            }
+          }
+
+          // Verificação adicional por texto para resultados sem criteriaId
+          const alreadyExistsByText = mergedResults.some(existing => {
+            if (existing.criteriaId === newResult.criteriaId) return true;
+
+            // Comparação flexível de texto
+            const existingText = existing.criterion.toLowerCase().trim();
+            const newText = newResult.criterion.toLowerCase().trim();
+
+            return existingText === newText ||
+                   existingText.includes(newText) ||
+                   newText.includes(existingText);
+          });
+
+          if (alreadyExistsByText) {
+            console.log(`🚫 Ignorando novo resultado por correspondência de texto - "${newResult.criterion.substring(0, 30)}..."`);
+            return false;
+          }
+
+          return true; // Pode adicionar este resultado
+        });
+
+        const existingCriteriaIds = new Set(prevResults.map(r => r.criteriaId).filter(Boolean));
+        console.log(`🔍 CRITÉRIOS EXISTENTES: ${Array.from(existingCriteriaIds)}`);
+        console.log(`🔍 NOVOS CRITÉRIOS SEM MATCH: ${newCriteriaResults.map(r => ({id: r.criteriaId, name: r.criterion.substring(0, 30)}))}`);
+        console.log(`✅ Análise concluída: ${mergedResults.length} atualizados, ${newCriteriaResults.length} novos critérios`);
+
+        return [...mergedResults, ...newCriteriaResults];
+      });
 
       // Show success message
       setTimeout(() => {
@@ -537,19 +712,44 @@ const GeneralAnalysisPage: React.FC = () => {
           <CriteriaList
             onCriteriaSelect={(selected) => console.log('Selected criteria:', selected)}
             onAnalyzeCriterion={handleAnalyzeCriterion}
-            onAnalyzeSelected={handleAnalyzeSelected}
+            onAnalyzeSelected={(selected) => handleAnalyzeSelected(selected)}
             onCriteriaChange={refreshResults}
           />
         )}
 
         {activeTab === 'results' && (
-          <ResultsTable
-            results={results}
-            onEditResult={handleEditResult}
-            onDownloadReport={handleDownloadReport}
-            onReanalyze={handleReanalyze}
-            onDeleteResults={handleDeleteResults}
-          />
+          <div>
+            {results.length > 0 && (
+              <div className="br-card mb-3">
+                <div className="card-content">
+                  <div className="d-flex justify-content-between align-items-center">
+                    <div>
+                      <span className="text-regular">
+                        Mostrando {results.length} resultado(s) de análise
+                      </span>
+                    </div>
+                    <div className="d-flex gap-2">
+                      <button
+                        onClick={handleClearResults}
+                        className="br-button secondary"
+                        title="Limpar todos os resultados"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Limpar Resultados
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            <ResultsTable
+              results={results}
+              onEditResult={handleEditResult}
+              onDownloadReport={handleDownloadReport}
+              onReanalyze={handleReanalyze}
+              onDeleteResults={handleDeleteResults}
+            />
+          </div>
         )}
 
         {/* Analysis Progress - shown in both tabs */}

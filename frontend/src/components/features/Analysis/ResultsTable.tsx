@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CheckCircle,
   AlertTriangle,
@@ -15,6 +15,7 @@ import {
   Trash2
 } from 'lucide-react';
 import CodeBlock from '@/components/common/CodeBlock';
+import { criteriaService } from '@/services/criteriaService';
 
 interface CodeEvidence {
   code: string;
@@ -56,12 +57,55 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
   const [editingAssessment, setEditingAssessment] = useState<{[key: string]: string}>({});
   const [selectedResults, setSelectedResults] = useState<Set<number>>(new Set());
   const [showDeleteButton, setShowDeleteButton] = useState(false);
+  const [fullCriteriaText, setFullCriteriaText] = useState<{[key: string]: string}>({});
+  const [allCriteria, setAllCriteria] = useState<any[]>([]);
 
   // Debug log
   console.log('🔍 ResultsTable renderizado com:', results.length, 'resultados');
   console.log('🔍 IDs dos resultados:', results.map(r => ({ id: r.id, criterion: r.criterion.substring(0, 50) + '...' })));
   console.log('🔍 Resultados com IDs válidos:', results.filter(r => r.id !== undefined && !isNaN(r.id)).length, 'de', results.length);
   console.log('🔍 Resultados com IDs inválidos:', results.filter(r => r.id === undefined || isNaN(r.id)).length, 'de', results.length);
+
+  // Carregar todos os critérios para obter o texto completo
+  useEffect(() => {
+    const loadAllCriteria = async () => {
+      try {
+        const criteria = await criteriaService.getCriteria();
+        setAllCriteria(criteria);
+
+        // Criar mapeamento de nome do critério para texto completo
+        const textMapping: {[key: string]: string} = {};
+        criteria.forEach(criterion => {
+          // Extrair o nome curto do critério (parte antes dos dois pontos, se existir)
+          const shortName = criterion.text.split(':')[0];
+          textMapping[shortName] = criterion.text;
+          textMapping[criterion.text] = criterion.text; // Também mapear o texto completo
+        });
+
+        setFullCriteriaText(textMapping);
+        console.log('🔍 Critérios carregados:', criteria.length, 'mapeamento criado');
+      } catch (error) {
+        console.error('Erro ao carregar critérios:', error);
+      }
+    };
+
+    loadAllCriteria();
+  }, []);
+
+  // Função para obter o texto completo do critério
+  const getFullCriterionText = (criterionName: string) => {
+    // Tentar encontrar correspondência exata primeiro
+    if (fullCriteriaText[criterionName]) {
+      return fullCriteriaText[criterionName];
+    }
+
+    // Tentar encontrar por substring
+    const matchingCriterion = allCriteria.find(criterion =>
+      criterion.text.includes(criterionName) || criterionName.includes(criterion.text.split(':')[0])
+    );
+
+    return matchingCriterion ? matchingCriterion.text : criterionName;
+  };
 
   // Sort results by order number and assign temporary IDs if needed
   const sortedResults = [...results].sort((a, b) => (a.order || 0) - (b.order || 0))
@@ -366,7 +410,7 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
                   }}>
                     <div>
                       <div className="text-regular fw-medium">
-                        {result.criterion}
+                        {getFullCriterionText(result.criterion)}
                       </div>
                       <div className="text-small text-muted mt-1">
                         Confiança: {Math.round(result.confidence * 100)}%
