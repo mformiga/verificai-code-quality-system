@@ -15,6 +15,8 @@ from app.models.prompt import Prompt, PromptCategory
 from app.models.prompt import GeneralCriteria
 from app.schemas.analysis import AnalysisCreate, AnalysisResponse
 from app.api.v1.analysis import process_analysis
+from app.services.prompt_service import get_prompt_service
+from app.services.llm_service import llm_service
 
 router = APIRouter()
 
@@ -26,6 +28,15 @@ class GeneralAnalysisRequest(BaseModel):
     file_paths: List[str]
     criteria: List[str]
     llm_provider: str = "openai"
+    temperature: float = 0.7
+    max_tokens: int = 4000
+
+
+class AnalyzeSelectedRequest(BaseModel):
+    """Request model for analyzing selected criteria"""
+    criteria_ids: List[str]
+    file_paths: List[str]
+    analysis_name: Optional[str] = "Análise de Critérios Gerais"
     temperature: float = 0.7
     max_tokens: int = 4000
 
@@ -509,6 +520,157 @@ async def get_general_analysis_result(
         processing_time=float(analysis.result.processing_time or 0),
         status=analysis.status
     )
+
+
+@router.post("/analyze-selected")
+async def analyze_selected_criteria(
+    request: AnalyzeSelectedRequest,
+    db: Session = Depends(get_db)
+    # current_user: User = Depends(get_current_user),  # Temporarily disabled for testing
+) -> Any:
+    """Analyze selected criteria using LLM with dynamic prompt insertion"""
+    try:
+        print(f"DEBUG: Starting analysis for criteria: {request.criteria_ids}")
+        print(f"DEBUG: File paths: {request.file_paths}")
+
+        # Get prompt service
+        prompt_service = get_prompt_service(db)
+
+        # Step 1: Read the general prompt from database
+        general_prompt = prompt_service.get_general_prompt(1)  # Using fixed user_id for testing
+        print(f"DEBUG: Retrieved general prompt length: {len(general_prompt)}")
+
+        # Step 2: Get selected criteria from database
+        selected_criteria = prompt_service.get_selected_criteria(request.criteria_ids)
+        print(f"DEBUG: Found {len(selected_criteria)} criteria")
+
+        if not selected_criteria:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No valid criteria found"
+            )
+
+        # Step 3: Insert criteria into prompt (in memory only)
+        modified_prompt = prompt_service.insert_criteria_into_prompt(general_prompt, selected_criteria)
+        print(f"DEBUG: Modified prompt length: {len(modified_prompt)}")
+
+        # Step 4: Prepare file content for analysis
+        file_content = ""
+        for file_path in request.file_paths:
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    file_content += f"\n\n=== Arquivo: {file_path} ===\n{content}\n"
+            except Exception as e:
+                print(f"Warning: Could not read file {file_path}: {e}")
+                continue
+
+        if not file_content:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No readable files found"
+            )
+
+        # Step 5: Create final prompt with file content
+        final_prompt = f"{modified_prompt}\n\n=== CÓDIGO PARA ANÁLISE ===\n{file_content}"
+        print(f"DEBUG: Final prompt length: {len(final_prompt)}")
+
+        # Log do prompt completo para debug
+        print("\n" + "="*80)
+        print("PROMPT FINAL ENVIADO PARA A LLM:")
+        print("="*80)
+        print(final_prompt)
+        print("="*80)
+        print("FIM DO PROMPT")
+        print("="*80 + "\n")
+
+        print(f"=== SENDING TO LLM SERVICE ===")
+        print(f"DEBUG: About to send prompt of length {len(final_prompt)}")
+        print(f"DEBUG: Temperature: {request.temperature}, Max tokens: {request.max_tokens}")
+
+        llm_response = await llm_service.send_prompt(
+            final_prompt,
+            temperature=request.temperature,
+            max_tokens=request.max_tokens
+        )
+
+        print("XXXXXXXXXX DEBUG: LLM response received XXXXXXXXXX")
+        print(f"DEBUG: LLM response type: {type(llm_response)}")
+        print(f"DEBUG: LLM response keys: {llm_response.keys() if isinstance(llm_response, dict) else 'Not a dict'}")
+        print(f"DEBUG: Full LLM response: {llm_response}")
+
+        llm_response_content = llm_response.get('response', '')
+        print("YYYYYYYYYY DEBUG: Checking response content YYYYYYYYYY")
+        print(f"DEBUG: LLM response['response'] type: {type(llm_response_content)}")
+        print(f"DEBUG: LLM response['response'] length: {len(llm_response_content)}")
+        print(f"DEBUG: LLM response['response'] preview: {llm_response_content[:200]}")
+        print(f"DEBUG: Is response empty? {not llm_response_content}")
+        print("ZZZZZZZZZ END LLM SERVICE DEBUG ZZZZZZZZZ")
+
+        # Check if response is empty
+        if not llm_response_content:
+            print("ERROR: LLM response is empty!")
+            extracted_content = {"criteria_results": {}, "raw_response": ""}
+        else:
+            # Step 7: Extract content from LLM response
+            print(f"=== RAW LLM RESPONSE FOR DEBUG ===")
+            print(f"Content type: {type(llm_response_content)}")
+            print(f"Content length: {len(llm_response_content)}")
+            print(f"Content preview: {llm_response_content[:500]}")
+            print(f"=== END RAW LLM RESPONSE ===")
+
+            # DEBUG: Test if response contains expected patterns
+            print(f"=== DEBUG RESPONSE PATTERNS ===")
+            print(f"Contains 'Critério': {'Critério' in llm_response_content}")
+            print(f"Contains '##': {'##' in llm_response_content}")
+            print(f"Contains 'Status:': {'Status:' in llm_response_content}")
+            print(f"Contains 'Confiança': {'Confiança' in llm_response_content}")
+            print(f"=== END DEBUG PATTERNS ===")
+
+            print(f"DEBUG: About to call extract_markdown_content with response of length {len(llm_response_content)}")
+            extracted_content = llm_service.extract_markdown_content(llm_response_content)
+            print(f"DEBUG: extract_markdown_content returned: {type(extracted_content)}")
+            print(f"DEBUG: extracted_content keys: {extracted_content.keys() if isinstance(extracted_content, dict) else 'Not a dict'}")
+            print(f"DEBUG: criteria_results in extracted_content: {extracted_content.get('criteria_results', {}) if isinstance(extracted_content, dict) else 'N/A'}")
+
+            # DEBUG: Show criteria_results details
+            if isinstance(extracted_content, dict) and 'criteria_results' in extracted_content:
+                criteria_results = extracted_content['criteria_results']
+                print(f"DEBUG: criteria_results type: {type(criteria_results)}")
+                print(f"DEBUG: criteria_results content: {criteria_results}")
+                print(f"DEBUG: criteria_results empty: {not criteria_results}")
+                if isinstance(criteria_results, dict):
+                    print(f"DEBUG: criteria_results keys: {list(criteria_results.keys())}")
+                    for key, value in criteria_results.items():
+                        print(f"DEBUG: {key}: {type(value)} - {str(value)[:100] if value else 'None'}")
+
+        # Step 8: Create analysis result structure
+        result_data = {
+            "success": True,
+            "analysis_name": request.analysis_name,
+            "criteria_count": len(selected_criteria),
+            "timestamp": llm_response["timestamp"],
+            "model_used": llm_response["model"],
+            "usage": llm_response["usage"],
+            "criteria_results": extracted_content.get("criteria_results", {}),
+            "raw_response": extracted_content.get("raw_response", ""),
+            "debug_raw_llm_response": llm_response_content,  # For debugging
+            "modified_prompt": modified_prompt,
+            "file_paths": request.file_paths
+        }
+
+        return result_data
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"ERROR in analyze_selected_criteria: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error analyzing selected criteria: {str(e)}"
+        )
 
 
 @router.put("/results/{analysis_id}/manual", response_model=GeneralAnalysisResult)

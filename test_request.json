@@ -1,0 +1,7 @@
+{
+  "criteria_ids": ["criteria_64"],
+  "file_paths": ["C:/Users/formi/teste_gemini/dev/verificAI-code/example_code.js"],
+  "analysis_name": "Teste Prompt Atualizado",
+  "temperature": 0.7,
+  "max_tokens": 4000
+}
