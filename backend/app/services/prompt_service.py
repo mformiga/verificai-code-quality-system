@@ -13,14 +13,21 @@ class PromptService:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_general_prompt(self, user_id: int) -> str:
+    def get_general_prompt(self, prompt_id: int = None) -> str:
         """Get the general prompt configuration from database"""
         try:
-            # Get the most recent general prompt configuration
-            prompt_config = self.db.query(PromptConfiguration).filter(
-                PromptConfiguration.prompt_type == "general",
-                PromptConfiguration.is_active == True
-            ).order_by(PromptConfiguration.updated_at.desc()).first()
+            if prompt_id:
+                # Get specific prompt by ID
+                prompt_config = self.db.query(PromptConfiguration).filter(
+                    PromptConfiguration.id == prompt_id,
+                    PromptConfiguration.is_active == True
+                ).first()
+            else:
+                # Get the most recent general prompt configuration
+                prompt_config = self.db.query(PromptConfiguration).filter(
+                    PromptConfiguration.prompt_type == "general",
+                    PromptConfiguration.is_active == True
+                ).order_by(PromptConfiguration.updated_at.desc()).first()
 
             if prompt_config:
                 return prompt_config.content
@@ -83,7 +90,14 @@ class PromptService:
     def _get_default_general_prompt(self) -> str:
         """Get default general prompt"""
         return """
-Você é um especialista em análise de código. Analise o código fornecido com base nos seguintes critérios:
+Você é um especialista em análise de código.
+
+### CÓDIGO FONTE PARA ANÁLISE:
+```typescript
+[INSERIR CÓDIGO AQUI]
+```
+
+Analise o código acima com base nos seguintes critérios:
 
 #
 

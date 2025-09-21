@@ -161,7 +161,7 @@ class LLMService:
         criteria_results = {}
 
         # Look for criteria sections
-        criteria_pattern = r'##\s*Critério\s*(\d+(?:\.\d+)*)\s*[:\-]?\s*(.+?)\n(.*?)(?=\n##\s*Critério\s*\d+|\n##\s*Resultado\s*Geral|$)'
+        criteria_pattern = r'##\s*Crit[ée]rio\s*(\d+(?:\.\d+)*)\s*[:\-]?\s*(.+?)\n(.*?)(?=\n##\s*Crit[ée]rio\s*\d+|\n##\s*(?:Resultado|Recomendações)\s*(?:Geral|)|$)'
         criteria_matches = re.findall(criteria_pattern, content, re.DOTALL)
 
         print(f"=== DEBUG CRITERIA EXTRACTION ===")
@@ -172,13 +172,17 @@ class LLMService:
 
         # Also try a more flexible pattern
         if not criteria_matches:
-            flexible_pattern = r'##\s*Crit[ée]rio\s*(\d+(?:\.\d+)*)\s*[:\-]?\s*(.+?)\n(.*?)(?=\n##\s*Crit[ée]rio\s*\d+|\n##\s*Resultado\s*Geral|\Z)'
+            flexible_pattern = r'##\s*Crit[ée]rio\s*(\d+(?:\.\d+)*)\s*[:\-]?\s*(.+?)\n(.*?)(?=\n##\s*Crit[ée]rio\s*\d+|\n##\s*(?:Resultado|Recomendações)\s*(?:Geral|)|\Z|$)'
             flexible_matches = re.findall(flexible_pattern, content, re.DOTALL)
             print(f"Flexible pattern matches: {flexible_matches}")
             criteria_matches = flexible_matches
 
         for i, match in enumerate(criteria_matches):
-            criteria_num, criteria_name, criteria_content = match
+            # Handle different match lengths (3, 4, or 5 groups due to regex capturing)
+            if len(match) >= 3:
+                criteria_num, criteria_name, criteria_content = match[0], match[1], match[2]
+            else:
+                continue  # Skip invalid matches
             print(f"Processing criteria {i+1}: num={criteria_num}, name={criteria_name[:50]}...")
             criteria_results[f"criteria_{criteria_num}"] = {
                 "name": criteria_name.strip(),

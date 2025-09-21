@@ -534,13 +534,16 @@ async def analyze_selected_criteria(
         print(f"DEBUG: File paths: {request.file_paths}")
 
         # Get prompt service
+        print("DEBUG: Getting prompt service...")
         prompt_service = get_prompt_service(db)
 
         # Step 1: Read the general prompt from database
-        general_prompt = prompt_service.get_general_prompt(1)  # Using fixed user_id for testing
+        print("DEBUG: Getting general prompt from database...")
+        general_prompt = prompt_service.get_general_prompt(7)  # Using the updated prompt with code structure
         print(f"DEBUG: Retrieved general prompt length: {len(general_prompt)}")
 
         # Step 2: Get selected criteria from database
+        print("DEBUG: Getting selected criteria from database...")
         selected_criteria = prompt_service.get_selected_criteria(request.criteria_ids)
         print(f"DEBUG: Found {len(selected_criteria)} criteria")
 
@@ -554,32 +557,25 @@ async def analyze_selected_criteria(
         modified_prompt = prompt_service.insert_criteria_into_prompt(general_prompt, selected_criteria)
         print(f"DEBUG: Modified prompt length: {len(modified_prompt)}")
 
-        # Step 4: Prepare file content for analysis
-        file_content = ""
-        for file_path in request.file_paths:
-            try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                    file_content += f"\n\n=== Arquivo: {file_path} ===\n{content}\n"
-            except Exception as e:
-                print(f"Warning: Could not read file {file_path}: {e}")
-                continue
+        # Step 4: Read source code file and replace placeholder
+        try:
+            with open("C:\\Users\\formi\\teste_gemini\\dev\\verificAI-code\\codigo_analise.ts", "r", encoding="utf-8") as f:
+                source_code = f.read()
+                print(f"DEBUG: Source code file read successfully: {len(source_code)} characters")
+        except Exception as e:
+            print(f"DEBUG: Error reading source code file: {e}")
+            raise HTTPException(status_code=500, detail=f"Erro ao ler arquivo de código fonte: {str(e)}")
 
-        if not file_content:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No readable files found"
-            )
-
-        # Step 5: Create final prompt with file content
-        final_prompt = f"{modified_prompt}\n\n=== CÓDIGO PARA ANÁLISE ===\n{file_content}"
+        # Replace placeholder with actual source code
+        final_prompt = modified_prompt.replace("[INSERIR CÓDIGO AQUI]", source_code)
+        print(f"DEBUG: Replaced placeholder with source code")
         print(f"DEBUG: Final prompt length: {len(final_prompt)}")
 
         # Log do prompt completo para debug
         print("\n" + "="*80)
         print("PROMPT FINAL ENVIADO PARA A LLM:")
         print("="*80)
-        print(final_prompt)
+        print(final_prompt[:1000] + "..." if len(final_prompt) > 1000 else final_prompt)
         print("="*80)
         print("FIM DO PROMPT")
         print("="*80 + "\n")
@@ -770,6 +766,70 @@ async def test_endpoint() -> Any:
     return {"message": "Test endpoint works", "status": "ok"}
 
 
+@router.get("/criteria-working")
+async def get_criteria_working(
+    db: Session = Depends(get_db)
+) -> Any:
+    """Get all criteria (working public endpoint)"""
+    try:
+        # Get all active criteria from database
+        all_criteria = db.query(GeneralCriteria).filter(
+            GeneralCriteria.is_active == True
+        ).order_by(GeneralCriteria.order, GeneralCriteria.created_at).all()
+
+        # Convert to response format
+        result = []
+        for criterion in all_criteria:
+            result.append({
+                "id": f"criteria_{criterion.id}",
+                "text": criterion.text,
+                "active": criterion.is_active
+            })
+
+        return result
+
+    except Exception as e:
+        print(f"ERROR in get_criteria_working: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving criteria: {str(e)}"
+        )
+
+
+@router.get("/criteria_public_test")
+async def get_criteria_public_test(
+    db: Session = Depends(get_db)
+) -> Any:
+    """Alternative test endpoint without hyphen"""
+    try:
+        # Get all active criteria from database
+        all_criteria = db.query(GeneralCriteria).filter(
+            GeneralCriteria.is_active == True
+        ).order_by(GeneralCriteria.order, GeneralCriteria.created_at).all()
+
+        # Convert to response format
+        result = []
+        for criterion in all_criteria:
+            result.append({
+                "id": f"criteria_{criterion.id}",
+                "text": criterion.text,
+                "active": criterion.is_active
+            })
+
+        return result
+
+    except Exception as e:
+        print(f"ERROR in get_criteria_public_test: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving criteria: {str(e)}"
+        )
+
+
 @router.get("/results-public")
 async def get_analysis_results_public(
     db: Session = Depends(get_db)
@@ -913,3 +973,92 @@ async def update_manual_result(
 
     # Return updated result
     return await get_general_analysis_result(analysis_id, current_user, db)
+
+
+
+@router.delete("/results/{result_id}")
+async def delete_analysis_result(
+    result_id: int,
+    db: Session = Depends(get_db)
+) -> Any:
+    """Delete a specific analysis result"""
+    try:
+        # Find the analysis result
+        result = db.query(GeneralAnalysisResultModel).filter(
+            GeneralAnalysisResultModel.id == result_id
+        ).first()
+
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Analysis result not found"
+            )
+
+        # Delete the result
+        db.delete(result)
+        db.commit()
+
+        return {
+            "success": True,
+            "message": f"Analysis result {result_id} deleted successfully",
+            "deleted_id": result_id
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"ERROR in delete_analysis_result: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting analysis result: {str(e)}"
+        )
+
+
+@router.delete("/results")
+async def delete_multiple_analysis_results(
+    request: dict,
+    db: Session = Depends(get_db)
+) -> Any:
+    """Delete multiple analysis results"""
+    try:
+        result_ids = request.get("result_ids", [])
+        
+        if not result_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No result IDs provided"
+            )
+
+        # Find and delete the results
+        deleted_count = 0
+        for result_id in result_ids:
+            result = db.query(GeneralAnalysisResultModel).filter(
+                GeneralAnalysisResultModel.id == result_id
+            ).first()
+            
+            if result:
+                db.delete(result)
+                deleted_count += 1
+
+        db.commit()
+
+        return {
+            "success": True,
+            "message": f"Successfully deleted {deleted_count} analysis results",
+            "deleted_count": deleted_count,
+            "requested_ids": result_ids
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"ERROR in delete_multiple_analysis_results: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting analysis results: {str(e)}"
+        )
+

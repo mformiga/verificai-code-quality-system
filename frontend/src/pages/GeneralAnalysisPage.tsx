@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Upload, Settings, FileText } from 'lucide-react';
+import { Download, Upload, Settings, FileText, AlertCircle } from 'lucide-react';
 import CriteriaList from '@/components/features/Analysis/CriteriaList';
 import ProgressTracker from '@/components/features/Analysis/ProgressTracker';
 import ResultsTable from '@/components/features/Analysis/ResultsTable';
 import ManualEditor from '@/components/features/Analysis/ManualEditor';
 import { useUploadStore } from '@/stores/uploadStore';
 import { criteriaService } from '@/services/criteriaService';
+import { analysisService, type AnalysisRequest, type AnalysisResponse } from '@/services/analysisService';
 import './GeneralAnalysisPage.css';
 
 interface CriteriaResult {
+  id?: number;
   criterion: string;
   assessment: string;
   status: 'compliant' | 'partially_compliant' | 'non_compliant';
@@ -20,6 +22,8 @@ interface CriteriaResult {
     lineNumbers?: [number, number];
   }>;
   recommendations: string[];
+  resultId?: number; // ID do resultado pai no banco de dados
+  criterionKey?: string; // Chave do critério original
 }
 
 const GeneralAnalysisPage: React.FC = () => {
@@ -29,56 +33,81 @@ const GeneralAnalysisPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [editingResult, setEditingResult] = useState<CriteriaResult | null>(null);
   const [activeTab, setActiveTab] = useState<'criteria' | 'results'>('criteria');
+  const [selectedCriteriaIds, setSelectedCriteriaIds] = useState<string[]>([]);
+  const [showProgress, setShowProgress] = useState(false);
+  const [progress, setProgress] = useState(0);
 
-  // Carregar critérios cadastrados e mostrar como resultados
+  // Carregar resultados salvos do banco de dados na inicialização
   useEffect(() => {
-    const loadCriteriaAsResults = async () => {
+    const loadSavedResults = async () => {
       try {
-        const criteria = await criteriaService.getCriteria();
+        console.log('Carregando resultados salvos do banco de dados...');
+        const savedResults = await analysisService.getAnalysisResults();
 
-        // Converter critérios para formato de resultados
-        const criteriaAsResults: CriteriaResult[] = criteria.map((criterion, index) => ({
-          criterion: criterion.text,
-          assessment: `Análise do critério "${criterion.text}" - Aguardando análise completa.`,
-          status: 'compliant' as const,
-          confidence: 0.8,
-          order: criterion.order || index + 1,
-          evidence: [],
-          recommendations: []
-        }));
+        if (savedResults.success && savedResults.results && savedResults.results.length > 0) {
+          // Converter resultados salvos para o formato esperado pelo componente
+          const formattedResults: CriteriaResult[] = savedResults.results.map((result: any) => {
+            // Converter criteria_results do formato salvo para o formato esperado
+            const criteriaResultsList: CriteriaResult[] = [];
 
-        setResults(criteriaAsResults);
+            if (result.criteria_results && typeof result.criteria_results === 'object') {
+              Object.entries(result.criteria_results).forEach(([key, criterionData]: [string, any]) => {
+                if (criterionData && criterionData.content) {
+                  // Extrair confiança do conteúdo
+                  let confidence = 0.8;
+                  const confidenceMatch = criterionData.content.match(/(confiança|confidence)[^\d]*(\d+(?:\.\d+)?)/i);
+                  if (confidenceMatch) {
+                    const confidenceValue = parseFloat(confidenceMatch[2]);
+                    confidence = confidenceValue > 1.0 ? Math.min(confidenceValue / 100, 1.0) : Math.min(confidenceValue, 1.0);
+                  }
+
+                  // Extrair status do conteúdo
+                  let status: 'compliant' | 'partially_compliant' | 'non_compliant' = 'compliant';
+                  const content = criterionData.content.toLowerCase();
+                  if (content.includes('não atende') || content.includes('não cumpre') || content.includes('viol') || content.includes('defeito')) {
+                    status = 'non_compliant';
+                  } else if (content.includes('parcialmente') || content.includes('atende parcialmente') || content.includes('precisa melhorar')) {
+                    status = 'partially_compliant';
+                  }
+
+                  criteriaResultsList.push({
+                    id: result.id * 1000 + parseInt(key.replace(/\D/g, '')) || result.id * 1000, // Gerar ID único baseado no result.id + chave numérica
+                    criterion: criterionData.name || `Critério ${key}`,
+                    assessment: criterionData.content,
+                    status: status,
+                    confidence: confidence,
+                    evidence: [],
+                    recommendations: [],
+                    resultId: result.id, // Adicionar referência ao ID do resultado pai no banco
+                    criterionKey: key // Adicionar a chave do critério original
+                  });
+                }
+              });
+            }
+
+            return criteriaResultsList;
+          }).flat();
+
+          console.log(`Carregados ${formattedResults.length} resultados salvos`);
+          console.log('Resultados formatados:', formattedResults);
+          setResults(formattedResults);
+        } else {
+          console.log('Nenhum resultado salvo encontrado');
+          setResults([]);
+        }
       } catch (error) {
-        console.error('Erro ao carregar critérios como resultados:', error);
+        console.error('Erro ao carregar resultados salvos:', error);
+        setResults([]);
       }
     };
 
-    loadCriteriaAsResults();
+    loadSavedResults();
   }, []);
 
-  // Função para recarregar resultados quando critérios são modificados
+  // Função para limpar resultados (mantida para compatibilidade, mas não faz nada)
   const refreshResults = async () => {
-    try {
-      const criteria = await criteriaService.getCriteria();
-
-      // Preservar avaliações existentes quando possível
-      const updatedResults = criteria.map((criterion, index) => {
-        const existingResult = results.find(r => r.criterion === criterion.text);
-        return {
-          criterion: criterion.text,
-          assessment: existingResult?.assessment || `Análise do critério "${criterion.text}" - Aguardando análise completa.`,
-          status: existingResult?.status || 'compliant' as const,
-          confidence: existingResult?.confidence || 0.8,
-          order: criterion.order || index + 1,
-          evidence: existingResult?.evidence || [],
-          recommendations: existingResult?.recommendations || []
-        };
-      });
-
-      setResults(updatedResults);
-    } catch (error) {
-      console.error('Erro ao recarregar resultados:', error);
-    }
+    // Não faz mais nada para manter a tela limpa até análise explícita
+    console.log('Função refreshResults desativada - mantendo tela limpa');
   };
 
   const handleStartAnalysis = async (specificCriteria?: string[]) => {
@@ -124,6 +153,7 @@ const GeneralAnalysisPage: React.FC = () => {
       clearInterval(progressInterval);
 
       const mockResults: CriteriaResult[] = mockCriteria.map((criterion, index) => ({
+        id: Date.now() + index, // Gerar ID único
         criterion,
         assessment: `Análise do critério "${criterion}" revela que o código apresenta boa aderência aos padrões estabelecidos. Foram identificados pontos fortes na implementação e algumas oportunidades de melhoria que podem ser abordadas em futuras refatorações.`,
         status: index % 3 === 0 ? 'compliant' : index % 3 === 1 ? 'partially_compliant' : 'non_compliant',
@@ -180,19 +210,182 @@ const GeneralAnalysisPage: React.FC = () => {
     // Implementar lógica de re-análise para o critério específico
   };
 
+  const handleDeleteResults = async (selectedIds: number[]) => {
+    if (selectedIds.length === 0) return;
+
+    // Mapear os IDs de seleção para os resultados correspondentes
+    const selectedResults = results.filter(result => selectedIds.includes(result.id || -1));
+
+    // Separar resultados que estão no banco (têm resultId) dos que são novos (só na tela)
+    const databaseResults = selectedResults.filter(result => result.resultId);
+    const newResults = selectedResults.filter(result => !result.resultId);
+
+    // Extrair os IDs únicos dos resultados do banco de dados
+    const uniqueDatabaseResultIds = [...new Set(databaseResults.map(result => result.resultId).filter(Boolean))];
+
+    if (uniqueDatabaseResultIds.length === 0 && newResults.length === 0) {
+      alert('Não foi possível identificar os resultados para exclusão.');
+      return;
+    }
+
+    let message = `Tem certeza que deseja excluir `;
+    if (uniqueDatabaseResultIds.length > 0) {
+      message += `${uniqueDatabaseResultIds.length} conjunto(s) de análise do banco de dados`;
+    }
+    if (newResults.length > 0) {
+      if (uniqueDatabaseResultIds.length > 0) message += ' e ';
+      message += `${newResults.length} resultado(s) novos`;
+    }
+    message += '? Esta ação não pode ser desfeita.';
+
+    const confirmDelete = confirm(message);
+
+    if (!confirmDelete) return;
+
+    try {
+      // Excluir resultados do banco de dados
+      if (uniqueDatabaseResultIds.length > 0) {
+        if (uniqueDatabaseResultIds.length === 1) {
+          await analysisService.deleteAnalysisResult(uniqueDatabaseResultIds[0]);
+        } else {
+          await analysisService.deleteMultipleAnalysisResults(uniqueDatabaseResultIds);
+        }
+      }
+
+      // Remover todos os resultados selecionados da lista local
+      setResults(prev => prev.filter(result => !selectedIds.includes(result.id || -1)));
+
+      let successMessage = '';
+      if (uniqueDatabaseResultIds.length > 0) {
+        successMessage += `${uniqueDatabaseResultIds.length} conjunto(s) de análise do banco excluído(s)`;
+      }
+      if (newResults.length > 0) {
+        if (uniqueDatabaseResultIds.length > 0) successMessage += ' e ';
+        successMessage += `${newResults.length} resultado(s) novos removido(s)`;
+      }
+      successMessage += ' com sucesso!';
+
+      alert(successMessage);
+    } catch (error) {
+      console.error('Erro ao excluir resultados:', error);
+      alert(`Erro ao excluir resultados: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    }
+  };
+
   const handleAnalyzeCriterion = (criterion: string) => {
     alert(`Analisando critério específico: ${criterion}`);
     // Implementar lógica de análise para o critério específico
   };
 
-  const handleAnalyzeSelected = (selectedCriteria: string[]) => {
-    if (uploadedFiles.length === 0) {
-      alert('Por favor, faça upload dos arquivos para análise.');
+  const handleAnalyzeSelected = async (selectedCriteriaIds: string[]) => {
+    // Removido check de uploadedFiles - não será usado por enquanto
+
+    if (selectedCriteriaIds.length === 0) {
+      alert('Por favor, selecione pelo menos um critério para análise.');
       return;
     }
 
-    alert(`Analisando ${selectedCriteria.length} critérios selecionados:\n${selectedCriteria.join('\n')}`);
-    handleStartAnalysis(selectedCriteria);
+    try {
+      setLoading(true);
+      setSelectedCriteriaIds(selectedCriteriaIds);
+
+      // Show simple progress bar at top of page
+      setShowProgress(true);
+      setProgress(0);
+      setActiveTab('results');
+
+      // Simple progress animation
+      const progressInterval = setInterval(() => {
+        setProgress(prev => {
+          if (prev < 90) {
+            return Math.min(prev + Math.random() * 15, 90);
+          }
+          return prev;
+        });
+      }, 300);
+
+      // Create analysis request com arquivo de exemplo
+      const request: AnalysisRequest = {
+        criteria_ids: selectedCriteriaIds,
+        file_paths: ['C:\\Users\\formi\\teste_gemini\\dev\\verificAI-code\\codigo_analise.ts'], // Arquivo correto para análise
+        analysis_name: 'Análise de Critérios Selecionados',
+        temperature: 0.7,
+        max_tokens: 4000
+      };
+
+      // Call the new API endpoint
+      const response: AnalysisResponse = await analysisService.analyzeSelectedCriteria(request);
+
+      // Clear progress interval
+      clearInterval(progressInterval);
+      setProgress(100);
+
+      // Extract confidence from LLM response content
+      const newResults: CriteriaResult[] = Object.entries(response.criteria_results).map(([key, result]) => {
+        const content = result.content;
+
+        // Extract confidence from content (look for confidence value)
+        let confidence = 0.8;
+        const confidenceMatch = content.match(/(confiança|confidence)[^\d]*(\d+(?:\.\d+)?)/i);
+        if (confidenceMatch) {
+          const confidenceValue = parseFloat(confidenceMatch[2]);
+          // If confidence is already in 0.0-1.0 range, use it as is
+          // If confidence is in percentage (0-100), divide by 100
+          confidence = confidenceValue > 1.0 ? Math.min(confidenceValue / 100, 1.0) : Math.min(confidenceValue, 1.0);
+        }
+
+        // Extract status from content based on keywords
+        let status: 'compliant' | 'partially_compliant' | 'non_compliant' = 'compliant';
+        if (content.toLowerCase().includes('não atende') ||
+            content.toLowerCase().includes('não cumpre') ||
+            content.toLowerCase().includes('viol') ||
+            content.toLowerCase().includes('defeito') ||
+            content.toLowerCase().includes('problema')) {
+          status = 'non_compliant';
+        } else if (content.toLowerCase().includes('parcialmente') ||
+                   content.toLowerCase().includes('atende parcialmente') ||
+                   content.toLowerCase().includes('precisa melhorar') ||
+                   content.toLowerCase().includes('recomenda')) {
+          status = 'partially_compliant';
+        }
+
+        return {
+          id: Date.now() + parseInt(key.replace(/\D/g, '')) || Date.now(), // Gerar ID único baseado no timestamp + chave numérica
+          criterion: result.name,
+          assessment: content,
+          status: status,
+          confidence: Math.max(0, Math.min(1, confidence)),
+          evidence: [],
+          recommendations: [],
+          resultId: undefined, // Novos resultados não têm ID no banco ainda
+          criterionKey: key // Adicionar a chave do critério original
+        };
+      });
+
+      // Hide progress immediately after successful completion
+      setShowProgress(false);
+      setProgress(0);
+
+      // Replace results with only the analyzed criteria (not all criteria)
+      setResults(newResults);
+
+      // Show success message
+      setTimeout(() => {
+        alert(`Análise concluída com sucesso!\n\nModelo: ${response.model_used}\nCritérios analisados: ${response.criteria_count}\nTokens usados: ${response.usage.total_tokens || 'N/A'}`);
+      }, 500);
+
+    } catch (error) {
+      console.error('Erro na análise:', error);
+      alert(`Erro ao realizar análise: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+
+      // Keep progress showing on error to indicate failure
+      setTimeout(() => {
+        setShowProgress(false);
+        setProgress(0);
+      }, 3000);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDownloadReport = () => {
@@ -231,6 +424,79 @@ const GeneralAnalysisPage: React.FC = () => {
 
   return (
     <div className="general-analysis-page">
+      {/* Enhanced Progress Bar */}
+      {showProgress && (
+        <div className="progress-overlay" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.3)',
+          zIndex: 9998,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <div className="progress-card" style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '24px',
+            minWidth: '400px',
+            maxWidth: '500px',
+            boxShadow: '0 4px 24px rgba(0, 0, 0, 0.15)',
+            zIndex: 9999
+          }}>
+            <div className="progress-header" style={{
+              textAlign: 'center',
+              marginBottom: '20px'
+            }}>
+              <h3 className="text-h3" style={{
+                margin: '0 0 8px 0',
+                color: '#1351b4'
+              }}>
+                Analisando Critérios
+              </h3>
+              <p className="text-regular text-muted" style={{
+                margin: 0,
+                fontSize: '14px'
+              }}>
+                Processando análise com inteligência artificial...
+              </p>
+            </div>
+
+            <div className="progress-bar-container" style={{
+              width: '100%',
+              height: '8px',
+              backgroundColor: '#e9ecef',
+              borderRadius: '4px',
+              overflow: 'hidden',
+              marginBottom: '16px'
+            }}>
+              <div
+                className="progress-bar-fill"
+                style={{
+                  height: '100%',
+                  backgroundColor: '#1351b4',
+                  width: `${progress}%`,
+                  transition: 'width 0.3s ease',
+                  borderRadius: '4px'
+                }}
+              />
+            </div>
+
+            <div className="progress-text" style={{
+              textAlign: 'center',
+              fontSize: '14px',
+              color: '#6c757d',
+              fontWeight: 500
+            }}>
+              {Math.round(progress)}% concluído
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="general-analysis-header">
         <div className="br-card">
@@ -282,6 +548,7 @@ const GeneralAnalysisPage: React.FC = () => {
             onEditResult={handleEditResult}
             onDownloadReport={handleDownloadReport}
             onReanalyze={handleReanalyze}
+            onDeleteResults={handleDeleteResults}
           />
         )}
 

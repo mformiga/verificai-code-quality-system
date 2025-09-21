@@ -69,7 +69,7 @@ export const analysisService = {
 
   analyzeSelectedCriteria: async (request: AnalysisRequest): Promise<AnalysisResponse> => {
     try {
-      const response = await apiClient.post('/simple-analysis/simple-analyze', request);
+      const response = await apiClient.post('/general-analysis/analyze-selected', request);
       return response.data;
     } catch (error) {
       console.error('Error analyzing selected criteria:', error);
@@ -79,13 +79,35 @@ export const analysisService = {
 
   getAnalysisResults: async () => {
     try {
-      // Use the working simple-analysis results endpoint
-      const response = await apiClient.get('/simple-analysis/simple-results');
+      // Use the general-analysis public results endpoint
+      const response = await apiClient.get('/general-analysis/results-public');
       return response.data;
     } catch (error) {
       console.error('Error fetching analysis results:', error);
       // Return empty results to avoid breaking the UI
       return { success: true, results: [], total: 0 };
+    }
+  },
+
+  deleteAnalysisResult: async (resultId: number) => {
+    try {
+      const response = await apiClient.delete(`/general-analysis/results/${resultId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting analysis result:', error);
+      throw error;
+    }
+  },
+
+  deleteMultipleAnalysisResults: async (resultIds: number[]) => {
+    try {
+      const response = await apiClient.delete('/general-analysis/results', {
+        data: { result_ids: resultIds }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting multiple analysis results:', error);
+      throw error;
     }
   },
 };

@@ -34,7 +34,18 @@
       "Read(//c/Program Files/Docker/Docker/**)",
       "Bash(npm run)",
       "Bash(rm:*)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(timeout:*)",
+      "Bash(dir:*)",
+      "Bash(PYTHONPATH=. python:*)",
+      "Bash(cmd:*)",
+      "Bash(kill:*)",
+      "Bash(findstr:*)",
+      "Read(//c/Users/formi/teste_gemini/dev/**)",
+      "Bash(copy:*)",
+      "Bash(git rm:*)",
+      "Bash(cat:*)",
+      "Bash(docker-compose:*)"
     ],
     "deny": [],
     "ask": []

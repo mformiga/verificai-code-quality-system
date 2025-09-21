@@ -8,9 +8,13 @@ import {
   ChevronUp,
   Edit3,
   Download,
-  ExternalLink
+  ExternalLink,
+  Play,
+  Save,
+  X,
+  Trash2
 } from 'lucide-react';
-import { CodeBlock } from '@/components/common/CodeBlock';
+import CodeBlock from '@/components/common/CodeBlock';
 
 interface CodeEvidence {
   code: string;
@@ -20,26 +24,52 @@ interface CodeEvidence {
 }
 
 interface CriteriaResult {
+  id?: number;
   criterion: string;
   assessment: string;
   status: 'compliant' | 'partially_compliant' | 'non_compliant';
   confidence: number;
   evidence: CodeEvidence[];
   recommendations: string[];
+  order?: number;
+  // Para resultados carregados do banco, precisamos de uma referência ao ID do resultado pai
+  resultId?: number;
+  criterionKey?: string;
 }
 
 interface ResultsTableProps {
   results: CriteriaResult[];
   onEditResult: (criterion: string, result: Partial<CriteriaResult>) => void;
   onDownloadReport: () => void;
+  onReanalyze?: (criterion: string) => void;
+  onDeleteResults?: (selectedIds: number[]) => void;
 }
 
 const ResultsTable: React.FC<ResultsTableProps> = ({
   results,
   onEditResult,
-  onDownloadReport
+  onDownloadReport,
+  onReanalyze,
+  onDeleteResults
 }) => {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [editingAssessment, setEditingAssessment] = useState<{[key: string]: string}>({});
+  const [selectedResults, setSelectedResults] = useState<Set<number>>(new Set());
+  const [showDeleteButton, setShowDeleteButton] = useState(false);
+
+  // Debug log
+  console.log('🔍 ResultsTable renderizado com:', results.length, 'resultados');
+  console.log('🔍 IDs dos resultados:', results.map(r => ({ id: r.id, criterion: r.criterion.substring(0, 50) + '...' })));
+  console.log('🔍 Resultados com IDs válidos:', results.filter(r => r.id !== undefined && !isNaN(r.id)).length, 'de', results.length);
+  console.log('🔍 Resultados com IDs inválidos:', results.filter(r => r.id === undefined || isNaN(r.id)).length, 'de', results.length);
+
+  // Sort results by order number and assign temporary IDs if needed
+  const sortedResults = [...results].sort((a, b) => (a.order || 0) - (b.order || 0))
+    .map((result, index) => ({
+      ...result,
+      id: result.id || (Date.now() + index), // Generate temporary ID if none exists
+      displayOrder: index + 1
+    }));
 
   const toggleRow = (criterion: string) => {
     const newExpanded = new Set(expandedRows);
@@ -51,16 +81,80 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
     setExpandedRows(newExpanded);
   };
 
+  const startEditAssessment = (criterion: string, currentAssessment: string) => {
+    setEditingAssessment({
+      ...editingAssessment,
+      [criterion]: currentAssessment
+    });
+  };
+
+  const saveAssessment = (criterion: string) => {
+    const newAssessment = editingAssessment[criterion];
+    if (newAssessment !== undefined) {
+      onEditResult(criterion, { assessment: newAssessment });
+      setEditingAssessment({
+        ...editingAssessment,
+        [criterion]: ''
+      });
+    }
+  };
+
+  const cancelEdit = (criterion: string) => {
+    setEditingAssessment({
+      ...editingAssessment,
+      [criterion]: ''
+    });
+  };
+
+  const handleSelectResult = (resultId: number) => {
+    console.log('🔍 handleSelectResult chamado com resultId:', resultId);
+    console.log('🔍 selectedResults antes:', Array.from(selectedResults));
+
+    const newSelected = new Set(selectedResults);
+    if (newSelected.has(resultId)) {
+      newSelected.delete(resultId);
+      console.log('🔍 Removendo resultId da seleção');
+    } else {
+      newSelected.add(resultId);
+      console.log('🔍 Adicionando resultId à seleção');
+    }
+
+    console.log('🔍 selectedResults depois:', Array.from(newSelected));
+    setSelectedResults(newSelected);
+    setShowDeleteButton(newSelected.size > 0);
+  };
+
+  const handleSelectAll = () => {
+    // Agora todos os resultados têm IDs graças à atribuição acima
+    const allIds = sortedResults.map(r => r.id) as number[];
+
+    if (selectedResults.size === allIds.length) {
+      setSelectedResults(new Set());
+      setShowDeleteButton(false);
+    } else {
+      setSelectedResults(new Set(allIds));
+      setShowDeleteButton(true);
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedResults.size > 0 && onDeleteResults) {
+      onDeleteResults(Array.from(selectedResults));
+      setSelectedResults(new Set());
+      setShowDeleteButton(false);
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'compliant':
-        return <CheckCircle className="w-5 h-5 text-green-600" />;
+        return <CheckCircle className="w-4 h-4 text-success" />;
       case 'partially_compliant':
-        return <AlertTriangle className="w-5 h-5 text-yellow-600" />;
+        return <AlertTriangle className="w-4 h-4 text-warning" />;
       case 'non_compliant':
-        return <XCircle className="w-5 h-5 text-red-600" />;
+        return <XCircle className="w-4 h-4 text-danger" />;
       default:
-        return <HelpCircle className="w-5 h-5 text-gray-400" />;
+        return <HelpCircle className="w-4 h-4 text-muted" />;
     }
   };
 
@@ -77,104 +171,223 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case 'compliant':
-        return 'bg-green-100 text-green-800 border-green-200';
+        return 'success';
       case 'partially_compliant':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+        return 'warning';
       case 'non_compliant':
-        return 'bg-red-100 text-red-800 border-red-200';
+        return 'danger';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return 'secondary';
     }
   };
 
   const formatAssessment = (assessment: string) => {
-    return assessment.split('\n').map((line, index) => (
-      <p key={index} className="mb-2 last:mb-0">
-        {line}
-      </p>
+    return assessment.split('\n\n').map((paragraph, pIndex) => (
+      <div key={pIndex} className="mb-3 last:mb-0">
+        {paragraph.split('\n').map((line, lIndex) => {
+          // Check if line is a heading (starts with #)
+          if (line.trim().startsWith('#')) {
+            const headingLevel = line.trim().match(/^#+/)?.[0].length || 1;
+            const headingText = line.trim().replace(/^#+\s*/, '');
+            const HeadingTag = `h${Math.min(headingLevel + 2, 6)}` as keyof JSX.IntrinsicElements;
+            return (
+              <HeadingTag key={`${pIndex}-${lIndex}`} className={`mt-4 mb-2 text-h${Math.min(headingLevel + 2, 6)}`}>
+                {headingText}
+              </HeadingTag>
+            );
+          }
+
+          // Check if line is a list item (starts with - or *)
+          if (line.trim().startsWith('-') || line.trim().startsWith('*')) {
+            const itemText = line.trim().replace(/^[-*]\s*/, '');
+            return (
+              <div key={`${pIndex}-${lIndex}`} className="d-flex align-items-start mb-1 ms-3">
+                <div className="w-2 h-2 bg-primary rounded-circle mt-2 flex-shrink-0 me-2" />
+                <span className="text-regular">{itemText}</span>
+              </div>
+            );
+          }
+
+          // Regular paragraph line
+          return (
+            <p key={`${pIndex}-${lIndex}`} className="mb-2 last:mb-0">
+              {line}
+            </p>
+          );
+        })}
+      </div>
     ));
   };
 
   if (results.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6 text-center">
-        <HelpCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-800 mb-2">
-          Nenhum resultado disponível
-        </h3>
-        <p className="text-gray-600">
-          Aguarde a conclusão da análise ou inicie uma nova análise.
-        </p>
+      <div className="br-card text-center">
+        <div className="card-content">
+          <HelpCircle className="w-12 h-12 text-muted mx-auto mb-4" />
+          <h3 className="text-h3 text-muted mb-2">
+            Nenhum resultado disponível
+          </h3>
+          <p className="text-regular text-muted">
+            Aguarde a conclusão da análise ou inicie uma nova análise.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md">
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-gray-800">Resultados da Análise</h2>
-          <button
-            onClick={onDownloadReport}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Baixar Relatório
-          </button>
+    <div className="br-card">
+      <div className="card-header">
+        <div className="row align-items-center">
+          <div className="br-col">
+            <h2 className="text-h2">Resultados da Análise</h2>
+            <p className="text-regular text-muted">
+              {results.length > 0
+                ? `Análise concluída com ${results.length} critérios avaliados`
+                : 'Nenhuma análise concluída ainda'
+              }
+            </p>
+          </div>
+          <div className="br-col-auto">
+            <div className="d-flex gap-2">
+              {showDeleteButton && (
+                <button
+                  onClick={handleDeleteSelected}
+                  className="br-button danger"
+                  title={`Excluir ${selectedResults.size} resultado(s) selecionado(s)`}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Excluir ({selectedResults.size})
+                </button>
+              )}
+              {results.length > 0 && (
+                <button
+                  onClick={onDownloadReport}
+                  className="br-button secondary"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Baixar Relatório
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Critério
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Avaliação
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Ações
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {results.map((result) => (
+      <div className="card-content p-0">
+        <div className="table-responsive">
+          <table className="table table-hover">
+            <thead>
+              <tr>
+                <th className="text-center" style={{ width: '50px' }}>
+                  <input
+                    type="checkbox"
+                    className="form-check-input"
+                    checked={results.length > 0 && selectedResults.size === sortedResults.length}
+                    onChange={handleSelectAll}
+                    disabled={results.length === 0}
+                    title="Selecionar todos"
+                  />
+                </th>
+                <th>
+                  Status
+                </th>
+                <th>
+                  Critério
+                </th>
+                <th>
+                  Avaliação
+                </th>
+                <th className="text-center">
+                  Ações
+                </th>
+              </tr>
+            </thead>
+          <tbody>
+            {sortedResults.map((result) => (
               <React.Fragment key={result.criterion}>
-                <tr className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
+                <tr style={{
+                  borderBottom: '1px solid #e9ecef'
+                }}>
+                  {/* Checkbox de seleção */}
+                  <td className="text-center align-middle" style={{
+                    width: '60px',
+                    backgroundColor: '#f8f9fa',
+                    borderRight: '3px solid #dee2e6',
+                    verticalAlign: 'middle',
+                    padding: '16px 8px',
+                    borderBottom: '1px solid #e9ecef'
+                  }}>
+                    <div className="d-flex align-items-center justify-content-center">
+                      <input
+                        type="checkbox"
+                        className="form-check-input me-2"
+                        checked={result.id ? selectedResults.has(result.id) : false}
+                        onChange={() => {
+                          console.log('🔍 Checkbox clicado para resultado:', result.criterion.substring(0, 30) + '...', 'ID:', result.id);
+                          if (result.id) {
+                            handleSelectResult(result.id);
+                          } else {
+                            console.log('🔍 ID inválido, não pode selecionar');
+                          }
+                        }}
+                        disabled={!result.id}
+                        title={result.id ? "Selecionar resultado" : "ID inválido - não pode selecionar"}
+                      />
+                      <span className="text-regular fw-bold text-dark">
+                        {result.displayOrder}
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* Status */}
+                  <td className="align-middle" style={{
+                    borderRight: '1px solid #e9ecef',
+                    padding: '16px 12px',
+                    borderBottom: '1px solid #e9ecef'
+                  }}>
+                    <div className="d-flex align-items-center gap-2">
                       {getStatusIcon(result.status)}
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(result.status)}`}>
+                      <span className={`badge bg-${getStatusBadge(result.status)}`}>
                         {getStatusText(result.status)}
                       </span>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+
+                  {/* Critério */}
+                  <td className="align-middle" style={{
+                    width: '35%',
+                    borderRight: '1px solid #e9ecef',
+                    padding: '16px 12px',
+                    borderBottom: '1px solid #e9ecef'
+                  }}>
                     <div>
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className="text-regular fw-medium">
                         {result.criterion}
                       </div>
-                      <div className="text-xs text-gray-500 mt-1">
+                      <div className="text-small text-muted mt-1">
                         Confiança: {Math.round(result.confidence * 100)}%
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900 max-w-md">
-                      {result.assessment.length > 150 ? (
+
+                  {/* Avaliação Resumida */}
+                  <td className="align-middle" style={{
+                    width: '45%',
+                    borderRight: '1px solid #e9ecef',
+                    padding: '16px 12px',
+                    borderBottom: '1px solid #e9ecef'
+                  }}>
+                    <div className="text-regular text-truncate" style={{ maxWidth: 'none' }}>
+                      {result.assessment.length > 100 ? (
                         <>
-                          {result.assessment.substring(0, 150)}...
+                          {result.assessment.substring(0, 100)}...
                           <button
                             onClick={() => toggleRow(result.criterion)}
-                            className="text-blue-600 hover:text-blue-800 ml-1 text-xs"
+                            className="btn btn-link p-0 ms-1 text-primary"
                           >
                             Ver mais
                           </button>
@@ -184,11 +397,16 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
+
+                  {/* Ações */}
+                  <td className="align-middle text-center" style={{
+                    padding: '16px 12px',
+                    borderBottom: '1px solid #e9ecef'
+                  }}>
+                    <div className="btn-group">
                       <button
                         onClick={() => toggleRow(result.criterion)}
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                        className="br-button circle"
                         title={expandedRows.has(result.criterion) ? 'Recolher' : 'Expandir'}
                       >
                         {expandedRows.has(result.criterion) ? (
@@ -197,81 +415,137 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
                           <ChevronDown className="w-4 h-4" />
                         )}
                       </button>
-                      <button
-                        onClick={() => onEditResult(result.criterion, result)}
-                        className="text-blue-600 hover:text-blue-800 transition-colors"
-                        title="Editar manualmente"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
+                      {onReanalyze && (
+                        <button
+                          onClick={() => onReanalyze(result.criterion)}
+                          className="br-button circle primary"
+                          title="Re-analisar critério"
+                        >
+                          <Play className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
                 {expandedRows.has(result.criterion) && (
                   <tr>
-                    <td colSpan={4} className="px-6 py-4 bg-gray-50">
-                      <div className="space-y-6">
-                        {/* Avaliação Completa */}
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-800 mb-2">
-                            Avaliação Completa
-                          </h4>
-                          <div className="text-sm text-gray-700 bg-white p-4 rounded border border-gray-200">
-                            {formatAssessment(result.assessment)}
-                          </div>
-                        </div>
-
-                        {/* Evidências */}
-                        {result.evidence.length > 0 && (
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-800 mb-3">
-                              Evidências
-                            </h4>
-                            <div className="space-y-3">
-                              {result.evidence.map((evidence, index) => (
-                                <div key={index} className="bg-white rounded border border-gray-200">
-                                  <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-                                    <span className="text-sm font-medium text-gray-700">
-                                      {evidence.filePath}
-                                      {evidence.lineNumbers && (
-                                        <span className="text-xs text-gray-500 ml-2">
-                                          (Linhas {evidence.lineNumbers[0]}-{evidence.lineNumbers[1]})
-                                        </span>
-                                      )}
-                                    </span>
-                                    <ExternalLink className="w-4 h-4 text-gray-400" />
+                    <td colSpan={5} className="p-0">
+                      <div className="br-item-expanded">
+                        <div className="p-4">
+                          {/* Área de Edição da Avaliação */}
+                          <div className="mb-4">
+                            <div className="d-flex align-items-center justify-content-between mb-3">
+                              <h4 className="text-h4">
+                                Edição da Avaliação
+                              </h4>
+                              <div className="btn-group">
+                                {editingAssessment[result.criterion] ? (
+                                  <>
+                                    <button
+                                      onClick={() => saveAssessment(result.criterion)}
+                                      className="br-button success"
+                                    >
+                                      <Save className="w-4 h-4 mr-2" />
+                                      Salvar
+                                    </button>
+                                    <button
+                                      onClick={() => cancelEdit(result.criterion)}
+                                      className="br-button secondary"
+                                    >
+                                      <X className="w-4 h-4 mr-2" />
+                                      Cancelar
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button
+                                    onClick={() => startEditAssessment(result.criterion, result.assessment)}
+                                    className="br-button primary"
+                                  >
+                                    <Edit3 className="w-4 h-4 mr-2" />
+                                    Editar Avaliação
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            <div className="br-card">
+                              <div className="card-content p-0">
+                                {editingAssessment[result.criterion] ? (
+                                  <textarea
+                                    value={editingAssessment[result.criterion]}
+                                    onChange={(e) => setEditingAssessment({
+                                      ...editingAssessment,
+                                      [result.criterion]: e.target.value
+                                    })}
+                                    className="br-textarea w-full"
+                                    rows={6}
+                                    placeholder="Digite a avaliação do critério..."
+                                    style={{ minHeight: '150px' }}
+                                  />
+                                ) : (
+                                  <div className="p-4 text-regular">
+                                    {formatAssessment(result.assessment)}
                                   </div>
-                                  <div className="p-4">
-                                    <CodeBlock
-                                      code={evidence.code}
-                                      language={evidence.language}
-                                    />
-                                  </div>
-                                </div>
-                              ))}
+                                )}
+                              </div>
                             </div>
                           </div>
-                        )}
 
-                        {/* Recomendações */}
-                        {result.recommendations.length > 0 && (
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-800 mb-3">
-                              Recomendações
-                            </h4>
-                            <ul className="space-y-2">
-                              {result.recommendations.map((recommendation, index) => (
-                                <li
-                                  key={index}
-                                  className="text-sm text-gray-700 flex items-start gap-2"
-                                >
-                                  <div className="w-1.5 h-1.5 bg-blue-600 rounded-full mt-2 flex-shrink-0" />
-                                  {recommendation}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
+                          {/* Evidências */}
+                          {result.evidence.length > 0 && (
+                            <div className="mb-4">
+                              <h4 className="text-h4 mb-3">
+                                Evidências
+                              </h4>
+                              <div className="space-y-3">
+                                {result.evidence.map((evidence, index) => (
+                                  <div key={index} className="br-card">
+                                    <div className="card-header">
+                                      <div className="d-flex align-items-center justify-content-between">
+                                        <span className="text-regular fw-medium">
+                                          {evidence.filePath}
+                                          {evidence.lineNumbers && (
+                                            <span className="text-small text-muted ms-2">
+                                              (Linhas {evidence.lineNumbers[0]}-{evidence.lineNumbers[1]})
+                                            </span>
+                                          )}
+                                        </span>
+                                        <ExternalLink className="w-4 h-4 text-muted" />
+                                      </div>
+                                    </div>
+                                    <div className="card-content p-0">
+                                      <div className="p-3">
+                                        <CodeBlock
+                                          code={evidence.code}
+                                          language={evidence.language}
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Recomendações */}
+                          {result.recommendations.length > 0 && (
+                            <div>
+                              <h4 className="text-h4 mb-3">
+                                Recomendações
+                              </h4>
+                              <ul className="list-unstyled">
+                                {result.recommendations.map((recommendation, index) => (
+                                  <li
+                                    key={index}
+                                    className="d-flex align-items-start gap-2 mb-2"
+                                  >
+                                    <div className="w-2 h-2 bg-primary rounded-circle mt-2 flex-shrink-0" />
+                                    <span className="text-regular">{recommendation}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -280,6 +554,7 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

@@ -19,6 +19,30 @@ export const criteriaService = {
     const storedAuth = localStorage.getItem('auth-storage');
     console.log('🔍 SERVICE DEBUG: Stored auth:', storedAuth);
 
+    // Try public endpoint first
+    try {
+      console.log('🔍 SERVICE DEBUG: Trying public criteria endpoint...');
+      const publicResponse = await fetch(`${API_BASE_URL}/general-analysis/criteria-working`, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (publicResponse.ok) {
+        const publicCriteria = await publicResponse.json();
+        console.log('🔍 SERVICE DEBUG: Got criteria from public endpoint:', publicCriteria.length);
+
+        // Cache the criteria in localStorage
+        localStorage.setItem('criteria-storage', JSON.stringify(publicCriteria));
+
+        return publicCriteria;
+      } else {
+        console.log('🔍 SERVICE DEBUG: Public endpoint failed with status:', publicResponse.status);
+      }
+    } catch (error) {
+      console.log('🔍 SERVICE DEBUG: Public endpoint error:', error);
+    }
+
     if (!token || !isAuthenticated) {
       console.log('🔍 SERVICE DEBUG: Using localStorage for criteria');
       // Try to get criteria from localStorage first
@@ -36,12 +60,16 @@ export const criteriaService = {
         }
       }
 
-      console.log('🔍 SERVICE DEBUG: No stored criteria found, returning empty array');
-      // Return empty array - no more default criteria
-      const emptyCriteria = [];
-      localStorage.setItem('criteria-storage', JSON.stringify(emptyCriteria));
-      console.log('🔍 SERVICE DEBUG: Saved empty criteria to localStorage');
-      return emptyCriteria;
+      console.log('🔍 SERVICE DEBUG: No stored criteria found, using default criteria');
+      // Return default criteria as fallback
+      const defaultCriteria = [
+        {"id": "criteria_64", "text": "Violação de Camadas: Identificar se a lógica de negócio está incorretamente localizada em camadas de interface (como controladores de API), em vez de residir em camadas de serviço ou domínio dedicadas.", "active": true, "order": 6},
+        {"id": "criteria_66", "text": "Princípios SOLID: Analisar violações do Princípio da Responsabilidade Única (SRP), como controllers com múltiplos endpoints, e do Princípio da Inversão de Dependência (DI), como a instanciação manual de dependências em vez de usar a injeção padrão do NestJS.", "active": true, "order": 7},
+        {"id": "criteria_67", "text": "Acoplamento a Frameworks: Detectar o uso de funcionalidades que acoplam o código a implementações específicas do framework (ex: uso de @Res() do Express no NestJS), o que dificulta a manutenção e a aplicação de interceptors e pipes globais.", "active": true, "order": 8}
+      ];
+      localStorage.setItem('criteria-storage', JSON.stringify(defaultCriteria));
+      console.log('🔍 SERVICE DEBUG: Saved default criteria to localStorage');
+      return defaultCriteria;
     }
 
     try {

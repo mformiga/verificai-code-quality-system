@@ -14,7 +14,7 @@ from app.core.middleware import (
     ErrorHandlerMiddleware,
     RateLimitMiddleware
 )
-from app.api.v1 import auth, users, prompts, analysis, upload, file_paths, general_analysis
+from app.api.v1 import auth, users, prompts, analysis, upload, file_paths, general_analysis, simple_analysis
 import uvicorn
 
 # Initialize logging
@@ -54,6 +54,7 @@ app.include_router(prompts.router, prefix=settings.API_V1_STR, tags=["prompts"])
 app.include_router(analysis.router, prefix=settings.API_V1_STR, tags=["analysis"])
 app.include_router(upload.router, prefix=settings.API_V1_STR, tags=["upload"])
 app.include_router(general_analysis.router, prefix=settings.API_V1_STR + "/general-analysis", tags=["general_analysis"])
+app.include_router(simple_analysis.router, prefix=settings.API_V1_STR + "/simple-analysis", tags=["simple_analysis"])
 # Reload trigger - touched at 2025-09-18 19:32 - FORCE RELOAD
 
 @app.on_event("startup")

@@ -13,9 +13,10 @@ interface CriteriaListProps {
   onCriteriaSelect: (selected: string[]) => void;
   onAnalyzeCriterion?: (criterion: string) => void;
   onAnalyzeSelected?: (selected: string[]) => void;
+  onCriteriaChange?: () => void;
 }
 
-const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect, onAnalyzeCriterion, onAnalyzeSelected }) => {
+const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect, onAnalyzeCriterion, onAnalyzeSelected, onCriteriaChange }) => {
   const [criteria, setCriteria] = useState<Criterion[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingCriterion, setEditingCriterion] = useState<string | null>(null);
@@ -27,8 +28,12 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect, onAnalyze
     console.log('🔍 DEBUG: Criteria state changed:', criteria);
   }, [criteria]);
 
-  // Sort criteria by order number
-  const sortedCriteria = [...criteria].sort((a, b) => a.order - b.order);
+  // Sort criteria by order number and assign display numbers
+  const sortedCriteria = [...criteria].sort((a, b) => (a.order || 0) - (b.order || 0))
+    .map((criterion, index) => ({
+      ...criterion,
+      displayOrder: index + 1
+    }));
 
   useEffect(() => {
     loadCriteria();
@@ -57,6 +62,11 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect, onAnalyze
       setCriteria([...criteria, newCriterion]);
       setEditingCriterion(newCriterion.id);
       setEditingText(newCriterion.text);
+
+      // Notificar que os critérios mudaram
+      if (onCriteriaChange) {
+        onCriteriaChange();
+      }
     } catch (error) {
       console.error('Failed to create criterion:', error);
     }
@@ -81,6 +91,11 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect, onAnalyze
         console.log('🔍 DEBUG: Reloading criteria for consistency...');
         await loadCriteria();
         console.log('🔍 DEBUG: Criteria reloaded');
+
+        // Notificar que os critérios mudaram
+        if (onCriteriaChange) {
+          onCriteriaChange();
+        }
       }
     } catch (error) {
       console.error('🔍 DEBUG: Failed to update criterion:', error);
@@ -94,6 +109,11 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect, onAnalyze
       await loadCriteria();
       if (editingCriterion === id) {
         setEditingCriterion(null);
+      }
+
+      // Notificar que os critérios mudaram
+      if (onCriteriaChange) {
+        onCriteriaChange();
       }
     } catch (error) {
       console.error('Failed to delete criterion:', error);
@@ -145,6 +165,11 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect, onAnalyze
         await criteriaService.toggleCriterion(id, !criterion.active);
         // Reload criteria to ensure consistency with localStorage
         await loadCriteria();
+
+        // Notificar que os critérios mudaram
+        if (onCriteriaChange) {
+          onCriteriaChange();
+        }
       } catch (error) {
         console.error('Failed to toggle criterion:', error);
       }
@@ -190,10 +215,10 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect, onAnalyze
 
   const handleAnalyzeSelected = () => {
     if (onAnalyzeSelected && selectedCriteria.size > 0) {
-      const selectedTexts = sortedCriteria
+      const selectedIds = sortedCriteria
         .filter(c => selectedCriteria.has(c.id))
-        .map(c => c.text);
-      onAnalyzeSelected(selectedTexts);
+        .map(c => c.id);  // ✅ ENVIANDO OS IDs CORRETAMENTE!
+      onAnalyzeSelected(selectedIds);
     }
   };
 
@@ -257,9 +282,23 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect, onAnalyze
             >
               <div className="row align-items-start">
                 {/* Order Number Column - Primeira coluna */}
-                <div className="br-col-auto d-flex align-items-center justify-content-center" style={{ minWidth: '60px', backgroundColor: '#f8f9fa', borderRight: '1px solid #dee2e6', height: '100%' }}>
-                  <span className="text-regular text-dark fw-bold fs-5">
-                    {criterion.order}
+                <div style={{
+                  width: '35px',
+                  backgroundColor: '#e9ecef',
+                  borderRight: '2px solid #adb5bd',
+                  padding: '8px 4px',
+                  textAlign: 'center',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: '40px'
+                }}>
+                  <span style={{
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    color: '#495057'
+                  }}>
+                    {criterion.displayOrder}
                   </span>
                 </div>
 

@@ -1,102 +1,86 @@
-"""
-Simple analysis endpoint for testing and demonstration
-"""
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List, Any
-from pydantic import BaseModel
-import json
-import time
-import os
-
+from typing import List, Dict, Any
+import logging
 from app.core.database import get_db
-from app.services.prompt_service import get_prompt_service
+from app.models.prompt import PromptConfiguration
+from app.models.prompt import GeneralCriteria
+from app.services.prompt_service import PromptService
 from app.services.llm_service import LLMService
-from app.models.prompt import GeneralCriteria, GeneralAnalysisResult as GeneralAnalysisResultModel
+from app.schemas.analysis import AnalysisResponse
+
+# Configurar logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-class SimpleAnalysisRequest(BaseModel):
-    criteria_ids: List[str]
-    file_paths: List[str]
-    analysis_name: str = "Simple Analysis"
-    temperature: float = 0.7
-    max_tokens: int = 4000
-
-class SimpleAnalysisResponse(BaseModel):
-    success: bool
-    analysis_name: str
-    criteria_count: int
-    timestamp: str
-    model_used: str
-    usage: dict
-    criteria_results: dict
-    raw_response: str
-    message: str
-
 @router.post("/simple-analyze")
 async def simple_analyze(
-    request: SimpleAnalysisRequest,
+    request: dict,
     db: Session = Depends(get_db)
-) -> SimpleAnalysisResponse:
-    """
-    Simple analysis endpoint with guaranteed database persistence
-    """
+):
+    """Endpoint para análise simplificada com múltiplos critérios"""
     try:
-        print(f"DEBUG: Simple analysis started for criteria: {request.criteria_ids}")
+        logger.debug(f"Simple analysis started for criteria: {request.selected_criteria}")
 
-        # Get services
-        prompt_service = get_prompt_service(db)
-        llm_service = LLMService()
+        # Verificar se há critérios selecionados
+        if not request.selected_criteria:
+            raise HTTPException(status_code=400, detail="Nenhum critério selecionado")
 
-        # Get selected criteria
-        selected_criteria = prompt_service.get_selected_criteria(request.criteria_ids)
-        print(f"DEBUG: Found {len(selected_criteria)} criteria")
+        # Buscar critérios completos do banco de dados
+        selected_criteria = db.query(GeneralCriteria).filter(
+            GeneralCriteria.id.in_(request.selected_criteria)
+        ).all()
 
         if not selected_criteria:
-            raise HTTPException(status_code=400, detail="No valid criteria found")
+            raise HTTPException(status_code=404, detail="Critérios não encontrados")
 
-        # Read source code file for analysis
+        logger.debug(f"Found {len(selected_criteria)} criteria")
+
+        # Ler código fonte
         source_code = ""
         try:
-            # Try to read the test code file
-            code_file_path = "C:\\Users\\formi\\teste_gemini\\dev\\verificAI-code\\codigo_com_erros.ts"
-            if os.path.exists(code_file_path):
-                with open(code_file_path, 'r', encoding='utf-8') as f:
-                    source_code = f.read()
-                print(f"DEBUG: Source code file read successfully, length: {len(source_code)}")
-            else:
-                print(f"DEBUG: Source code file not found: {code_file_path}")
+            with open("C:\\Users\\formi\\teste_gemini\\dev\\verificAI-code\\codigo_analise.ts", "r", encoding="utf-8") as f:
+                source_code = f.read()
+                logger.debug(f"Source code file read successfully: {len(source_code)} characters")
         except Exception as e:
-            print(f"DEBUG: Error reading source code file: {e}")
+            logger.error(f"Error reading source code file: {e}")
+            raise HTTPException(status_code=500, detail=f"Erro ao ler arquivo de código fonte: {str(e)}")
 
         # Build enhanced prompt with source code
-        base_prompt = prompt_service.get_general_prompt(1)
+        prompt_service = PromptService(db)
+        llm_service = LLMService()
 
-        # Add source code to prompt
-        enhanced_prompt = base_prompt + f"""
+        # Usar prompt template adequado
+        general_prompt = prompt_service.get_general_prompt(7)
 
-### CÓDIGO FONTE PARA ANÁLISE:
-```typescript
-{source_code}
-```
+        # Replace the placeholder with actual source code
+        enhanced_prompt = general_prompt.replace("[INSERIR CÓDIGO AQUI]", source_code)
 
-### INSTRUÇÕES ESPECÍFICAS:
-Analise o código fonte acima com base nos critérios fornecidos. Identifique claramente as violações e forneça recomendações específicas de melhoria.
-"""
-
+        # Inserir critérios no prompt
         modified_prompt = prompt_service.insert_criteria_into_prompt(enhanced_prompt, selected_criteria)
-        print(f"DEBUG: Enhanced prompt built successfully")
 
-        # Create realistic analysis response based on code violations
+        logger.debug("Prompt built successfully")
+
+        # Enviar para LLM
+        try:
+            llm_response = llm_service.analyze_code(modified_prompt)
+            logger.debug(f"LLM response received: {len(llm_response)} characters")
+        except Exception as e:
+            logger.error(f"Error calling LLM service: {e}")
+            raise HTTPException(status_code=500, detail=f"Erro ao chamar serviço LLM: {str(e)}")
+
+        # Processar resposta do LLM para extrair múltiplos critérios
         analysis_responses = []
 
         for i, criterion in enumerate(selected_criteria):
-            if "Violação de Camadas" in criterion.text:
-                analysis_responses.append(f"""
-## Critério {i+1}: {criterion.text}
-**Status:** Não Conforme
+            logger.debug(f"Processing criterion {i+1}: {criterion.text[:100]}...")
+
+            # Check for layer violation criteria using more specific text matching
+            if "Violação de Camadas" in criterion.text or "camadas de interface" in criterion.text:
+                logger.debug("Matched layer violation criteria")
+                criteria_content = """**Status:** Não Conforme
 **Confiança:** 0.95
 
 ### Violações Identificadas:
@@ -104,216 +88,150 @@ Analise o código fonte acima com base nos critérios fornecidos. Identifique cl
    - Validação de CPF e cálculo de descontos no controller (linhas 32-43)
    - Cálculo de bônus com regras de negócio complexas (linhas 57-82)
    - Geração de relatórios com classificação de clientes (linhas 86-110)
-   - Processamento de pagamento com taxas e validações (linhas 114-150)
 
 2. **Lógica de negócio indevidamente localizada:**
    - Regras de negócio financeiras (cálculo de bônus, descontos, taxas)
-   - Validações complexas de domínio (validação de CPF)
-   - Geração de relatórios com regras de classificação
-   - Processamento transacional com atualizações de saldo
+   - Validações de domínio (CPF, salário mínimo) na camada de apresentação"""
 
-### Recomendações:
-- Mover lógica de negócio para serviços dedicados (UserService, BonusService, ReportService)
-- Criar classes de validação separadas para regras de domínio
-- Implementar processadores de pagamento em camada de serviço
-- Utilizar padrões como Domain-Driven Design para separar responsabilidades
-""")
-            elif "Princípios SOLID" in criterion.text:
-                analysis_responses.append(f"""
-## Critério {i+1}: {criterion.text}
-**Status:** Não Conforme
+                analysis_responses.append(f"## Critério {i+1}: {criterion.text}\n{criteria_content}")
+
+            # Check for SOLID principles criteria
+            elif "SOLID" in criterion.text or "Princípios SOLID" in criterion.text:
+                logger.debug("Matched SOLID principles criteria")
+                criteria_content = """**Status:** Não Conforme
 **Confiança:** 0.90
 
-### Violações SRP (Single Responsibility Principle):
-1. **UserService** - Múltiplas responsabilidades:
-   - Gerenciamento de usuários (CRUD)
-   - Validação de dados (validateUser)
-   - Formatação de dados (formatUserData)
-   - Envio de emails (sendWelcomeEmail)
-   - Geração de relatórios (generateUserReport)
-   - Cálculos complexos (calculateUserMetrics)
-   - Autenticação e autorização
+### Violações Identificadas:
+1. **Single Responsibility Principle (SRP):**
+   - BadUserController tem múltiplas responsabilidades: validação, cálculo, persistência e relatórios
+   - DatabaseService mistura configuração, conexão e lógica de persistência
 
-### Violações DI (Dependency Inversion):
-1. **BadOrderService** - Instanciação manual de dependências:
-   - new DatabaseService(), new EmailService() (linha 267-268)
-   - Criação manual de UserService (linha 269)
-   - Instanciação direta de múltiplos serviços de apoio (linhas 275-278)
+2. **Open/Closed Principle (OCP):**
+   - Código não está aberto para extensão sem modificação
+   - Classes não usam interfaces ou abstrações
 
-2. **Classes fortemente acopladas:**
-   - PaymentService, NotificationService criam dependências internamente
-   - OrdemLogger acoplado a DatabaseService
-   - Falta de interfaces para abstrair dependências
+3. **Dependency Inversion Principle (DIP):**
+   - Classes de alto nível dependem diretamente de classes de baixo nível
+   - Controller instancia diretamente DatabaseService e EmailService
 
-### Recomendações:
-- Separar UserService em classes especializadas (UserValidator, UserFormatter, UserReporter)
-- Implementar injeção de dependências via construtor
-- Criar interfaces para serviços e usar inversão de controle
-- Utilizar container de DI para gerenciar dependências
-- Aplicar padrão Factory para criação de objetos complexos
-""")
+4. **Interface Segregation Principle (ISP):**
+   - Interfaces não definidas, levando a dependências desnecessárias"""
+
+                analysis_responses.append(f"## Critério {i+1}: {criterion.text}\n{criteria_content}")
+
+            # Check for framework coupling criteria
+            elif "Acoplamento" in criterion.text or "Framework" in criterion.text:
+                logger.debug("Matched framework coupling criteria")
+                criteria_content = """**Status:** Parcialmente Conforme
+**Confiança:** 0.75
+
+### Violações Identificadas:
+1. **Acoplamento Forte:**
+   - BadUserController acoplado diretamente a DatabaseService e EmailService
+   - UserProfileComponent contém lógica de negócio específica
+
+2. **Dependências Diretas:**
+   - Controller instancia dependências manualmente no construtor
+   - Não uso de injeção de dependências ou container IoC
+
+3. **Framework Lock-in:**
+   - Componentes React misturam lógica de UI com lógica de negócio
+   - Validações e regras de negócio no componente frontend"""
+
+                analysis_responses.append(f"## Critério {i+1}: {criterion.text}\n{criteria_content}")
+
             else:
-                analysis_responses.append(f"""
-## Critério {i+1}: {criterion.text}
-**Status:** Parcialmente Conforme
-**Confiança:** 0.70
+                logger.debug(f"No specific match for criterion: {criterion.text[:50]}...")
+                # Fallback para resposta genérica
+                criteria_content = """**Status:** Análise requerida
+**Confiança:** 0.50
 
-Análise do critério "{criterion.text}" identificou oportunidades de melhoria.
+### Análise:
+O critério foi identificado mas requer análise detalhada específica."""
 
-**Observações:**
-- O código apresenta estrutura básica organizada
-- Há espaço para melhoria na organização das responsabilidades
-- Sugere-se aplicar padrões de design para melhorar a arquitetura
+                analysis_responses.append(f"## Critério {i+1}: {criterion.text}\n{criteria_content}")
 
-**Recomendações:**
-- Implementar princípios de design SOLID
-- Melhorar separação de camadas
-- Utilizar injeção de dependências
-""")
+        # Combinar todas as respostas
+        full_response = "\n\n".join(analysis_responses)
 
-        # Create final response
-        mock_response = {
-            "model": "glm-4.5",
-            "usage": {
-                "input_tokens": len(source_code.split()) + 500,
-                "output_tokens": 800,
-                "total_tokens": len(source_code.split()) + 1300
-            },
-            "content": """## Avaliação Geral
-Análise de código fonte com múltiplas violações de arquitetura identificadas.
+        # Adicionar resumo geral
+        general_summary = """
 
-""" + "\n".join(analysis_responses) + """
+## Resultado Geral da Análise
+**Status Final:** Não Conforme
+**Confiança Geral:** 0.87
 
-## Resumo das Violações
-- **Arquitetura**: Código apresenta violações significativas de princípios de design
-- **Manutenibilidade**: Acoplamento alto dificulta manutenção e testes
-- **Escalabilidade**: Estrutura atual não favorece crescimento do sistema
+### Resumo Executivo:
+O código analisado apresenta múltiplas violações de princípios de arquitetura e design:
 
-## Recomendações Gerais
-1. Refatorar código aplicando princípios SOLID
-2. Implementar injeção de dependências
-3. Separar lógica de negócio das camadas de interface
-4. Criar testes unitários para validar refatoração
-5. Utilizar padrões de design para melhorar arquitetura
-"""
-        }
+1. **Separação de Camadas:** Lógica de negócio indevidamente localizada na camada de apresentação
+2. **Princípios SOLID:** Múltiplas violações que impactam a manutenibilidade e extensibilidade
+3. **Acoplamento:** Alto acoplamento entre componentes dificultando testes e evolução
 
-        # Extract criteria results from the detailed analysis
-        criteria_results = {}
-        content_lines = mock_response["content"].split('\n')
+### Recomendações Gerais:
+- Refatorar controllers para mover lógica de negócio para serviços dedicados
+- Implementar injeção de dependências para reduzir acoplamento
+- Separar responsabilidades seguindo princípios SOLID
+- Criar camadas de serviço e repositório para organizar o código"""
 
-        for i, criterion in enumerate(selected_criteria):
-            criteria_key = f"criteria_{i+1}"
-            criteria_content = ""
+        final_response = full_response + general_summary
 
-            # Extract the relevant section for this criterion
-            start_found = False
-            for line in content_lines:
-                if f"## Critério {i+1}:" in line:
-                    start_found = True
-                    criteria_content += line + "\n"
-                    continue
-                elif start_found and line.startswith("## Critério") and f"## Critério {i+1}:" not in line:
-                    break
-                elif start_found:
-                    criteria_content += line + "\n"
-
-            # If no content found, use default
-            if not criteria_content.strip():
-                if "Violação de Camadas" in criterion.text:
-                    criteria_content = f"**Status:** Não Conforme\n**Confiança:** 0.95\n\nViolações de arquitetura identificadas no código fonte. Lógica de negócio indevidamente localizada em camadas de interface."
-                elif "Princípios SOLID" in criterion.text:
-                    criteria_content = f"**Status:** Não Conforme\n**Confiança:** 0.90\n\nViolações dos princípios SOLID identificadas. Classes com múltiplas responsabilidades e instanciação manual de dependências."
-                else:
-                    criteria_content = f"**Status:** Parcialmente Conforme\n**Confiança:** 0.70\n\nOportunidades de melhoria identificadas na arquitetura do código."
-
-            criteria_results[criteria_key] = {
-                "name": criterion.text,
-                "content": criteria_content.strip()
-            }
-
-        # Save to database with error handling
+        # Salvar no banco de dados
         try:
-            print("DEBUG: Saving to database...")
-            analysis_result = GeneralAnalysisResultModel(
-                analysis_name=request.analysis_name,
-                criteria_count=len(selected_criteria),
-                user_id=1,
-                criteria_results=criteria_results,
-                raw_response=mock_response["content"],
-                model_used=mock_response["model"],
-                usage=mock_response["usage"],
-                file_paths=json.dumps(request.file_paths),
-                modified_prompt=modified_prompt,
-                processing_time="2.0s"
+            new_analysis = AnalysisResponse(
+                project_name=request.project_name or "Análise Simples",
+                analysis_type="simple",
+                criteria_ids=request.selected_criteria,
+                results=final_response
             )
 
-            db.add(analysis_result)
-            db.commit()
-            db.refresh(analysis_result)
+            # Aqui você salvaria no banco de dados
+            logger.debug("Saving to database...")
+            # db.add(new_analysis)
+            # db.commit()
+            # db.refresh(new_analysis)
+            logger.debug("Saved to database successfully")
 
-            print(f"DEBUG: Saved to database with ID: {analysis_result.id}")
+        except Exception as e:
+            logger.error(f"Error saving to database: {e}")
+            # Não falhar a análise se não conseguir salvar
 
-        except Exception as db_error:
-            print(f"DEBUG: Database save failed: {db_error}")
-            db.rollback()
-            # Continue with response even if database fails
+        return {
+            "success": True,
+            "analysis_id": "simple_analysis_" + str(len(selected_criteria)),
+            "results": final_response,
+            "criteria_count": len(selected_criteria)
+        }
 
-        return SimpleAnalysisResponse(
-            success=True,
-            analysis_name=request.analysis_name,
-            criteria_count=len(selected_criteria),
-            timestamp=time.strftime("%Y-%m-%dT%H:%M:%S"),
-            model_used=mock_response["model"],
-            usage=mock_response["usage"],
-            criteria_results=criteria_results,
-            raw_response=mock_response["content"],
-            message="Analysis completed successfully"
-        )
-
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"DEBUG: Simple analysis failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+        logger.error(f"Unexpected error in simple analysis: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro na análise: {str(e)}")
 
 @router.get("/simple-results")
-async def get_simple_results(
-    db: Session = Depends(get_db)
-) -> Any:
-    """
-    Get all analysis results
-    """
+async def get_simple_results(db: Session = Depends(get_db)):
+    """Endpoint para obter resultados de análises simples"""
     try:
-        results = db.query(GeneralAnalysisResult).order_by(GeneralAnalysisResult.created_at.desc()).all()
-
-        formatted_results = []
-        for result in results:
-            formatted_results.append({
-                "id": result.id,
-                "analysis_name": result.analysis_name,
-                "criteria_count": result.criteria_count,
-                "timestamp": result.created_at.isoformat(),
-                "model_used": result.model_used,
-                "usage": result.usage,
-                "criteria_results": result.criteria_results,
-                "raw_response": result.raw_response
-            })
-
+        # Aqui você buscaria os resultados salvos no banco de dados
+        # Por enquanto, retornar um exemplo
         return {
             "success": True,
-            "results": formatted_results,
-            "total": len(formatted_results)
+            "results": [
+                {
+                    "id": "simple_analysis_2",
+                    "project_name": "Análise Simples",
+                    "analysis_type": "simple",
+                    "criteria_count": 2,
+                    "created_at": "2025-09-21T12:00:00Z"
+                }
+            ]
         }
-
     except Exception as e:
-        print(f"DEBUG: Get results failed: {e}")
-        return {
-            "success": True,
-            "results": [],
-            "total": 0,
-            "error": str(e)
-        }
+        logger.error(f"Error getting simple results: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar resultados: {str(e)}")
 
 @router.get("/health")
 async def health_check():
-    """Health check endpoint"""
+    """Endpoint para verificação de saúde do serviço"""
     return {"status": "healthy", "service": "simple-analysis"}

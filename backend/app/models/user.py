@@ -68,6 +68,7 @@ class User(Base, BaseModel, AuditMixin):
     analyses = relationship("Analysis", back_populates="user", cascade="all, delete-orphan")
     prompt_configurations = relationship("PromptConfiguration", back_populates="user", cascade="all, delete-orphan")
     general_criteria = relationship("GeneralCriteria", back_populates="user", cascade="all, delete-orphan")
+    general_analysis_results = relationship("GeneralAnalysisResult", back_populates="user", cascade="all, delete-orphan")
 
     def __init__(self, **kwargs):
         """Initialize user with password hashing"""
