@@ -565,6 +565,43 @@ const GeneralAnalysisPage: React.FC = () => {
     }
   };
 
+  const [allCriteria, setAllCriteria] = useState<any[]>([]);
+  const [fullCriteriaText, setFullCriteriaText] = useState<Record<string, string>>({});
+
+  const getFullCriterionText = (criterionName: string) => {
+    // Tentar encontrar correspondência exata primeiro
+    if (fullCriteriaText[criterionName]) {
+      return fullCriteriaText[criterionName];
+    }
+
+    // Tentar encontrar por substring
+    const matchingCriterion = allCriteria.find(criterion =>
+      criterion.text.includes(criterionName) || criterionName.includes(criterion.text.split(':')[0])
+    );
+
+    return matchingCriterion ? matchingCriterion.text : criterionName;
+  };
+
+  const loadAllCriteria = async () => {
+    try {
+      const criteria = await criteriaService.getCriteria();
+      setAllCriteria(criteria);
+
+      // Criar mapeamento de texto completo
+      const textMapping: Record<string, string> = {};
+      criteria.forEach(criterion => {
+        textMapping[criterion.text] = criterion.text;
+      });
+      setFullCriteriaText(textMapping);
+    } catch (error) {
+      console.error('Erro ao carregar critérios:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadAllCriteria();
+  }, []);
+
   const handleDownloadReport = async () => {
     if (results.length === 0) {
       alert('Nenhum resultado para gerar relatório.');
@@ -636,13 +673,19 @@ const GeneralAnalysisPage: React.FC = () => {
         }[result.status] || result.status;
 
         const confidencePercent = Math.round(result.confidence * 100);
+        const fullCriterionText = getFullCriterionText(result.criterion);
 
         htmlContent += `
           <div style="margin-bottom: 40px; page-break-inside: avoid;">
             <div style="border-left: 4px solid ${statusColor}; padding-left: 15px; margin-bottom: 15px;">
               <h3 style="color: #333; margin: 0 0 5px 0; font-size: 16px;">
-                Critério ${index + 1}: ${result.criterion}
+                Critério ${index + 1}
               </h3>
+              <div style="background-color: #f8f9fa; padding: 12px; border-radius: 4px; margin-bottom: 10px; border-left: 3px solid #dee2e6;">
+                <div style="color: #333; font-size: 12px; line-height: 1.5; font-weight: 500;">
+                  ${fullCriterionText.replace(/\n/g, '<br>')}
+                </div>
+              </div>
               <div style="display: flex; gap: 20px; margin: 10px 0; flex-wrap: wrap;">
                 <span style="background-color: ${statusColor}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">
                   ${statusText}
