@@ -249,9 +249,146 @@ const GeneralAnalysisPage: React.FC = () => {
     }
   };
 
-  const handleReanalyze = (criterion: string) => {
-    alert(`Re-analisando critério: ${criterion}`);
-    // Implementar lógica de re-análise para o critério específico
+  const handleReanalyze = async (criterion: string) => {
+    try {
+      // Encontrar o critério nos resultados existentes para obter o ID
+      const existingResult = results.find(r => r.criterion === criterion || r.criterion.includes(criterion) || criterion.includes(r.criterion));
+
+      if (!existingResult) {
+        alert('Critério não encontrado nos resultados.');
+        return;
+      }
+
+      // Obter o ID do critério para reanálise
+      const criteriaId = existingResult.criteriaId || existingResult.id;
+      const criteriaKey = existingResult.criterionKey || `criteria_${criteriaId}`;
+
+      if (!criteriaId) {
+        alert('Não foi possível identificar o ID do critério para reanálise.');
+        return;
+      }
+
+      setLoading(true);
+
+      // Show simple progress bar at top of page
+      setShowProgress(true);
+      setProgress(0);
+      setActiveTab('results');
+
+      // Simple progress animation
+      const progressInterval = setInterval(() => {
+        setProgress(prev => {
+          if (prev < 90) {
+            return Math.min(prev + Math.random() * 15, 90);
+          }
+          return prev;
+        });
+      }, 300);
+
+      // Create analysis request para reanálise do critério específico
+      const request: AnalysisRequest = {
+        criteria_ids: [criteriaKey],
+        file_paths: ['C:\\Users\\formi\\teste_gemini\\dev\\verificAI-code\\codigo_analise.ts'],
+        analysis_name: `Reanálise do Critério: ${criterion}`,
+        temperature: 0.7,
+        max_tokens: 4000
+      };
+
+      // Call the API endpoint
+      const response: AnalysisResponse = await analysisService.analyzeSelectedCriteria(request);
+
+      // Clear progress interval
+      clearInterval(progressInterval);
+      setProgress(100);
+
+      // Process the single result
+      const newResultEntry = Object.entries(response.criteria_results)[0];
+      if (!newResultEntry) {
+        throw new Error('Nenhum resultado retornado da reanálise');
+      }
+
+      const [key, result] = newResultEntry;
+      const content = result.content;
+
+      // Extract confidence from content
+      let confidence = 0.8;
+      const confidenceMatch = content.match(/(confiança|confidence)[^\d]*(\d+(?:\.\d+)?)/i);
+      if (confidenceMatch) {
+        const confidenceValue = parseFloat(confidenceMatch[2]);
+        confidence = confidenceValue > 1.0 ? Math.min(confidenceValue / 100, 1.0) : Math.min(confidenceValue, 1.0);
+      }
+
+      // Extract status from content
+      let status: 'compliant' | 'partially_compliant' | 'non_compliant' = 'compliant';
+      if (content.toLowerCase().includes('não atende') ||
+          content.toLowerCase().includes('não cumpre') ||
+          content.toLowerCase().includes('viol') ||
+          content.toLowerCase().includes('defeito') ||
+          content.toLowerCase().includes('problema')) {
+        status = 'non_compliant';
+      } else if (content.toLowerCase().includes('parcialmente') ||
+                 content.toLowerCase().includes('atende parcialmente') ||
+                 content.toLowerCase().includes('precisa melhorar') ||
+                 content.toLowerCase().includes('recomenda')) {
+        status = 'partially_compliant';
+      }
+
+      // Create the new result object
+      const updatedResult: CriteriaResult = {
+        id: criteriaId,
+        criterion: result.name,
+        assessment: content,
+        status: status,
+        confidence: Math.max(0, Math.min(1, confidence)),
+        evidence: [],
+        recommendations: [],
+        resultId: existingResult.resultId, // Manter o mesmo ID do banco de dados
+        criterionKey: criteriaKey,
+        criteriaId: criteriaId
+      };
+
+      // Hide progress immediately after successful completion
+      setShowProgress(false);
+      setProgress(0);
+
+      // Update results: replace only the reanalyzed criterion
+      setResults(prevResults => {
+        return prevResults.map(existingResult => {
+          // Match by criteriaId or by criterion name
+          if ((existingResult.criteriaId && existingResult.criteriaId === criteriaId) ||
+              (existingResult.criterion === criterion) ||
+              (existingResult.criterion.includes(criterion)) ||
+              (criterion.includes(existingResult.criterion))) {
+
+            console.log(`🔄 REANÁLISE - Atualizando resultado para critério: ${criterion}`);
+            console.log(`   Antigo: "${existingResult.assessment.substring(0, 50)}..."`);
+            console.log(`   Novo:  "${content.substring(0, 50)}..."`);
+
+            // Return updated result
+            return {
+              ...existingResult,
+              assessment: content,
+              status: status,
+              confidence: Math.max(0, Math.min(1, confidence)),
+              criterionKey: criteriaKey
+            };
+          }
+
+          // Keep other results unchanged
+          return existingResult;
+        });
+      });
+
+      console.log(`✅ Reanálise concluída com sucesso para: ${criterion}`);
+
+    } catch (error) {
+      console.error('Erro na reanálise do critério:', error);
+      alert('Erro ao reanalisar o critério. Por favor, tente novamente.');
+      setShowProgress(false);
+      setProgress(0);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDeleteResults = async (selectedIds: number[]) => {
@@ -316,9 +453,140 @@ const GeneralAnalysisPage: React.FC = () => {
     }
   };
 
-  const handleAnalyzeCriterion = (criterion: string) => {
-    alert(`Analisando critério específico: ${criterion}`);
-    // Implementar lógica de análise para o critério específico
+  const handleAnalyzeCriterion = async (criterion: string) => {
+    try {
+      // Buscar todos os critérios para encontrar o ID correspondente
+      const allCriteriaData = await criteriaService.getCriteria();
+      const matchingCriterion = allCriteriaData.find(c =>
+        c.text === criterion || c.text.includes(criterion) || criterion.includes(c.text)
+      );
+
+      if (!matchingCriterion) {
+        alert('Critério não encontrado na lista de critérios cadastrados.');
+        return;
+      }
+
+      const criteriaKey = `criteria_${matchingCriterion.id}`;
+
+      setLoading(true);
+
+      // Show simple progress bar at top of page
+      setShowProgress(true);
+      setProgress(0);
+      setActiveTab('results');
+
+      // Simple progress animation
+      const progressInterval = setInterval(() => {
+        setProgress(prev => {
+          if (prev < 90) {
+            return Math.min(prev + Math.random() * 15, 90);
+          }
+          return prev;
+        });
+      }, 300);
+
+      // Create analysis request para análise do critério específico
+      const request: AnalysisRequest = {
+        criteria_ids: [criteriaKey],
+        file_paths: ['C:\\Users\\formi\\teste_gemini\\dev\\verificAI-code\\codigo_analise.ts'],
+        analysis_name: `Análise do Critério: ${criterion}`,
+        temperature: 0.7,
+        max_tokens: 4000
+      };
+
+      // Call the API endpoint
+      const response: AnalysisResponse = await analysisService.analyzeSelectedCriteria(request);
+
+      // Clear progress interval
+      clearInterval(progressInterval);
+      setProgress(100);
+
+      // Process the single result
+      const newResultEntry = Object.entries(response.criteria_results)[0];
+      if (!newResultEntry) {
+        throw new Error('Nenhum resultado retornado da análise');
+      }
+
+      const [key, result] = newResultEntry;
+      const content = result.content;
+
+      // Extract confidence from content
+      let confidence = 0.8;
+      const confidenceMatch = content.match(/(confiança|confidence)[^\d]*(\d+(?:\.\d+)?)/i);
+      if (confidenceMatch) {
+        const confidenceValue = parseFloat(confidenceMatch[2]);
+        confidence = confidenceValue > 1.0 ? Math.min(confidenceValue / 100, 1.0) : Math.min(confidenceValue, 1.0);
+      }
+
+      // Extract status from content
+      let status: 'compliant' | 'partially_compliant' | 'non_compliant' = 'compliant';
+      if (content.toLowerCase().includes('não atende') ||
+          content.toLowerCase().includes('não cumpre') ||
+          content.toLowerCase().includes('viol') ||
+          content.toLowerCase().includes('defeito') ||
+          content.toLowerCase().includes('problema')) {
+        status = 'non_compliant';
+      } else if (content.toLowerCase().includes('parcialmente') ||
+                 content.toLowerCase().includes('atende parcialmente') ||
+                 content.toLowerCase().includes('precisa melhorar') ||
+                 content.toLowerCase().includes('recomenda')) {
+        status = 'partially_compliant';
+      }
+
+      // Create the new result object
+      const newResult: CriteriaResult = {
+        id: matchingCriterion.id,
+        criterion: result.name,
+        assessment: content,
+        status: status,
+        confidence: Math.max(0, Math.min(1, confidence)),
+        evidence: [],
+        recommendations: [],
+        resultId: undefined,
+        criterionKey: criteriaKey,
+        criteriaId: matchingCriterion.id
+      };
+
+      // Hide progress immediately after successful completion
+      setShowProgress(false);
+      setProgress(0);
+
+      // Update results: check if criterion already exists and update, or add new
+      setResults(prevResults => {
+        const existingIndex = prevResults.findIndex(r =>
+          (r.criteriaId && r.criteriaId === matchingCriterion.id) ||
+          (r.criterion === criterion) ||
+          (r.criterion.includes(criterion)) ||
+          (criterion.includes(r.criterion))
+        );
+
+        if (existingIndex >= 0) {
+          console.log(`🔄 ANÁLISE INDIVIDUAL - Atualizando resultado existente para: ${criterion}`);
+          const updatedResults = [...prevResults];
+          updatedResults[existingIndex] = {
+            ...prevResults[existingIndex],
+            assessment: content,
+            status: status,
+            confidence: Math.max(0, Math.min(1, confidence)),
+            criterionKey: criteriaKey
+          };
+          return updatedResults;
+        } else {
+          console.log(`➕ ANÁLISE INDIVIDUAL - Adicionando novo resultado para: ${criterion}`);
+          return [...prevResults, newResult];
+        }
+      });
+
+      console.log(`✅ Análise individual concluída com sucesso para: ${criterion}`);
+
+    } catch (error) {
+      console.error('Erro na análise do critério:', error);
+      alert('Erro ao analisar o critério. Por favor, tente novamente.');
+      setShowProgress(false);
+      setProgress(0);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAnalyzeSelected = async (selectedCriteriaIds: string[]) => {
