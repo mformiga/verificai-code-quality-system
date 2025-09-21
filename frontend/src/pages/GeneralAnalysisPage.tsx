@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Upload, Settings, FileText, AlertCircle, Trash2 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import CriteriaList from '@/components/features/Analysis/CriteriaList';
 import ProgressTracker from '@/components/features/Analysis/ProgressTracker';
 import ResultsTable from '@/components/features/Analysis/ResultsTable';
@@ -563,38 +565,181 @@ const GeneralAnalysisPage: React.FC = () => {
     }
   };
 
-  const handleDownloadReport = () => {
-    // Generate markdown report
-    let report = '# Relatório de Análise de Critérios Gerais\n\n';
-    report += `**Data:** ${new Date().toLocaleDateString('pt-BR')}\n`;
-    report += `**Arquivos analisados:** ${uploadedFiles.length}\n`;
-    report += `**Critérios avaliados:** ${results.length}\n\n`;
+  const handleDownloadReport = async () => {
+    if (results.length === 0) {
+      alert('Nenhum resultado para gerar relatório.');
+      return;
+    }
 
-    results.forEach(result => {
-      report += `## ${result.criterion}\n\n`;
-      report += `**Status:** ${result.status}\n`;
-      report += `**Confiança:** ${Math.round(result.confidence * 100)}%\n\n`;
-      report += `### Avaliação\n${result.assessment}\n\n`;
+    try {
+      // Create a temporary div to render the report content
+      const reportDiv = document.createElement('div');
+      reportDiv.style.position = 'absolute';
+      reportDiv.style.left = '-9999px';
+      reportDiv.style.width = '210mm'; // A4 width
+      reportDiv.style.padding = '20mm';
+      reportDiv.style.fontFamily = 'Arial, sans-serif';
+      reportDiv.style.fontSize = '12px';
+      reportDiv.style.lineHeight = '1.6';
+      reportDiv.style.backgroundColor = 'white';
+      reportDiv.style.color = 'black';
 
-      if (result.recommendations.length > 0) {
-        report += '### Recomendações\n';
-        result.recommendations.forEach(rec => {
-          report += `- ${rec}\n`;
-        });
-        report += '\n';
+      // Generate HTML content
+      const currentDate = new Date().toLocaleDateString('pt-BR');
+      const currentTime = new Date().toLocaleTimeString('pt-BR');
+
+      let htmlContent = `
+        <div style="max-width: 100%; margin: 0;">
+          <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
+            <h1 style="color: #333; margin: 0; font-size: 24px;">Relatório de Análise de Código</h1>
+            <h2 style="color: #666; margin: 10px 0 0 0; font-size: 18px; font-weight: normal;">VerificAI Code Quality System</h2>
+            <p style="color: #888; margin: 20px 0 0 0; font-size: 14px;">
+              Gerado em: ${currentDate} às ${currentTime}
+            </p>
+          </div>
+
+          <div style="margin-bottom: 30px;">
+            <h3 style="color: #333; border-left: 4px solid #007bff; padding-left: 10px; margin-bottom: 15px;">Resumo da Análise</h3>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+              <tr style="background-color: #f8f9fa;">
+                <td style="padding: 8px 12px; border: 1px solid #dee2e6; font-weight: bold;">Total de Critérios</td>
+                <td style="padding: 8px 12px; border: 1px solid #dee2e6;">${results.length}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 12px; border: 1px solid #dee2e6; font-weight: bold;">Arquivos Analisados</td>
+                <td style="padding: 8px 12px; border: 1px solid #dee2e6;">${uploadedFiles?.length || 0}</td>
+              </tr>
+              <tr style="background-color: #f8f9fa;">
+                <td style="padding: 8px 12px; border: 1px solid #dee2e6; font-weight: bold;">Status Geral</td>
+                <td style="padding: 8px 12px; border: 1px solid #dee2e6;">
+                  ${results.filter(r => r.status === 'compliant').length} Conforme,
+                  ${results.filter(r => r.status === 'non_compliant').length} Não Conforme,
+                  ${results.filter(r => r.status === 'partially_compliant').length} Parcialmente Conforme
+                </td>
+              </tr>
+            </table>
+          </div>
+      `;
+
+      // Add each criterion result
+      results.forEach((result, index) => {
+        const statusColor = {
+          'compliant': '#28a745',
+          'non_compliant': '#dc3545',
+          'partially_compliant': '#ffc107'
+        }[result.status] || '#6c757d';
+
+        const statusText = {
+          'compliant': 'Conforme',
+          'non_compliant': 'Não Conforme',
+          'partially_compliant': 'Parcialmente Conforme'
+        }[result.status] || result.status;
+
+        const confidencePercent = Math.round(result.confidence * 100);
+
+        htmlContent += `
+          <div style="margin-bottom: 40px; page-break-inside: avoid;">
+            <div style="border-left: 4px solid ${statusColor}; padding-left: 15px; margin-bottom: 15px;">
+              <h3 style="color: #333; margin: 0 0 5px 0; font-size: 16px;">
+                Critério ${index + 1}: ${result.criterion}
+              </h3>
+              <div style="display: flex; gap: 20px; margin: 10px 0; flex-wrap: wrap;">
+                <span style="background-color: ${statusColor}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">
+                  ${statusText}
+                </span>
+                <span style="color: #666; font-size: 12px;">
+                  Confiança: ${confidencePercent}%
+                </span>
+              </div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+              <h4 style="color: #333; margin-bottom: 10px; font-size: 14px; border-bottom: 1px solid #dee2e6; padding-bottom: 5px;">
+                Avaliação Detalhada
+              </h4>
+              <div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; border-left: 3px solid #dee2e6;">
+                <div style="white-space: pre-wrap; color: #333; font-size: 12px; line-height: 1.5;">
+                  ${result.assessment.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                  .replace(/\n\n/g, '</p><p>')
+                                  .replace(/^/, '<p>')
+                                  .replace(/$/, '</p>')
+                                  .replace(/`([^`]+)`/g, '<code style="background-color: #e9ecef; padding: 2px 4px; border-radius: 3px; font-family: monospace;">$1</code>')}
+                </div>
+              </div>
+            </div>
+        `;
+
+        if (result.recommendations.length > 0) {
+          htmlContent += `
+            <div style="margin-bottom: 15px;">
+              <h4 style="color: #333; margin-bottom: 10px; font-size: 14px;">Recomendações</h4>
+              <ul style="margin: 0; padding-left: 20px;">
+                ${result.recommendations.map(rec =>
+                  `<li style="margin-bottom: 5px; color: #333; font-size: 12px;">${rec}</li>`
+                ).join('')}
+              </ul>
+            </div>
+          `;
+        }
+
+        htmlContent += '</div>';
+      });
+
+      // Add footer
+      htmlContent += `
+          <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #dee2e6; text-align: center; color: #666; font-size: 11px;">
+            <p>Relatório gerado automaticamente pelo VerificAI Code Quality System</p>
+            <p>Este relatório contém ${results.length} critérios de análise baseados em boas práticas de desenvolvimento de software.</p>
+          </div>
+        </div>
+      `;
+
+      reportDiv.innerHTML = htmlContent;
+      document.body.appendChild(reportDiv);
+
+      // Convert to canvas
+      const canvas = await html2canvas(reportDiv, {
+        scale: 2,
+        useCORS: true,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: reportDiv.scrollWidth,
+        windowHeight: reportDiv.scrollHeight
+      });
+
+      // Create PDF
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgData = canvas.toDataURL('image/png');
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      let heightLeft = pdfHeight;
+      let position = 0;
+
+      // Add first page
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pdf.internal.pageSize.getHeight();
+
+      // Add additional pages if needed
+      while (heightLeft >= 0) {
+        position = heightLeft - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pdf.internal.pageSize.getHeight();
       }
-    });
 
-    // Download as file
-    const blob = new Blob([report], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `analise-criterios-gerais-${Date.now()}.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      // Clean up
+      document.body.removeChild(reportDiv);
+
+      // Download PDF
+      const fileName = `relatorio-analise-codigo-${currentDate.replace(/\//g, '-')}.pdf`;
+      pdf.save(fileName);
+
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+      alert('Erro ao gerar o relatório PDF. Por favor, tente novamente.');
+    }
   };
 
   return (
@@ -718,38 +863,13 @@ const GeneralAnalysisPage: React.FC = () => {
         )}
 
         {activeTab === 'results' && (
-          <div>
-            {results.length > 0 && (
-              <div className="br-card mb-3">
-                <div className="card-content">
-                  <div className="d-flex justify-content-between align-items-center">
-                    <div>
-                      <span className="text-regular">
-                        Mostrando {results.length} resultado(s) de análise
-                      </span>
-                    </div>
-                    <div className="d-flex gap-2">
-                      <button
-                        onClick={handleClearResults}
-                        className="br-button secondary"
-                        title="Limpar todos os resultados"
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Limpar Resultados
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-            <ResultsTable
-              results={results}
-              onEditResult={handleEditResult}
-              onDownloadReport={handleDownloadReport}
-              onReanalyze={handleReanalyze}
-              onDeleteResults={handleDeleteResults}
-            />
-          </div>
+          <ResultsTable
+            results={results}
+            onEditResult={handleEditResult}
+            onDownloadReport={handleDownloadReport}
+            onReanalyze={handleReanalyze}
+            onDeleteResults={handleDeleteResults}
+          />
         )}
 
         {/* Analysis Progress - shown in both tabs */}
