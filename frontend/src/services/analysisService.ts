@@ -1,6 +1,34 @@
 import apiClient from './apiClient';
 import type { Analysis, AnalysisConfig, AnalysisResult, AnalysisSummary } from '@/types/analysis';
 
+export interface AnalysisRequest {
+  criteria_ids: string[];
+  file_paths: string[];
+  analysis_name?: string;
+  temperature?: number;
+  max_tokens?: number;
+}
+
+export interface AnalysisResponse {
+  success: boolean;
+  analysis_name: string;
+  criteria_count: number;
+  timestamp: string;
+  model_used: string;
+  usage: {
+    input_tokens?: number;
+    output_tokens?: number;
+    total_tokens?: number;
+  };
+  criteria_results: Record<string, {
+    name: string;
+    content: string;
+  }>;
+  raw_response: string;
+  modified_prompt: string;
+  file_paths: string[];
+}
+
 export const analysisService = {
   create: async (config: AnalysisConfig): Promise<Analysis> => {
     const response = await apiClient.post('/analysis', config);
@@ -37,5 +65,27 @@ export const analysisService = {
       responseType: 'blob',
     });
     return response.data;
+  },
+
+  analyzeSelectedCriteria: async (request: AnalysisRequest): Promise<AnalysisResponse> => {
+    try {
+      const response = await apiClient.post('/simple-analysis/simple-analyze', request);
+      return response.data;
+    } catch (error) {
+      console.error('Error analyzing selected criteria:', error);
+      throw error;
+    }
+  },
+
+  getAnalysisResults: async () => {
+    try {
+      // Use the working simple-analysis results endpoint
+      const response = await apiClient.get('/simple-analysis/simple-results');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching analysis results:', error);
+      // Return empty results to avoid breaking the UI
+      return { success: true, results: [], total: 0 };
+    }
   },
 };

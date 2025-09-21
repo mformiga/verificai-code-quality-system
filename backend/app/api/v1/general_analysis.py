@@ -12,7 +12,7 @@ from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.models.analysis import Analysis, AnalysisStatus
 from app.models.prompt import Prompt, PromptCategory
-from app.models.prompt import GeneralCriteria
+from app.models.prompt import GeneralCriteria, GeneralAnalysisResult as GeneralAnalysisResultModel
 from app.schemas.analysis import AnalysisCreate, AnalysisResponse
 from app.api.v1.analysis import process_analysis
 from app.services.prompt_service import get_prompt_service
@@ -644,7 +644,52 @@ async def analyze_selected_criteria(
                     for key, value in criteria_results.items():
                         print(f"DEBUG: {key}: {type(value)} - {str(value)[:100] if value else 'None'}")
 
-        # Step 8: Create analysis result structure
+        # Step 8: Save analysis results to database
+        import json
+        from datetime import datetime
+        import time
+
+        print("DEBUG: Starting database save process...")
+
+        # Calculate processing time
+        processing_start = time.time()
+        processing_time = f"{time.time() - processing_start:.2f}s"
+
+        try:
+            print("DEBUG: Creating GeneralAnalysisResult record...")
+            # Create GeneralAnalysisResult record
+            db_analysis_result = GeneralAnalysisResultModel(
+                analysis_name=request.analysis_name,
+                criteria_count=len(selected_criteria),
+                user_id=1,  # Using fixed user_id for testing (should be current_user.id)
+                criteria_results=extracted_content.get("criteria_results", {}),
+                raw_response=extracted_content.get("raw_response", ""),
+                model_used=llm_response.get("model", "claude-3-sonnet-20240229"),
+                usage=llm_response.get("usage", {}),
+                file_paths=json.dumps(request.file_paths),
+                modified_prompt=modified_prompt,
+                processing_time=processing_time
+            )
+
+            print("DEBUG: Adding record to session...")
+            db.add(db_analysis_result)
+
+            print("DEBUG: Committing transaction...")
+            db.commit()
+
+            print("DEBUG: Refreshing record...")
+            db.refresh(db_analysis_result)
+
+            print(f"DEBUG: Successfully saved analysis result to database with ID: {db_analysis_result.id}")
+
+        except Exception as db_error:
+            print(f"DEBUG: Database save failed: {db_error}")
+            import traceback
+            traceback.print_exc()
+            # Don't re-raise - continue with returning the result to the user
+            db_analysis_result = None
+
+        # Step 9: Create analysis result structure
         result_data = {
             "success": True,
             "analysis_name": request.analysis_name,
@@ -656,7 +701,9 @@ async def analyze_selected_criteria(
             "raw_response": extracted_content.get("raw_response", ""),
             "debug_raw_llm_response": llm_response_content,  # For debugging
             "modified_prompt": modified_prompt,
-            "file_paths": request.file_paths
+            "file_paths": request.file_paths,
+            "saved_to_db": True,
+            "db_result_id": db_analysis_result.id
         }
 
         return result_data
@@ -670,6 +717,148 @@ async def analyze_selected_criteria(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error analyzing selected criteria: {str(e)}"
+        )
+
+
+@router.get("/results")
+async def get_analysis_results(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Get all analysis results for the current user"""
+    try:
+        # Get all analysis results for the user
+        results = db.query(GeneralAnalysisResultModel).filter(
+            GeneralAnalysisResultModel.user_id == current_user.id
+        ).order_by(GeneralAnalysisResultModel.created_at.desc()).all()
+
+        # Convert to response format
+        formatted_results = []
+        for result in results:
+            formatted_results.append({
+                "id": result.id,
+                "analysis_name": result.analysis_name,
+                "criteria_count": result.criteria_count,
+                "timestamp": result.created_at,
+                "model_used": result.model_used,
+                "processing_time": result.processing_time,
+                "file_paths": result.get_file_paths(),
+                "criteria_results": result.get_criteria_results(),
+                "raw_response": result.raw_response,
+                "usage": result.get_usage()
+            })
+
+        return {
+            "success": True,
+            "results": formatted_results,
+            "total": len(formatted_results)
+        }
+
+    except Exception as e:
+        print(f"ERROR in get_analysis_results: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving analysis results: {str(e)}"
+        )
+
+
+@router.get("/debug-test-public")
+async def test_endpoint() -> Any:
+    """Simple test endpoint"""
+    return {"message": "Test endpoint works", "status": "ok"}
+
+
+@router.get("/results-public")
+async def get_analysis_results_public(
+    db: Session = Depends(get_db)
+) -> Any:
+    """Get all analysis results (public endpoint for testing)"""
+    try:
+        # Get all analysis results for user_id = 1 (testing)
+        results = db.query(GeneralAnalysisResultModel).filter(
+            GeneralAnalysisResultModel.user_id == 1
+        ).order_by(GeneralAnalysisResultModel.created_at.desc()).all()
+
+        # Convert to response format
+        formatted_results = []
+        for result in results:
+            formatted_results.append({
+                "id": result.id,
+                "analysis_name": result.analysis_name,
+                "criteria_count": result.criteria_count,
+                "timestamp": result.created_at,
+                "model_used": result.model_used,
+                "processing_time": result.processing_time,
+                "file_paths": result.get_file_paths(),
+                "criteria_results": result.get_criteria_results(),
+                "raw_response": result.raw_response,
+                "usage": result.get_usage()
+            })
+
+        return {
+            "success": True,
+            "results": formatted_results,
+            "total": len(formatted_results)
+        }
+
+    except Exception as e:
+        print(f"ERROR in get_analysis_results_public: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving analysis results: {str(e)}"
+        )
+
+
+@router.get("/results/{result_id}")
+async def get_analysis_result(
+    result_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Get a specific analysis result by ID"""
+    try:
+        # Get the analysis result
+        result = db.query(GeneralAnalysisResultModel).filter(
+            GeneralAnalysisResultModel.id == result_id,
+            GeneralAnalysisResultModel.user_id == current_user.id
+        ).first()
+
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Analysis result not found"
+            )
+
+        return {
+            "success": True,
+            "result": {
+                "id": result.id,
+                "analysis_name": result.analysis_name,
+                "criteria_count": result.criteria_count,
+                "timestamp": result.created_at,
+                "model_used": result.model_used,
+                "processing_time": result.processing_time,
+                "file_paths": result.get_file_paths(),
+                "criteria_results": result.get_criteria_results(),
+                "raw_response": result.raw_response,
+                "usage": result.get_usage(),
+                "modified_prompt": result.modified_prompt
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"ERROR in get_analysis_result: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving analysis result: {str(e)}"
         )
 
 

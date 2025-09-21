@@ -123,6 +123,77 @@ class GeneralCriteria(Base, BaseModel, AuditMixin):
         return f"<GeneralCriteria(user_id={self.user_id}, text='{self.text[:50]}...', active={self.is_active})>"
 
 
+class GeneralAnalysisResult(Base, BaseModel, AuditMixin):
+    """
+    Stores results from general analysis of selected criteria.
+    """
+    __tablename__ = "general_analysis_results"
+
+    # Analysis metadata
+    analysis_name = Column(String(200), nullable=False)
+    criteria_count = Column(Integer, nullable=False)
+
+    # Foreign keys
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    # Analysis results (JSON format)
+    criteria_results = Column(JSON, nullable=False)  # Extracted criteria with analysis
+    raw_response = Column(Text, nullable=False)  # Full LLM response
+
+    # Model information
+    model_used = Column(String(100), nullable=True)
+    usage = Column(JSON, nullable=True)  # Token usage stats
+
+    # Input data for reference
+    file_paths = Column(Text, nullable=True)  # JSON array of analyzed files
+    modified_prompt = Column(Text, nullable=True)  # The prompt sent to LLM
+
+    # Processing info
+    processing_time = Column(String(50), nullable=True)
+
+    # Relationships
+    user = relationship("User", back_populates="general_analysis_results")
+
+    def get_file_paths(self) -> list[str]:
+        """Get file paths as list"""
+        if not self.file_paths:
+            return []
+        import json
+        return json.loads(self.file_paths)
+
+    def set_file_paths(self, paths: list[str]) -> None:
+        """Set file paths from list"""
+        import json
+        self.file_paths = json.dumps(paths)
+
+    def get_criteria_results(self) -> dict:
+        """Get criteria results as dictionary"""
+        if not self.criteria_results:
+            return {}
+        return self.criteria_results
+
+    def set_criteria_results(self, results: dict) -> None:
+        """Set criteria results from dictionary"""
+        self.criteria_results = results
+
+    def get_usage(self) -> dict:
+        """Get usage stats as dictionary"""
+        if not self.usage:
+            return {}
+        return self.usage
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary"""
+        data = super().to_dict()
+        data['file_paths'] = self.get_file_paths()
+        data['criteria_results'] = self.get_criteria_results()
+        data['usage'] = self.get_usage()
+        return data
+
+    def __repr__(self) -> str:
+        return f"<GeneralAnalysisResult(id={self.id}, name='{self.analysis_name}', criteria_count={self.criteria_count})>"
+
+
 class PromptConfiguration(Base, BaseModel, AuditMixin):
     """
     Stores user-specific prompt configurations and settings.
