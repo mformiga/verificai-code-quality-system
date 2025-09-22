@@ -261,10 +261,10 @@ const GeneralAnalysisPage: React.FC = () => {
 
       // Obter o ID do critério para reanálise
       const criteriaId = existingResult.criteriaId || existingResult.id;
-      const criteriaKey = existingResult.criterionKey || `criteria_${criteriaId}`;
+      const criteriaKey = existingResult.criterionKey;
 
-      if (!criteriaId) {
-        alert('Não foi possível identificar o ID do critério para reanálise.');
+      if (!criteriaId || !criteriaKey) {
+        alert('Não foi possível identificar o ID ou chave do critério para reanálise.');
         return;
       }
 
@@ -286,13 +286,19 @@ const GeneralAnalysisPage: React.FC = () => {
       }, 300);
 
       // Create analysis request para reanálise do critério específico
+      // Garantir que o criteria_id esteja no formato correto: "criteria_{id}"
+      const formattedCriteriaId = criteriaKey.startsWith('criteria_') ? criteriaKey : `criteria_${criteriaId}`;
       const request: AnalysisRequest = {
-        criteria_ids: [criteriaKey],
-        file_paths: ['C:\\Users\\formi\\teste_gemini\\dev\\verificAI-code\\codigo_analise.ts'],
+        criteria_ids: [formattedCriteriaId],
+        file_paths: ['C:/Users/formi/teste_gemini/dev/verificAI-code/codigo_analise.ts'],
         analysis_name: `Reanálise do Critério: ${criterion}`,
         temperature: 0.7,
-        max_tokens: 4000
+        max_tokens: 4000,
+        is_reanalysis: true,
+        result_id_to_update: existingResult.resultId  // ID do resultado pai para atualizar
       };
+
+      console.log('🔍 REANÁLISE - Enviando requisição:', request);
 
       // Call the API endpoint
       const response: AnalysisResponse = await analysisService.analyzeSelectedCriteria(request);
@@ -351,33 +357,13 @@ const GeneralAnalysisPage: React.FC = () => {
       setShowProgress(false);
       setProgress(0);
 
-      // Update results: replace only the reanalyzed criterion
-      setResults(prevResults => {
-        return prevResults.map(existingResult => {
-          // Match by criteriaId or by criterion name
-          if ((existingResult.criteriaId && existingResult.criteriaId === criteriaId) ||
-              (existingResult.criterion === criterion) ||
-              (existingResult.criterion.includes(criterion)) ||
-              (criterion.includes(existingResult.criterion))) {
+      // Como o backend atualizou o registro, precisamos recarregar os resultados
+      console.log('🔄 REANÁLISE - Recarregando resultados do banco de dados...');
 
-            console.log(`🔄 REANÁLISE - Atualizando resultado para critério: ${criterion}`);
-            console.log(`   Antigo: "${existingResult.assessment.substring(0, 50)}..."`);
-            console.log(`   Novo:  "${content.substring(0, 50)}..."`);
-
-            // Return updated result
-            return {
-              ...existingResult,
-              assessment: content,
-              status: status,
-              confidence: Math.max(0, Math.min(1, confidence)),
-              criterionKey: criteriaKey
-            };
-          }
-
-          // Keep other results unchanged
-          return existingResult;
-        });
-      });
+      // Recarregar resultados do backend para obter os dados atualizados
+      setTimeout(() => {
+        loadAnalysisResults();
+      }, 1000); // Pequeno delay para garantir que o banco de dados foi atualizado
 
       console.log(`✅ Reanálise concluída com sucesso para: ${criterion}`);
 
@@ -486,9 +472,11 @@ const GeneralAnalysisPage: React.FC = () => {
       }, 300);
 
       // Create analysis request para análise do critério específico
+      // Garantir que o criteria_id esteja no formato correto: "criteria_{id}"
+      const formattedCriteriaId = criteriaKey.startsWith('criteria_') ? criteriaKey : `criteria_${matchingCriterion.id}`;
       const request: AnalysisRequest = {
-        criteria_ids: [criteriaKey],
-        file_paths: ['C:\\Users\\formi\\teste_gemini\\dev\\verificAI-code\\codigo_analise.ts'],
+        criteria_ids: [formattedCriteriaId],
+        file_paths: ['C:/Users/formi/teste_gemini/dev/verificAI-code/codigo_analise.ts'],
         analysis_name: `Análise do Critério: ${criterion}`,
         temperature: 0.7,
         max_tokens: 4000
@@ -619,7 +607,7 @@ const GeneralAnalysisPage: React.FC = () => {
       // Create analysis request com arquivo de exemplo
       const request: AnalysisRequest = {
         criteria_ids: selectedCriteriaIds,
-        file_paths: ['C:\\Users\\formi\\teste_gemini\\dev\\verificAI-code\\codigo_analise.ts'], // Arquivo correto para análise
+        file_paths: ['C:/Users/formi/teste_gemini/dev/verificAI-code/codigo_analise.ts'], // Arquivo correto para análise
         analysis_name: 'Análise de Critérios Selecionados',
         temperature: 0.7,
         max_tokens: 4000

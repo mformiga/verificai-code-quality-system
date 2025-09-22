@@ -2,6 +2,7 @@
 Prompt service for VerificAI Backend - Handles prompt manipulation and criteria insertion
 """
 
+import re
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session
 from app.models.prompt import PromptConfiguration
@@ -81,6 +82,30 @@ class PromptService:
                 # If no # found, append criteria to the end
                 modified_prompt = prompt + f"\n\nCritérios a serem avaliados:\n{criteria_text}"
 
+            # If it's a single criterion analysis, modify the prompt to be more specific
+            if len(criteria) == 1:
+                # For single criterion, modify the prompt to focus on just that criterion
+                # but still use the general structure to avoid breaking the extraction logic
+                modified_prompt = modified_prompt.replace(
+                    "## Critério 1: [Nome do critério]",
+                    f"## Critério 1: {criteria[0].text}"
+                )
+                # Remove references to multiple criteria sections
+                modified_prompt = re.sub(r'##\s*Crit[ée]rio\s*\d+.*?(?=\n##\s*(?:Resultado|Recomendações)\s*(?:Geral|)|\Z|$)', '', modified_prompt, flags=re.DOTALL)
+                modified_prompt = modified_prompt.replace(
+                    "Para cada critério, forneça:",
+                    "Para este critério, forneça:"
+                )
+                modified_prompt = modified_prompt.replace(
+                    "Avaliações individuais dos critérios",
+                    "Avaliação do critério"
+                )
+                # Add instruction to focus only on the requested criterion
+                modified_prompt += "\n\nIMPORTANTE: Analise APENAS o critério especificado acima. Não inclua análises de outros critérios na sua resposta."
+
+            # Add end marker for both single and multiple criteria
+            modified_prompt += "\n\n#FIM"
+
             return modified_prompt
 
         except Exception as e:
@@ -138,6 +163,8 @@ Formate sua resposta em markdown com a seguinte estrutura exata:
 
 ## Recomendações Gerais
 [Lista de recomendações gerais]
+
+#FIM
 """
 
 # Global instance function

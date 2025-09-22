@@ -112,7 +112,8 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
     .map((result, index) => ({
       ...result,
       id: result.id || (Date.now() + index), // Generate temporary ID if none exists
-      displayOrder: index + 1
+      displayOrder: index + 1,
+      uniqueKey: result.id ? `result_${result.id}` : `temp_${result.criterion}_${Date.now()}_${index}` // Generate unique key
     }));
 
   const toggleRow = (criterion: string) => {
@@ -352,7 +353,7 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
             </thead>
           <tbody>
             {sortedResults.map((result) => (
-              <React.Fragment key={result.criterion}>
+              <React.Fragment key={result.uniqueKey}>
                 <tr style={{
                   borderBottom: '1px solid #e9ecef'
                 }}>

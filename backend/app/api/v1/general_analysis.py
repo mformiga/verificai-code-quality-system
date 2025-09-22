@@ -39,6 +39,8 @@ class AnalyzeSelectedRequest(BaseModel):
     analysis_name: Optional[str] = "Análise de Critérios Gerais"
     temperature: float = 0.7
     max_tokens: int = 4000
+    is_reanalysis: Optional[bool] = False
+    result_id_to_update: Optional[int] = None
 
 
 class GeneralCriteriaResponse(BaseModel):
@@ -526,7 +528,6 @@ async def get_general_analysis_result(
 async def analyze_selected_criteria(
     request: AnalyzeSelectedRequest,
     db: Session = Depends(get_db)
-    # current_user: User = Depends(get_current_user),  # Temporarily disabled for testing
 ) -> Any:
     """Analyze selected criteria using LLM with dynamic prompt insertion"""
     try:
@@ -563,9 +564,29 @@ async def analyze_selected_criteria(
 
         # Step 4: Read source code file and replace placeholder
         try:
-            with open("C:\\Users\\formi\\teste_gemini\\dev\\verificAI-code\\codigo_analise.ts", "r", encoding="utf-8") as f:
+            # Use the first file path from the request
+            if not request.file_paths or len(request.file_paths) == 0:
+                raise HTTPException(status_code=400, detail="Nenhum arquivo de código fonte fornecido")
+
+            file_path = request.file_paths[0]  # Use first file path
+            print(f"DEBUG: Reading source code from: {file_path}")
+
+            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
                 source_code = f.read()
                 print(f"DEBUG: Source code file read successfully: {len(source_code)} characters")
+
+                # Sanitizar o conteúdo para remover caracteres problemáticos
+                source_code = source_code.replace('\r\n', '\n')  # Normalizar line endings
+                source_code = source_code.replace('\r', '\n')
+
+                # Verificar e substituir caracteres problemáticos
+                try:
+                    source_code = source_code.encode('utf-8', errors='ignore').decode('utf-8')
+                    print(f"DEBUG: Source code sanitized successfully")
+                except Exception as sanitize_error:
+                    print(f"DEBUG: Warning - could not fully sanitize source code: {sanitize_error}")
+
+                print(f"DEBUG: Final source code length: {len(source_code)} characters")
         except Exception as e:
             print(f"DEBUG: Error reading source code file: {e}")
             raise HTTPException(status_code=500, detail=f"Erro ao ler arquivo de código fonte: {str(e)}")
@@ -588,7 +609,7 @@ async def analyze_selected_criteria(
         print(f"DEBUG: About to send prompt of length {len(final_prompt)}")
         print(f"DEBUG: Temperature: {request.temperature}, Max tokens: {request.max_tokens}")
 
-        llm_response = await llm_service.send_prompt(
+        llm_response = await llm_service.send_prompt_with_end_detection(
             final_prompt,
             temperature=request.temperature,
             max_tokens=request.max_tokens
@@ -644,53 +665,103 @@ async def analyze_selected_criteria(
                     for key, value in criteria_results.items():
                         print(f"DEBUG: {key}: {type(value)} - {str(value)[:100] if value else 'None'}")
 
-            # Step 7.5: Map extracted criteria results to actual criteria IDs
-            print(f"DEBUG: Starting criteria ID mapping...")
+            # Step 7.5: For single criterion analysis, ensure only the requested criterion is returned
+            print(f"DEBUG: Starting criteria filtering...")
             print(f"DEBUG: Selected criteria: {selected_criteria}")
             print(f"DEBUG: Request criteria IDs: {request.criteria_ids}")
+            print(f"DEBUG: Extracted criteria results: {extracted_content.get('criteria_results', {}).keys()}")
 
-            # Create mapping from criteria name to criteria ID
-            criteria_name_to_id = {}
-            for criteria in selected_criteria:
-                # criteria is a GeneralCriteria object with id and text attributes
-                criteria_name_to_id[criteria.text.strip().lower()] = criteria.id
-                print(f"DEBUG: Mapping '{criteria.text.strip().lower()}' to ID {criteria.id}")
+            # For single criterion analysis, force filtering to return ONLY the requested criterion
+            if len(selected_criteria) == 1 and len(request.criteria_ids) == 1:
+                requested_criteria_id = request.criteria_ids[0]
+                target_criteria_id = requested_criteria_id.replace("criteria_", "")
+                target_criteria_name = selected_criteria[0].text.strip()
 
-            # Remap criteria_results to use actual criteria IDs instead of position-based keys
-            remapped_criteria_results = {}
-            for extracted_key, result_data in extracted_content.get("criteria_results", {}).items():
-                print(f"DEBUG: Processing extracted key: {extracted_key}, result: {result_data}")
+                print(f"DEBUG: Single criterion analysis - FORCING filter for ID: {target_criteria_id}, Name: {target_criteria_name}")
 
-                # Try to find matching criteria by name
-                result_name = result_data.get("name", "").strip().lower()
-                print(f"DEBUG: Looking for criteria with name: '{result_name}'")
+                # Always create a result with only the requested criterion
+                forced_criteria_results = {}
 
-                # Try exact match first
-                if result_name in criteria_name_to_id:
-                    criteria_id = criteria_name_to_id[result_name]
-                    remapped_criteria_results[f"criteria_{criteria_id}"] = result_data
-                    print(f"DEBUG: Found exact match - mapped to criteria_{criteria_id}")
+                # First, try exact ID match
+                if f"criteria_{target_criteria_id}" in extracted_content.get("criteria_results", {}):
+                    forced_criteria_results[f"criteria_{target_criteria_id}"] = extracted_content["criteria_results"][f"criteria_{target_criteria_id}"]
+                    print(f"DEBUG: Found exact ID match for criteria_{target_criteria_id}")
                 else:
-                    # Try fuzzy matching
-                    found_match = False
-                    for criteria_text, candidate_id in criteria_name_to_id.items():
-                        # Check if the result name contains the criteria text or vice versa
-                        if (result_name in criteria_text or
-                            criteria_text in result_name or
-                            result_name.split(':')[0].strip() in criteria_text or
-                            criteria_text.split(':')[0].strip() in result_name):
-                            remapped_criteria_results[f"criteria_{candidate_id}"] = result_data
-                            print(f"DEBUG: Found fuzzy match - mapped '{result_name}' to criteria_{candidate_id}")
-                            found_match = True
-                            break
+                    # Try to find the best match by name similarity
+                    best_match = None
+                    best_similarity_score = 0
 
-                    if not found_match:
-                        # Keep original key if no match found
-                        remapped_criteria_results[extracted_key] = result_data
-                        print(f"DEBUG: No match found for '{result_name}', keeping original key")
+                    for extracted_key, result_data in extracted_content.get("criteria_results", {}).items():
+                        result_name = result_data.get("name", "").strip().lower()
+                        target_name_lower = target_criteria_name.lower()
 
-            print(f"DEBUG: Remapped criteria_results: {remapped_criteria_results}")
-            extracted_content["criteria_results"] = remapped_criteria_results
+                        # Calculate similarity score
+                        similarity_score = 0
+                        if result_name == target_name_lower:
+                            similarity_score = 100
+                        elif target_name_lower in result_name:
+                            similarity_score = 80
+                        elif result_name in target_name_lower:
+                            similarity_score = 60
+                        elif any(word in result_name for word in target_name_lower.split()):
+                            similarity_score = 40
+
+                        if similarity_score > best_similarity_score:
+                            best_similarity_score = similarity_score
+                            best_match = result_data
+                            print(f"DEBUG: New best match: '{result_name}' with score {similarity_score}")
+
+                    # If we found a match with reasonable similarity, use it
+                    if best_match and best_similarity_score >= 40:
+                        forced_criteria_results[f"criteria_{target_criteria_id}"] = best_match
+                        print(f"DEBUG: Using best match with score {best_similarity_score}")
+                    else:
+                        # If no good match found, create a result for the requested criterion
+                        forced_criteria_results[f"criteria_{target_criteria_id}"] = {
+                            "name": target_criteria_name,
+                            "content": "**Status:** Não Conforme\n**Confiança:** 1.0\n\nAnálise não disponível. O critério solicitado não foi encontrado nos resultados gerados pelo LLM."
+                        }
+                        print(f"DEBUG: No good match found, creating empty result for {target_criteria_name}")
+
+                # ALWAYS replace with our forced single result
+                extracted_content["criteria_results"] = forced_criteria_results
+                print(f"DEBUG: FORCED single criterion result: {forced_criteria_results}")
+                print(f"DEBUG: Total criteria in final result: {len(forced_criteria_results)}")
+            else:
+                # For multiple criteria, use the original mapping logic
+                # Create mapping from criteria name to criteria ID
+                criteria_name_to_id = {}
+                for criteria in selected_criteria:
+                    criteria_name_to_id[criteria.text.strip().lower()] = criteria.id
+                    print(f"DEBUG: Mapping '{criteria.text.strip().lower()}' to ID {criteria.id}")
+
+                # Remap criteria_results to use actual criteria IDs
+                remapped_criteria_results = {}
+                for extracted_key, result_data in extracted_content.get("criteria_results", {}).items():
+                    result_name = result_data.get("name", "").strip().lower()
+
+                    if result_name in criteria_name_to_id:
+                        criteria_id = criteria_name_to_id[result_name]
+                        remapped_criteria_results[f"criteria_{criteria_id}"] = result_data
+                        print(f"DEBUG: Found exact match - mapped to criteria_{criteria_id}")
+                    else:
+                        # Try fuzzy matching
+                        found_match = False
+                        for criteria_text, candidate_id in criteria_name_to_id.items():
+                            if (result_name in criteria_text or criteria_text in result_name or
+                                result_name.split(':')[0].strip() in criteria_text or
+                                criteria_text.split(':')[0].strip() in result_name):
+                                remapped_criteria_results[f"criteria_{candidate_id}"] = result_data
+                                print(f"DEBUG: Found fuzzy match - mapped '{result_name}' to criteria_{candidate_id}")
+                                found_match = True
+                                break
+
+                        if not found_match:
+                            # Keep original key if no match found
+                            remapped_criteria_results[extracted_key] = result_data
+                            print(f"DEBUG: No match found for '{result_name}', keeping original key")
+
+                extracted_content["criteria_results"] = remapped_criteria_results
 
         # Step 8: Save analysis results to database
         import json
@@ -704,31 +775,57 @@ async def analyze_selected_criteria(
         processing_time = f"{time.time() - processing_start:.2f}s"
 
         try:
-            print("DEBUG: Creating GeneralAnalysisResult record...")
-            # Create GeneralAnalysisResult record
-            db_analysis_result = GeneralAnalysisResultModel(
-                analysis_name=request.analysis_name,
-                criteria_count=len(selected_criteria),
-                user_id=1,  # Using fixed user_id for testing (should be current_user.id)
-                criteria_results=extracted_content.get("criteria_results", {}),
-                raw_response=extracted_content.get("raw_response", ""),
-                model_used=llm_response.get("model", "claude-3-sonnet-20240229"),
-                usage=llm_response.get("usage", {}),
-                file_paths=json.dumps(request.file_paths),
-                modified_prompt=modified_prompt,
-                processing_time=processing_time
-            )
+            # Check if this is a reanalysis
+            if request.is_reanalysis and request.result_id_to_update:
+                print(f"DEBUG: Updating existing analysis result with ID: {request.result_id_to_update}")
+                # Find existing result
+                db_analysis_result = db.query(GeneralAnalysisResultModel).filter(
+                    GeneralAnalysisResultModel.id == request.result_id_to_update
+                ).first()
 
-            print("DEBUG: Adding record to session...")
-            db.add(db_analysis_result)
+                if db_analysis_result:
+                    # Update existing record
+                    db_analysis_result.criteria_results = extracted_content.get("criteria_results", {})
+                    db_analysis_result.raw_response = extracted_content.get("raw_response", "")
+                    db_analysis_result.model_used = llm_response.get("model", "claude-3-sonnet-20240229")
+                    db_analysis_result.usage = llm_response.get("usage", {})
+                    db_analysis_result.modified_prompt = modified_prompt
+                    db_analysis_result.processing_time = processing_time
 
-            print("DEBUG: Committing transaction...")
-            db.commit()
+                    print("DEBUG: Updating existing record...")
+                    db.commit()
+                    print(f"DEBUG: Successfully updated analysis result with ID: {db_analysis_result.id}")
+                else:
+                    print(f"DEBUG: Result with ID {request.result_id_to_update} not found, creating new record")
+                    request.is_reanalysis = False  # Force creation of new record
+                    request.result_id_to_update = None
 
-            print("DEBUG: Refreshing record...")
-            db.refresh(db_analysis_result)
+            if not request.is_reanalysis or not request.result_id_to_update:
+                print("DEBUG: Creating new GeneralAnalysisResult record...")
+                # Create new GeneralAnalysisResult record
+                db_analysis_result = GeneralAnalysisResultModel(
+                    analysis_name=request.analysis_name,
+                    criteria_count=len(selected_criteria),
+                    user_id=1,  # Using fixed user_id for testing (should be current_user.id)
+                    criteria_results=extracted_content.get("criteria_results", {}),
+                    raw_response=extracted_content.get("raw_response", ""),
+                    model_used=llm_response.get("model", "claude-3-sonnet-20240229"),
+                    usage=llm_response.get("usage", {}),
+                    file_paths=json.dumps(request.file_paths),
+                    modified_prompt=modified_prompt,
+                    processing_time=processing_time
+                )
 
-            print(f"DEBUG: Successfully saved analysis result to database with ID: {db_analysis_result.id}")
+                print("DEBUG: Adding record to session...")
+                db.add(db_analysis_result)
+
+                print("DEBUG: Committing transaction...")
+                db.commit()
+
+                print("DEBUG: Refreshing record...")
+                db.refresh(db_analysis_result)
+
+                print(f"DEBUG: Successfully saved analysis result to database with ID: {db_analysis_result.id}")
 
         except Exception as db_error:
             print(f"DEBUG: Database save failed: {db_error}")

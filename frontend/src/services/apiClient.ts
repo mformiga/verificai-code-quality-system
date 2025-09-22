@@ -3,7 +3,7 @@ import type { ApiError } from '@/types/api';
 
 const apiClient = axios.create({
   baseURL: (import.meta as any).env.VITE_API_BASE_URL || '/api/v1',
-  timeout: 30000,
+  timeout: 60000, // Reduzido para 1 minuto (a detecção de marcador ajuda)
   headers: {
     'Content-Type': 'application/json',
   },
@@ -38,6 +38,17 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
+    // Enhanced error logging
+    console.error('🔍 API CLIENT INTERCEPTOR ERROR:', {
+      message: error.message,
+      code: error.code,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      config: error.config,
+      stack: error.stack
+    });
+
     if (error.response?.status === 401) {
       // Handle unauthorized - clear auth store
       localStorage.removeItem('auth-storage');

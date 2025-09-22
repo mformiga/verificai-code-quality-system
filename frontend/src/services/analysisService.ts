@@ -7,6 +7,8 @@ export interface AnalysisRequest {
   analysis_name?: string;
   temperature?: number;
   max_tokens?: number;
+  is_reanalysis?: boolean;
+  result_id_to_update?: number;
 }
 
 export interface AnalysisResponse {
@@ -69,10 +71,28 @@ export const analysisService = {
 
   analyzeSelectedCriteria: async (request: AnalysisRequest): Promise<AnalysisResponse> => {
     try {
+      console.log('🔍 ENVIANDO REQUISIÇÃO PARA API:', {
+        url: '/general-analysis/analyze-selected',
+        data: request,
+        baseURL: apiClient.defaults.baseURL
+      });
+
       const response = await apiClient.post('/general-analysis/analyze-selected', request);
+      console.log('🔍 RESPOSTA DA API:', response.data);
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error analyzing selected criteria:', error);
+      console.error('🔍 DETALHES COMPLETOS DO ERRO:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          data: error.config?.data,
+          headers: error.config?.headers
+        }
+      });
       throw error;
     }
   },
