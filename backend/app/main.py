@@ -2,8 +2,9 @@
 FastAPI application entry point for VerificAI Code Quality System
 """
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.config import settings
 from app.core.database import create_tables, db_manager
 from app.core.logging import setup_logging
@@ -16,6 +17,19 @@ from app.core.middleware import (
 )
 from app.api.v1 import auth, users, prompts, analysis, upload, file_paths, general_analysis, simple_analysis
 import uvicorn
+
+# Custom CORS middleware to handle OPTIONS requests
+class CustomCORSMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.method == "OPTIONS":
+            response = Response()
+            response.headers["Access-Control-Allow-Origin"] = "http://localhost:3012"
+            response.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS, PUT, DELETE"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            return response
+        response = await call_next(request)
+        return response
 
 # Initialize logging
 setup_logging()
@@ -33,18 +47,21 @@ app = FastAPI(
 # Configure CORS middleware first (before other middlewares)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
+    allow_origins=["http://localhost:3012"],  # Especificar a origem do frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=600,
 )
 
-# Add middleware stack
+# Add middleware stack - Order matters!
+app.add_middleware(CustomCORSMiddleware)  # Adicionar middleware CORS personalizado
 app.add_middleware(ErrorHandlerMiddleware)
 app.add_middleware(RateLimitMiddleware, requests_per_minute=settings.RATE_LIMIT_REQUESTS_PER_MINUTE)
-app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(RequestIDMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Include API routers
 app.include_router(auth.router, prefix=settings.API_V1_STR, tags=["authentication"])
@@ -91,6 +108,15 @@ async def readiness_check():
         "status": "ready" if db_health else "not_ready",
         "service": "verificai-backend",
         "database": "connected" if db_health else "disconnected"
+    }
+
+@app.options("/{path:path}")
+async def options_handler(request: Request, path: str):
+    """Global OPTIONS handler for CORS preflight requests"""
+    return {
+        "message": "CORS preflight handled",
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "headers": ["Content-Type", "Authorization"]
     }
 
 if __name__ == "__main__":

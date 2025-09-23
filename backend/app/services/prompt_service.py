@@ -138,6 +138,10 @@ Formate sua resposta em markdown com a seguinte estrutura exata:
 
 ## Recomendações Gerais
 [Lista de recomendações gerais]
+
+IMPORTANTE: Ao finalizar sua análise, inclua exatamente a tag #FIM# para indicar que a resposta está completa.
+
+#FIM#
 """
 
 # Global instance function

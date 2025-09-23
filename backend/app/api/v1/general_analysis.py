@@ -3,7 +3,7 @@ General analysis endpoints for VerificAI Backend - STO-007
 """
 
 from typing import List, Optional, Any
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks, Body
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks, Body, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -29,7 +29,7 @@ class GeneralAnalysisRequest(BaseModel):
     criteria: List[str]
     llm_provider: str = "openai"
     temperature: float = 0.7
-    max_tokens: int = 4000
+    max_tokens: int = 16000
 
 
 class AnalyzeSelectedRequest(BaseModel):
@@ -38,7 +38,7 @@ class AnalyzeSelectedRequest(BaseModel):
     file_paths: List[str]
     analysis_name: Optional[str] = "Análise de Critérios Gerais"
     temperature: float = 0.7
-    max_tokens: int = 4000
+    max_tokens: int = 16000
 
 
 class GeneralCriteriaResponse(BaseModel):
@@ -522,11 +522,16 @@ async def get_general_analysis_result(
     )
 
 
+@router.options("/analyze-selected")
+async def options_analyze_selected(request: Request):
+    """Handle OPTIONS requests for CORS preflight"""
+    return {}
+
 @router.post("/analyze-selected")
 async def analyze_selected_criteria(
     request: AnalyzeSelectedRequest,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
-    # current_user: User = Depends(get_current_user),  # Temporarily disabled for testing
 ) -> Any:
     """Analyze selected criteria using LLM with dynamic prompt insertion"""
     try:
@@ -563,7 +568,14 @@ async def analyze_selected_criteria(
 
         # Step 4: Read source code file and replace placeholder
         try:
-            with open("C:\\Users\\formi\\teste_gemini\\dev\\verificAI-code\\codigo_analise.ts", "r", encoding="utf-8") as f:
+            # Use the first file path from the request
+            if not request.file_paths or len(request.file_paths) == 0:
+                raise HTTPException(status_code=400, detail="No file paths provided")
+
+            source_file_path = request.file_paths[0]
+            print(f"DEBUG: Reading source file: {source_file_path}")
+
+            with open(source_file_path, "r", encoding="utf-8") as f:
                 source_code = f.read()
                 print(f"DEBUG: Source code file read successfully: {len(source_code)} characters")
         except Exception as e:
@@ -588,11 +600,21 @@ async def analyze_selected_criteria(
         print(f"DEBUG: About to send prompt of length {len(final_prompt)}")
         print(f"DEBUG: Temperature: {request.temperature}, Max tokens: {request.max_tokens}")
 
-        llm_response = await llm_service.send_prompt(
-            final_prompt,
-            temperature=request.temperature,
-            max_tokens=request.max_tokens
-        )
+        # Increase timeout for LLM response to ensure complete analysis
+        try:
+            llm_response = await llm_service.send_prompt(
+                final_prompt,
+                temperature=request.temperature,
+                max_tokens=16000  # Increased max tokens for longer responses
+            )
+        except Exception as llm_error:
+            print(f"ERROR: LLM service failed: {llm_error}")
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Erro na comunicação com o serviço de LLM: {str(llm_error)}"
+            )
 
         print("XXXXXXXXXX DEBUG: LLM response received XXXXXXXXXX")
         print(f"DEBUG: LLM response type: {type(llm_response)}")
@@ -628,7 +650,17 @@ async def analyze_selected_criteria(
             print(f"=== END DEBUG PATTERNS ===")
 
             print(f"DEBUG: About to call extract_markdown_content with response of length {len(llm_response_content)}")
-            extracted_content = llm_service.extract_markdown_content(llm_response_content)
+            try:
+                extracted_content = llm_service.extract_markdown_content(llm_response_content)
+            except Exception as extract_error:
+                print(f"ERROR: extract_markdown_content failed: {extract_error}")
+                import traceback
+                traceback.print_exc()
+                # Fallback content if extraction fails
+                extracted_content = {
+                    "criteria_results": {},
+                    "raw_response": llm_response_content
+                }
             print(f"DEBUG: extract_markdown_content returned: {type(extracted_content)}")
             print(f"DEBUG: extracted_content keys: {extracted_content.keys() if isinstance(extracted_content, dict) else 'Not a dict'}")
             print(f"DEBUG: criteria_results in extracted_content: {extracted_content.get('criteria_results', {}) if isinstance(extracted_content, dict) else 'N/A'}")
@@ -656,8 +688,17 @@ async def analyze_selected_criteria(
                 criteria_name_to_id[criteria.text.strip().lower()] = criteria.id
                 print(f"DEBUG: Mapping '{criteria.text.strip().lower()}' to ID {criteria.id}")
 
+            # Also create a mapping from the position in the request to the criteria ID
+            position_to_id = {}
+            for i, criteria_id_str in enumerate(request.criteria_ids):
+                actual_id = int(criteria_id_str.replace("criteria_", ""))
+                position_to_id[i] = actual_id
+                print(f"DEBUG: Position {i} maps to criteria_{actual_id}")
+
             # Remap criteria_results to use actual criteria IDs instead of position-based keys
             remapped_criteria_results = {}
+
+            # First pass: Try to map by name matching
             for extracted_key, result_data in extracted_content.get("criteria_results", {}).items():
                 print(f"DEBUG: Processing extracted key: {extracted_key}, result: {result_data}")
 
@@ -689,7 +730,28 @@ async def analyze_selected_criteria(
                         remapped_criteria_results[extracted_key] = result_data
                         print(f"DEBUG: No match found for '{result_name}', keeping original key")
 
-            print(f"DEBUG: Remapped criteria_results: {remapped_criteria_results}")
+            # Second pass: Ensure all selected criteria have results (fallback for mapping failures)
+            for criteria_id_str in request.criteria_ids:
+                actual_id = int(criteria_id_str.replace("criteria_", ""))
+                criteria_key = f"criteria_{actual_id}"
+
+                if criteria_key not in remapped_criteria_results:
+                    print(f"DEBUG: Missing result for {criteria_key}, creating fallback entry")
+
+                    # Find the criteria text
+                    criteria_text = "Critério sem nome"
+                    for criteria in selected_criteria:
+                        if criteria.id == actual_id:
+                            criteria_text = criteria.text
+                            break
+
+                    # Create a fallback result
+                    remapped_criteria_results[criteria_key] = {
+                        "name": criteria_text,
+                        "content": "**Status:** Não analisado\n**Confiança:** 0.0\n\nNão foi possível obter a análise para este critério devido a um erro no processamento."
+                    }
+
+            print(f"DEBUG: Final remapped criteria_results: {remapped_criteria_results}")
             extracted_content["criteria_results"] = remapped_criteria_results
 
         # Step 8: Save analysis results to database
@@ -709,7 +771,7 @@ async def analyze_selected_criteria(
             db_analysis_result = GeneralAnalysisResultModel(
                 analysis_name=request.analysis_name,
                 criteria_count=len(selected_criteria),
-                user_id=1,  # Using fixed user_id for testing (should be current_user.id)
+                user_id=current_user.id,
                 criteria_results=extracted_content.get("criteria_results", {}),
                 raw_response=extracted_content.get("raw_response", ""),
                 model_used=llm_response.get("model", "claude-3-sonnet-20240229"),
@@ -816,6 +878,12 @@ async def get_analysis_results(
 async def test_endpoint() -> Any:
     """Simple test endpoint"""
     return {"message": "Test endpoint works", "status": "ok"}
+
+
+@router.post("/debug-cors-test")
+async def debug_cors_test() -> Any:
+    """Test CORS without authentication"""
+    return {"message": "CORS test successful", "status": "ok", "cors": "working"}
 
 
 @router.get("/criteria-working")

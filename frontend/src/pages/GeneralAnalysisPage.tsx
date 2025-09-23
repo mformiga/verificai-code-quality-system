@@ -69,13 +69,15 @@ const GeneralAnalysisPage: React.FC = () => {
             }
           });
 
-          // Converter resultados salvos para o formato esperado pelo componente
-          const formattedResults: CriteriaResult[] = savedResults.results.map((result: any) => {
-            // Converter criteria_results do formato salvo para o formato esperado
-            const criteriaResultsList: CriteriaResult[] = [];
+          // Pegar apenas a análise mais recente
+          const mostRecentResult = savedResults.results[0]; // Já vem ordenado por timestamp decrescente
+          console.log('📊 Usando apenas a análise mais recente:', mostRecentResult.analysis_name);
 
-            if (result.criteria_results && typeof result.criteria_results === 'object') {
-              Object.entries(result.criteria_results).forEach(([key, criterionData]: [string, any]) => {
+          // Converter resultado salvo para o formato esperado pelo componente
+          const formattedResults: CriteriaResult[] = [];
+
+          if (mostRecentResult.criteria_results && typeof mostRecentResult.criteria_results === 'object') {
+            Object.entries(mostRecentResult.criteria_results).forEach(([key, criterionData]: [string, any]) => {
                 if (criterionData && criterionData.content) {
                   // Extrair confiança do conteúdo
                   let confidence = 0.8;
@@ -103,24 +105,21 @@ const GeneralAnalysisPage: React.FC = () => {
                     console.log(`⚠️ Critério não encontrado no mapa: "${criterionName}"`);
                   }
 
-                  criteriaResultsList.push({
-                    id: criteriaId || (result.id * 1000 + parseInt(key.replace(/\D/g, ''))), // Usar criteriaId como ID principal
+                  formattedResults.push({
+                    id: criteriaId || (mostRecentResult.id * 1000 + parseInt(key.replace(/\D/g, ''))), // Usar criteriaId como ID principal
                     criterion: criterionData.name || `Critério ${key}`,
                     assessment: criterionData.content,
                     status: status,
                     confidence: confidence,
                     evidence: [],
                     recommendations: [],
-                    resultId: result.id, // Adicionar referência ao ID do resultado pai no banco
+                    resultId: mostRecentResult.id, // Adicionar referência ao ID do resultado pai no banco
                     criterionKey: key, // Adicionar a chave do critério original
                     criteriaId: criteriaId // Adicionar o ID numérico único do critério
                   });
                 }
-              });
-            }
-
-            return criteriaResultsList;
-          }).flat();
+            });
+          }
 
           console.log(`Carregados ${formattedResults.length} resultados salvos`);
           console.log('Resultados formatados:', formattedResults);
@@ -221,7 +220,14 @@ const GeneralAnalysisPage: React.FC = () => {
   };
 
   const handleEditResult = (criterion: string, result: Partial<CriteriaResult>) => {
-    setEditingResult(result as CriteriaResult);
+    setEditingResult({
+      criterion,
+      assessment: result.assessment || '',
+      status: result.status || 'partially_compliant',
+      confidence: result.confidence || 0.5,
+      evidence: result.evidence || [],
+      recommendations: result.recommendations || []
+    });
   };
 
   const handleSaveResult = (updatedResult: CriteriaResult) => {

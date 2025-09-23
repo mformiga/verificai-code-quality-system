@@ -81,6 +81,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         response = await call_next(request)
 
+        # Don't add security headers to OPTIONS requests (CORS preflight)
+        if request.method == "OPTIONS":
+            return response
+
         # Add security headers
         security_headers = {
             "X-Content-Type-Options": "nosniff",
@@ -95,7 +99,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "style-src 'self' 'unsafe-inline'; "
                 "img-src 'self' data:; "
                 "font-src 'self'; "
-                "connect-src 'self'"
+                "connect-src 'self' http://localhost:3012 http://localhost:8000"
             )
         }
 

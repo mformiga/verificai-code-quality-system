@@ -27,7 +27,7 @@ class Settings(BaseSettings):
         env="DATABASE_URL"
     )
 
-    # Ensure we always use PostgreSQL
+    # Ensure PostgreSQL configuration
     @field_validator('DATABASE_URL', mode='before')
     @classmethod
     def validate_database_url(cls, v):
@@ -40,6 +40,7 @@ class Settings(BaseSettings):
             print(f"WARNING: Non-PostgreSQL database detected: {v}")
             return "postgresql://verificai:verificai123@localhost:5432/verificai"
 
+        print(f"Using PostgreSQL database: {v}")
         return v
 
     # Database Connection Pool Settings
@@ -65,7 +66,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
 
     # CORS Configuration
-    BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = Field(
+    BACKEND_CORS_ORIGINS: List[str] = Field(
         default=["http://localhost:3000", "http://localhost:5173", "http://localhost:3026", "http://localhost:3015", "http://localhost:3014", "http://localhost:3013", "http://localhost:3011"],
         env="BACKEND_CORS_ORIGINS"
     )
@@ -85,10 +86,10 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: Optional[str] = Field(default=None, env="ANTHROPIC_API_KEY")
 
     # LLM Configuration
-    MAX_TOKENS: int = Field(default=4096, env="MAX_TOKENS")
+    MAX_TOKENS: int = Field(default=16000, env="MAX_TOKENS")
     TEMPERATURE: float = Field(default=0.1, env="TEMPERATURE")
     TOP_P: float = Field(default=0.9, env="TOP_P")
-    MODEL: str = Field(default="gpt-4-turbo-preview", env="MODEL")
+    MODEL: str = Field(default="claude-3-5-sonnet-20241022", env="MODEL")
 
     # Rate Limiting Configuration
     RATE_LIMIT_REQUESTS_PER_MINUTE: int = Field(default=60, env="RATE_LIMIT_REQUESTS_PER_MINUTE")
