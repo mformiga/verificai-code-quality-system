@@ -170,11 +170,22 @@ class GeneralAnalysisResult(Base, BaseModel, AuditMixin):
         """Get criteria results as dictionary"""
         if not self.criteria_results:
             return {}
+
+        # Se criteria_results for uma string JSON, converter para dict
+        if isinstance(self.criteria_results, str):
+            import json
+            try:
+                return json.loads(self.criteria_results)
+            except (json.JSONDecodeError, TypeError):
+                return {}
+
+        # Se já for um dicionário, retornar diretamente
         return self.criteria_results
 
     def set_criteria_results(self, results: dict) -> None:
         """Set criteria results from dictionary"""
-        self.criteria_results = results
+        import json
+        self.criteria_results = json.dumps(json.loads(json.dumps(results)))
 
     def get_usage(self) -> dict:
         """Get usage stats as dictionary"""

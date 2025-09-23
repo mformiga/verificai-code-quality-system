@@ -220,17 +220,116 @@ const GeneralAnalysisPage: React.FC = () => {
     }, 5000);
   };
 
-  const handleEditResult = (criterion: string, result: Partial<CriteriaResult>) => {
-    setEditingResult(result as CriteriaResult);
+  const handleEditResult = async (criterion: string, result: Partial<CriteriaResult>) => {
+    // Se for apenas edição de assessment, atualizar diretamente sem abrir modal
+    if (result.assessment && Object.keys(result).length === 1) {
+      // Find the existing result to get its database info
+      const existingResult = results.find(r => r.criterion === criterion);
+
+      if (existingResult && existingResult.resultId && existingResult.criterionKey) {
+        try {
+          console.log('💾 Salvando edição rápida no banco de dados:', {
+            resultId: existingResult.resultId,
+            criterionKey: existingResult.criterionKey,
+            updatedAssessment: result.assessment
+          });
+
+          // Update the criteria result in the database
+          await analysisService.updateCriteriaResult(
+            existingResult.resultId,
+            existingResult.criterionKey,
+            {
+              content: result.assessment,
+              name: existingResult.criterion
+            }
+          );
+
+          console.log('✅ Edição rápida salva com sucesso no banco de dados');
+        } catch (error) {
+          console.error('❌ Erro ao salvar edição rápida no banco de dados:', error);
+          alert('Erro ao salvar a alteração. Por favor, tente novamente.');
+        }
+      } else {
+        console.log('⚠️ Resultado não tem ID do banco ou chave do critério - salvando apenas localmente');
+      }
+
+      // Update local state regardless of backend save
+      setResults(prev =>
+        prev.map(r =>
+          r.criterion === criterion ? { ...r, assessment: result.assessment } : r
+        )
+      );
+    } else {
+      // Se for edição completa, abrir o modal
+      setEditingResult(result as CriteriaResult);
+    }
   };
 
-  const handleSaveResult = (updatedResult: CriteriaResult) => {
-    setResults(prev =>
-      prev.map(result =>
-        result.criterion === updatedResult.criterion ? updatedResult : result
-      )
-    );
-    setEditingResult(null);
+  const handleSaveResult = async (updatedResult: CriteriaResult) => {
+    try {
+      // First update the local state
+      setResults(prev =>
+        prev.map(result =>
+          result.criterion === updatedResult.criterion ? updatedResult : result
+        )
+      );
+
+      // Check if this result has a database ID (resultId) and criterion key
+      if (updatedResult.resultId && updatedResult.criterionKey) {
+        console.log('💾 Salvando alteração no banco de dados:', {
+          resultId: updatedResult.resultId,
+          criterionKey: updatedResult.criterionKey,
+          updatedAssessment: updatedResult.assessment
+        });
+
+        // Update the criteria result in the database
+        await analysisService.updateCriteriaResult(
+          updatedResult.resultId,
+          updatedResult.criterionKey,
+          {
+            content: updatedResult.assessment,
+            name: updatedResult.criterion
+          }
+        );
+
+        console.log('✅ Alteração salva com sucesso no banco de dados');
+      } else {
+        console.log('⚠️ Resultado não tem ID do banco ou chave do critério - salvando apenas localmente');
+      }
+
+      setEditingResult(null);
+    } catch (error) {
+      console.error('❌ Erro ao salvar alteração no banco de dados:', error);
+
+      // Revert the local change if backend save fails
+      // Since we don't have the original state, we need to reload from database
+      console.log('🔄 Recarregando resultados do banco devido a erro na salvação...');
+
+      // Reload results from database to get the original state
+      const reloadResults = async () => {
+        try {
+          const data = await analysisService.getAnalysisResults();
+          if (data && data.results) {
+            const transformedResults = data.results.map((item: any) => ({
+              criterion: item.analysis_name,
+              assessment: item.criteria_results?.[Object.keys(item.criteria_results || {})[0]]?.content || '',
+              confidence: 'Alta',
+              evidence: [],
+              resultId: item.id,
+              criterionKey: Object.keys(item.criteria_results || {})[0],
+              timestamp: item.created_at
+            }));
+            setResults(transformedResults);
+          }
+        } catch (loadError) {
+          console.error('Erro ao recarregar resultados:', loadError);
+        }
+      };
+
+      reloadResults();
+
+      alert('Erro ao salvar as alterações. Por favor, tente novamente.');
+    }
   };
 
   const handleCancelAnalysis = () => {
@@ -245,7 +344,124 @@ const GeneralAnalysisPage: React.FC = () => {
     const confirmClear = confirm('Tem certeza que deseja limpar todos os resultados? Esta ação não pode ser desfeita.');
     if (confirmClear) {
       setResults([]);
-      console.log('Resultados limpos pelo usuário');
+      console.log('🧹 Resultados limpos pelo usuário para teste exaustivo');
+    }
+  };
+
+  const loadAnalysisResults = async () => {
+    try {
+      console.log('🔄 Carregando resultados atualizados do banco de dados...');
+      const savedResults = await analysisService.getAnalysisResults();
+
+      if (savedResults.success && savedResults.results && savedResults.results.length > 0) {
+        // Carregar todos os critérios para obter o mapeamento de ID numérico
+        const allCriteria = await criteriaService.getCriteria();
+
+        // Criar mapeamento de texto do critério para ID numérico
+        const criteriaTextToIdMap = new Map<string, number>();
+        console.log('🔍 Carregando critérios para mapeamento:', allCriteria.length);
+        console.log('🔍 Lista de critérios disponíveis:', allCriteria.map(c => ({ id: c.id, text: c.text })));
+
+        allCriteria.forEach(criterion => {
+          criteriaTextToIdMap.set(criterion.text, criterion.id);
+          // Também mapear versões curtas do texto
+          const shortText = criterion.text.split(':')[0].trim();
+          if (shortText !== criterion.text) {
+            criteriaTextToIdMap.set(shortText, criterion.id);
+          }
+          // Também mapear variações comuns do nome
+          const normalizedText = criterion.text.replace(/\s+/g, ' ').trim();
+          if (normalizedText !== criterion.text) {
+            criteriaTextToIdMap.set(normalizedText, criterion.id);
+          }
+        });
+
+        console.log('🔍 Mapa de critérios criado:', Array.from(criteriaTextToIdMap.entries()));
+
+        // Converter resultados salvos para o formato esperado pelo componente
+        const formattedResults: CriteriaResult[] = savedResults.results.map((result: any) => {
+          // Converter criteria_results do formato salvo para o formato esperado
+          const criteriaResultsList: CriteriaResult[] = [];
+
+          if (result.criteria_results && typeof result.criteria_results === 'object') {
+            Object.entries(result.criteria_results).forEach(([key, criterionData]: [string, any]) => {
+              if (criterionData && criterionData.content) {
+                // Extrair confiança do conteúdo
+                let confidence = 0.8;
+                const confidenceMatch = criterionData.content.match(/(confiança|confidence)[^\d]*(\d+(?:\.\d+)?)/i);
+                if (confidenceMatch) {
+                  const confidenceValue = parseFloat(confidenceMatch[2]);
+                  confidence = confidenceValue > 1.0 ? Math.min(confidenceValue / 100, 1.0) : Math.min(confidenceValue, 1.0);
+                }
+
+                // Extrair status do conteúdo
+                let status: 'compliant' | 'partially_compliant' | 'non_compliant' = 'compliant';
+                const content = criterionData.content.toLowerCase();
+                if (content.includes('não atende') || content.includes('não cumpre') || content.includes('viol') || content.includes('defeito')) {
+                  status = 'non_compliant';
+                } else if (content.includes('parcialmente') || content.includes('atende parcialmente') || content.includes('precisa melhorar')) {
+                  status = 'partially_compliant';
+                }
+
+                // Tentar encontrar o ID numérico do critério
+                const criterionName = criterionData.name || `Critério ${key}`;
+                const criteriaId = criteriaTextToIdMap.get(criterionName) ||
+                                   criteriaTextToIdMap.get(criterionName.split(':')[0].trim()) || 0;
+
+                // Debug: mostrar quando um critério não é encontrado
+                if (criteriaId === 0) {
+                  console.warn('⚠️ Critério não encontrado no mapa:', {
+                    criterionName,
+                    key,
+                    availableKeys: Array.from(criteriaTextToIdMap.keys())
+                  });
+                }
+
+                // Extrair evidências (se existirem)
+                const evidence = criterionData.evidence ?
+                  criterionData.evidence.map((evidence: any) => ({
+                    code: evidence.code || '',
+                    language: evidence.language || '',
+                    filePath: evidence.file_path || '',
+                    lineNumbers: evidence.line_numbers ? [evidence.line_numbers[0], evidence.line_numbers[1]] as [number, number] : undefined
+                  })) : [];
+
+                // Extrair recomendações (se existirem)
+                const recommendations = criterionData.recommendations || [];
+
+                criteriaResultsList.push({
+                  criteriaId,
+                  criterion: criterionName,
+                  assessment: criterionData.content,
+                  status,
+                  confidence,
+                  evidence,
+                  recommendations,
+                  resultId: result.id,
+                  criterionKey: key
+                });
+              }
+            });
+          }
+
+          return criteriaResultsList;
+        }).flat();
+
+        // SUBSTITUIR os resultados existentes em vez de adicionar aos existentes
+        console.log('🔄 DEBUG - Antes de setResults, resultados atuais:', results.length);
+        console.log('🔄 DEBUG - Novos resultados do banco:', formattedResults.length);
+        console.log('🔄 DEBUG - Registros do banco:', savedResults.results.length);
+
+        setResults(formattedResults);
+        console.log('✅ Resultados recarregados com sucesso:', formattedResults.length, 'critérios');
+      } else {
+        console.log('ℹ️ Nenhum resultado encontrado no banco de dados');
+        // Se não houver resultados no banco, limpar a lista
+        setResults([]);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao carregar resultados:', error);
+      alert('Erro ao carregar resultados atualizados. Por favor, recarregue a página.');
     }
   };
 
@@ -298,22 +514,166 @@ const GeneralAnalysisPage: React.FC = () => {
         result_id_to_update: existingResult.resultId  // ID do resultado pai para atualizar
       };
 
+      console.log('🔄 ENVIANDO REANÁLISE PARA API:', {
+        criterion,
+        resultIdToUpdate: existingResult.resultId,
+        criteriaId: formattedCriteriaId,
+        is_reanalysis: true,
+        existingResult: {
+          id: existingResult.id,
+          criterion: existingResult.criterion,
+          resultId: existingResult.resultId,
+          criterionKey: existingResult.criterionKey
+        }
+      });
+
       console.log('🔍 REANÁLISE - Enviando requisição:', request);
 
       // Call the API endpoint
+      console.log('🌐 REANÁLISE - Enviando requisição para API...');
       const response: AnalysisResponse = await analysisService.analyzeSelectedCriteria(request);
+      console.log('🌐 REANÁLISE - Resposta recebida:', response);
 
       // Clear progress interval
       clearInterval(progressInterval);
       setProgress(100);
 
       // Process the single result
-      const newResultEntry = Object.entries(response.criteria_results)[0];
-      if (!newResultEntry) {
-        throw new Error('Nenhum resultado retornado da reanálise');
+      console.log('🔍 REANÁLISE - Processando resposta:', response);
+      console.log('🔍 REANÁLISE - Criteria results:', response.criteria_results);
+      console.log('🔍 REANÁLISE - Response keys:', Object.keys(response));
+      console.log('🔍 REANÁLISE - Criteria results type:', typeof response.criteria_results);
+      console.log('🔍 REANÁLISE - Criteria results exists:', !!response.criteria_results);
+
+      // Validate response structure
+      if (!response.criteria_results || typeof response.criteria_results !== 'object') {
+        console.error('❌ REANÁLISE - Resposta inválida: criteria_results não existe ou não é um objeto', response);
+        throw new Error('Resposta da API inválida: criteria_results ausente');
       }
 
-      const [key, result] = newResultEntry;
+      const criteriaResults = response.criteria_results;
+      const entries = Object.entries(criteriaResults);
+
+      console.log('🔍 REANÁLISE - Número de entradas em criteria_results:', entries.length);
+      console.log('🔍 REANÁLISE - Entradas:', entries);
+
+      // Handle multiple entries (should not happen for reanalysis, but let's be safe)
+      if (entries.length === 0) {
+        console.error('❌ REANÁLISE - Nenhum resultado encontrado na resposta:', response);
+
+        // Check if we have any useful information in the response
+        if (response.raw_response || response.debug_raw_llm_response) {
+          const rawContent = response.raw_response || response.debug_raw_llm_response || '';
+          console.warn('⚠️ REANÁLISE - Tentando extrair conteúdo da resposta bruta...');
+
+          // Try to extract any meaningful content from the raw response
+          if (rawContent && rawContent.trim()) {
+            // Create a fallback result using the raw response
+            const fallbackResult = {
+              name: criterion,
+              content: `**Status:** Não Conforme\n**Confiança:** 0.8\n\nResposta bruta do LLM:\n\n${rawContent.substring(0, 1000)}${rawContent.length > 1000 ? '...' : ''}`
+            };
+
+            console.log('🔄 REANÁLISE - Usando resultado fallback baseado na resposta bruta');
+
+            // Process this fallback result
+            const content = fallbackResult.content;
+
+            // Extract confidence from content
+            let confidence = 0.8;
+            const confidenceMatch = content.match(/(confiança|confidence)[^\d]*(\d+(?:\.\d+)?)/i);
+            if (confidenceMatch) {
+              const confidenceValue = parseFloat(confidenceMatch[2]);
+              confidence = confidenceValue > 1.0 ? Math.min(confidenceValue / 100, 1.0) : Math.min(confidenceValue, 1.0);
+            }
+
+            // Extract status from content
+            let status: 'compliant' | 'partially_compliant' | 'non_compliant' = 'compliant';
+            if (content.toLowerCase().includes('não atende') ||
+                content.toLowerCase().includes('não cumpre') ||
+                content.toLowerCase().includes('viol') ||
+                content.toLowerCase().includes('defeito') ||
+                content.toLowerCase().includes('problema')) {
+              status = 'non_compliant';
+            } else if (content.toLowerCase().includes('parcialmente') ||
+                       content.toLowerCase().includes('atende parcialmente') ||
+                       content.toLowerCase().includes('precisa melhorar') ||
+                       content.toLowerCase().includes('recomenda')) {
+              status = 'partially_compliant';
+            }
+
+            // Create the result object with fallback data
+            const updatedResult: CriteriaResult = {
+              id: criteriaId,
+              criterion: fallbackResult.name,
+              assessment: content,
+              status: status,
+              confidence: Math.max(0, Math.min(1, confidence)),
+              evidence: [],
+              recommendations: [],
+              resultId: existingResult.resultId,
+              criterionKey: criteriaKey,
+              criteriaId: criteriaId
+            };
+
+            // Hide progress immediately
+            setShowProgress(false);
+            setProgress(0);
+
+            // Update the result in the UI
+            setResults(prevResults =>
+              prevResults.map(r =>
+                (r.criteriaId === criteriaId || r.criterion === criterion) ? updatedResult : r
+              )
+            );
+
+            console.log(`✅ Reanálise concluída com resultado fallback para: ${criterion}`);
+            return;
+          }
+        }
+
+        // If we get here, we have no usable data
+        throw new Error('Nenhum resultado retornado da reanálise - O sistema não conseguiu processar o critério solicitado');
+      } else if (entries.length > 1) {
+        console.warn('⚠️ REANÁLISE - Múltiplos resultados encontrados, esperando apenas um:', entries.length);
+
+        // Try to find the best match for our criterion
+        let bestEntry = entries[0];
+        let bestScore = 0;
+
+        for (const [key, result] of entries) {
+          const resultName = result.name.toLowerCase();
+          const criterionLower = criterion.toLowerCase();
+
+          let score = 0;
+          if (resultName === criterionLower) score = 100;
+          else if (resultName.includes(criterionLower)) score = 80;
+          else if (criterionLower.includes(resultName)) score = 60;
+
+          // For principles, try to match by principle name
+          if (criterionLower.includes('princípio') && resultName.includes('princípio')) {
+            const targetPrinciple = criterionLower.replace('princípio', '').trim();
+            const resultPrinciple = resultName.replace('princípio', '').trim();
+            if (targetPrinciple && resultPrinciple &&
+                (targetPrinciple.includes(resultPrinciple) || resultPrinciple.includes(targetPrinciple))) {
+              score = 90;
+            }
+          }
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestEntry = [key, result];
+          }
+        }
+
+        console.log(`🔍 REANÁLISE - Melhor correspondência encontrada com score ${bestScore}:`, bestEntry[0]);
+
+        // Use the best match
+        var [key, result] = bestEntry;
+      } else {
+        // Single entry - this is what we expect
+        var [key, result] = entries[0];
+      }
       const content = result.content;
 
       // Extract confidence from content
@@ -360,16 +720,39 @@ const GeneralAnalysisPage: React.FC = () => {
       // Como o backend atualizou o registro, precisamos recarregar os resultados
       console.log('🔄 REANÁLISE - Recarregando resultados do banco de dados...');
 
-      // Recarregar resultados do backend para obter os dados atualizados
-      setTimeout(() => {
-        loadAnalysisResults();
-      }, 1000); // Pequeno delay para garantir que o banco de dados foi atualizado
+      // Recarregar todos os resultados do banco para obter os dados atualizados
+      setTimeout(async () => {
+        try {
+          console.log('🔄 REANÁLISE - Recarregando todos os resultados do banco de dados...');
+          await loadAnalysisResults();
+          console.log('✅ REANÁLISE - Resultados recarregados com sucesso');
+        } catch (error) {
+          console.error('❌ Erro ao recarregar resultados:', error);
+          alert('Erro ao recarregar resultados. Por favor, recarregue a página.');
+        }
+      }, 1000);
 
       console.log(`✅ Reanálise concluída com sucesso para: ${criterion}`);
 
     } catch (error) {
       console.error('Erro na reanálise do critério:', error);
-      alert('Erro ao reanalisar o critério. Por favor, tente novamente.');
+
+      // Provide more detailed error message
+      let errorMessage = 'Erro ao reanalisar o critério. Por favor, tente novamente.';
+
+      if (error instanceof Error) {
+        if (error.message.includes('criteria_results ausente')) {
+          errorMessage = 'Erro na resposta do servidor: estrutura de dados inválida. Por favor, contate o suporte.';
+        } else if (error.message.includes('criteria_results vazio')) {
+          errorMessage = 'Não foi possível processar o critério solicitado. O LLM não retornou dados válidos.';
+        } else if (error.message.includes('sistema não conseguiu processar')) {
+          errorMessage = 'O sistema não conseguiu analisar o critério. Verifique se o critério está correto.';
+        } else {
+          errorMessage = `Erro: ${error.message}`;
+        }
+      }
+
+      alert(errorMessage);
       setShowProgress(false);
       setProgress(0);
     } finally {
@@ -614,7 +997,19 @@ const GeneralAnalysisPage: React.FC = () => {
       };
 
       // Call the new API endpoint
+      console.log('🚀 ENVIANDO ANÁLISE DE MÚLTIPLOS CRITÉRIOS:', {
+        criteria_ids: selectedCriteriaIds,
+        expected_count: selectedCriteriaIds.length,
+        analysis_name: 'Análise de Critérios Selecionados'
+      });
+
       const response: AnalysisResponse = await analysisService.analyzeSelectedCriteria(request);
+      console.log('📥 RESPOSTA DA ANÁLISE RECEBIDA:', {
+        criteria_count: response.criteria_count,
+        expected_count: selectedCriteriaIds.length,
+        results_keys: Object.keys(response.criteria_results || {}),
+        success: response.success
+      });
 
       // Clear progress interval
       clearInterval(progressInterval);
@@ -667,6 +1062,11 @@ const GeneralAnalysisPage: React.FC = () => {
         console.log(`🔍 TODOS OS SELECTED:`, selectedCriteriaIds);
         console.log(`🔍 MAPA COMPLETO:`, Array.from(selectedCriteriaMap.entries()));
 
+        // Verificar se já existe um resultado para este critério no banco de dados
+        const existingResult = prevResults.find(r =>
+          r.criteriaId === criteriaId && r.resultId
+        );
+
         return {
           id: criteriaId || Date.now() + parseInt(key.replace(/\D/g, '')), // Usar o ID numérico do critério se disponível
           criterion: result.name,
@@ -675,7 +1075,7 @@ const GeneralAnalysisPage: React.FC = () => {
           confidence: Math.max(0, Math.min(1, confidence)),
           evidence: [],
           recommendations: [],
-          resultId: undefined, // Novos resultados não têm ID no banco ainda
+          resultId: existingResult?.resultId, // Manter o ID do banco se já existir
           criterionKey: originalCriteriaId, // Usar o ID original do critério selecionado
           criteriaId: criteriaId // Adicionar o ID numérico único do critério
         };
@@ -802,14 +1202,48 @@ const GeneralAnalysisPage: React.FC = () => {
         return [...mergedResults, ...newCriteriaResults];
       });
 
-      // Show success message
+      // Show success message with information about found vs requested criteria
       setTimeout(() => {
-        alert(`Análise concluída com sucesso!\n\nModelo: ${response.model_used}\nCritérios analisados: ${response.criteria_count}\nTokens usados: ${response.usage.total_tokens || 'N/A'}`);
+        const requestedCount = selectedCriteriaIds.length;
+        const analyzedCount = response.criteria_count;
+
+        let message = `Análise concluída com sucesso!\n\n`;
+        message += `Modelo: ${response.model_used}\n`;
+        message += `Critérios solicitados: ${requestedCount}\n`;
+        message += `Critérios analisados: ${analyzedCount}\n`;
+        message += `Tokens usados: ${response.usage.total_tokens || 'N/A'}`;
+
+        if (requestedCount !== analyzedCount) {
+          message += `\n\n⚠️ Apenas ${analyzedCount} de ${requestedCount} critérios foram encontrados e analisados.`;
+          message += `\nAlguns critérios solicitados podem não existir mais no sistema.`;
+        }
+
+        alert(message);
       }, 500);
 
     } catch (error) {
       console.error('Erro na análise:', error);
-      alert(`Erro ao realizar análise: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+
+      // Provide more detailed error messages
+      let errorMessage = 'Erro ao realizar análise. Por favor, tente novamente.';
+
+      if (error instanceof Error) {
+        if (error.name === 'InvalidCriteriaError') {
+          errorMessage = `Critérios inválidos: ${error.message}\n\nPor favor, selecione apenas critérios disponíveis na lista.`;
+        } else if (error.message.includes('Nenhum critério válido encontrado')) {
+          errorMessage = `Critérios inválidos: ${error.message}\n\nPor favor, atualize a página e selecione apenas critérios disponíveis.`;
+        } else if (error.message.includes('500')) {
+          errorMessage = 'Erro interno do servidor. Por favor, tente novamente em alguns instantes.';
+        } else if (error.message.includes('429')) {
+          errorMessage = 'Muitas solicitações. Por favor, aguarde alguns instantes antes de tentar novamente.';
+        } else {
+          errorMessage = `Erro: ${error.message}`;
+        }
+      } else if (typeof error === 'string') {
+        errorMessage = `Erro: ${error}`;
+      }
+
+      alert(errorMessage);
 
       // Keep progress showing on error to indicate failure
       setTimeout(() => {

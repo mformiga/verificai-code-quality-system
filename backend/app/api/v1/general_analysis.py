@@ -67,6 +67,12 @@ class GeneralAnalysisResult(BaseModel):
     status: str
 
 
+class AnalysisResultUpdate(BaseModel):
+    """Request model for updating analysis result"""
+    criteria_key: str
+    criteria_data: dict
+
+
 @router.post("/create", response_model=AnalysisResponse)
 async def create_general_analysis(
     request: GeneralAnalysisRequest,
@@ -531,8 +537,16 @@ async def analyze_selected_criteria(
 ) -> Any:
     """Analyze selected criteria using LLM with dynamic prompt insertion"""
     try:
+        print("="*50)
+        print("DEBUG: NOVA REQUISICAO RECEBIDA")
         print(f"DEBUG: Starting analysis for criteria: {request.criteria_ids}")
         print(f"DEBUG: File paths: {request.file_paths}")
+        print(f"DEBUG: Is reanalysis: {request.is_reanalysis}")
+        print(f"DEBUG: Result ID to update: {request.result_id_to_update}")
+        print(f"DEBUG: Analysis name: {request.analysis_name}")
+        print(f"DEBUG: Request type: {type(request)}")
+        print(f"DEBUG: Request dict: {request.__dict__ if hasattr(request, '__dict__') else 'No dict'}")
+        print("="*50)
 
         # Get prompt service
         print("DEBUG: Getting prompt service...")
@@ -551,11 +565,25 @@ async def analyze_selected_criteria(
         print("DEBUG: Getting selected criteria from database...")
         selected_criteria = prompt_service.get_selected_criteria(request.criteria_ids)
         print(f"DEBUG: Found {len(selected_criteria)} criteria")
+        print(f"DEBUG: Requested criteria IDs: {request.criteria_ids}")
 
         if not selected_criteria:
+            print(f"DEBUG: No valid criteria found for requested IDs: {request.criteria_ids}")
+            print(f"DEBUG: Available criteria in database will be listed:")
+
+            # Get available criteria for error message
+            available_ids = []
+            try:
+                all_available = db.query(GeneralCriteria).filter(GeneralCriteria.is_active == True).all()
+                available_ids = [f'criteria_{c.id}' for c in all_available]
+                print(f"DEBUG: Available criteria: {[f'criteria_{c.id}: {c.text[:30]}...' for c in all_available]}")
+            except Exception as e:
+                print(f"DEBUG: Error logging available criteria: {e}")
+
+            # Return a more informative error
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No valid criteria found"
+                detail=f"Nenhum critério válido encontrado para os IDs solicitados: {request.criteria_ids}. IDs disponíveis: {available_ids}"
             )
 
         # Step 3: Insert criteria into prompt (in memory only)
@@ -609,10 +637,15 @@ async def analyze_selected_criteria(
         print(f"DEBUG: About to send prompt of length {len(final_prompt)}")
         print(f"DEBUG: Temperature: {request.temperature}, Max tokens: {request.max_tokens}")
 
+        # Increase max_tokens for multiple criteria to ensure complete analysis
+        max_tokens = request.max_tokens
+        if len(selected_criteria) > 2:
+            max_tokens = max(max_tokens, 6000)  # Ensure at least 6000 tokens for 3+ criteria
+
         llm_response = await llm_service.send_prompt_with_end_detection(
             final_prompt,
             temperature=request.temperature,
-            max_tokens=request.max_tokens
+            max_tokens=max_tokens
         )
 
         print("XXXXXXXXXX DEBUG: LLM response received XXXXXXXXXX")
@@ -678,6 +711,8 @@ async def analyze_selected_criteria(
                 target_criteria_name = selected_criteria[0].text.strip()
 
                 print(f"DEBUG: Single criterion analysis - FORCING filter for ID: {target_criteria_id}, Name: {target_criteria_name}")
+                print(f"DEBUG: Is reanalysis: {request.is_reanalysis}")
+                print(f"DEBUG: Original criteria_results count: {len(extracted_content.get('criteria_results', {}))}")
 
                 # Always create a result with only the requested criterion
                 forced_criteria_results = {}
@@ -687,7 +722,8 @@ async def analyze_selected_criteria(
                     forced_criteria_results[f"criteria_{target_criteria_id}"] = extracted_content["criteria_results"][f"criteria_{target_criteria_id}"]
                     print(f"DEBUG: Found exact ID match for criteria_{target_criteria_id}")
                 else:
-                    # Try to find the best match by name similarity
+                    # For reanalysis, we need to be more strict about filtering
+                    # Even if LLM returns multiple criteria, we only want the requested one
                     best_match = None
                     best_similarity_score = 0
 
@@ -695,38 +731,59 @@ async def analyze_selected_criteria(
                         result_name = result_data.get("name", "").strip().lower()
                         target_name_lower = target_criteria_name.lower()
 
-                        # Calculate similarity score
+                        print(f"DEBUG: Comparing '{result_name}' with '{target_name_lower}'")
+
+                        # Calculate similarity score with stricter criteria for reanalysis
                         similarity_score = 0
                         if result_name == target_name_lower:
                             similarity_score = 100
-                        elif target_name_lower in result_name:
-                            similarity_score = 80
-                        elif result_name in target_name_lower:
+                        elif target_name_lower in result_name and len(result_name) - len(target_name_lower) < 20:
+                            similarity_score = 90
+                        elif result_name in target_name_lower and len(target_name_lower) - len(result_name) < 20:
+                            similarity_score = 85
+                        elif "princípio" in target_name_lower.lower() and "princípio" in result_name.lower():
+                            # For principles, try to match by principle name
+                            target_principle = target_name_lower.replace("princípio", "").replace("principle", "").strip()
+                            result_principle = result_name.replace("princípio", "").replace("principle", "").strip()
+                            if target_principle and result_principle and (
+                                target_principle in result_principle or result_principle in target_principle
+                            ):
+                                similarity_score = 80
+                        elif any(word in result_name for word in target_name_lower.split() if len(word) > 3):
                             similarity_score = 60
-                        elif any(word in result_name for word in target_name_lower.split()):
-                            similarity_score = 40
 
                         if similarity_score > best_similarity_score:
                             best_similarity_score = similarity_score
                             best_match = result_data
                             print(f"DEBUG: New best match: '{result_name}' with score {similarity_score}")
 
-                    # If we found a match with reasonable similarity, use it
-                    if best_match and best_similarity_score >= 40:
+                    print(f"DEBUG: Best similarity score: {best_similarity_score}")
+
+                    # For reanalysis, require higher similarity threshold
+                    required_similarity = 70 if request.is_reanalysis else 40
+
+                    if best_match and best_similarity_score >= required_similarity:
                         forced_criteria_results[f"criteria_{target_criteria_id}"] = best_match
                         print(f"DEBUG: Using best match with score {best_similarity_score}")
                     else:
                         # If no good match found, create a result for the requested criterion
-                        forced_criteria_results[f"criteria_{target_criteria_id}"] = {
-                            "name": target_criteria_name,
-                            "content": "**Status:** Não Conforme\n**Confiança:** 1.0\n\nAnálise não disponível. O critério solicitado não foi encontrado nos resultados gerados pelo LLM."
-                        }
-                        print(f"DEBUG: No good match found, creating empty result for {target_criteria_name}")
+                        if request.is_reanalysis:
+                            forced_criteria_results[f"criteria_{target_criteria_id}"] = {
+                                "name": target_criteria_name,
+                                "content": f"**Status:** Não Conforme\n**Confiança:** 1.0\n\nReanálise do critério solicitado. O sistema não encontrou uma análise específica para este critério nos resultados retornados pelo LLM.\n\nCritério analisado: {target_criteria_name}"
+                            }
+                        else:
+                            forced_criteria_results[f"criteria_{target_criteria_id}"] = {
+                                "name": target_criteria_name,
+                                "content": "**Status:** Não Conforme\n**Confiança:** 1.0\n\nAnálise não disponível. O critério solicitado não foi encontrado nos resultados gerados pelo LLM."
+                            }
+                        print(f"DEBUG: No good match found, creating {'reanalysis' if request.is_reanalysis else 'empty'} result for {target_criteria_name}")
 
                 # ALWAYS replace with our forced single result
                 extracted_content["criteria_results"] = forced_criteria_results
                 print(f"DEBUG: FORCED single criterion result: {forced_criteria_results}")
                 print(f"DEBUG: Total criteria in final result: {len(forced_criteria_results)}")
+                print(f"DEBUG: Final criteria_results keys: {list(forced_criteria_results.keys())}")
             else:
                 # For multiple criteria, use the original mapping logic
                 # Create mapping from criteria name to criteria ID
@@ -784,8 +841,12 @@ async def analyze_selected_criteria(
                 ).first()
 
                 if db_analysis_result:
-                    # Update existing record
-                    db_analysis_result.criteria_results = extracted_content.get("criteria_results", {})
+                    # Update existing record - merge new criteria with existing ones
+                    existing_criteria = db_analysis_result.criteria_results or {}
+                    new_criteria = extracted_content.get("criteria_results", {})
+                    # Merge: update existing criteria with new results
+                    existing_criteria.update(new_criteria)
+                    db_analysis_result.criteria_results = existing_criteria
                     db_analysis_result.raw_response = extracted_content.get("raw_response", "")
                     db_analysis_result.model_used = llm_response.get("model", "claude-3-sonnet-20240229")
                     db_analysis_result.usage = llm_response.get("usage", {})
@@ -1071,6 +1132,205 @@ async def get_analysis_result(
         )
 
 
+# Endpoint para atualizar resultados - Updated
+@router.put("/results/{result_id}/update", response_model=dict)
+async def update_analysis_result(
+    result_id: int,
+    update_data: AnalysisResultUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Update a specific analysis result"""
+    print(f"DEBUG: ENDPOINT DE ATUALIZAÇÃO CHAMADO! result_id={result_id}, user_id={current_user.id}")
+    print(f"DEBUG: update_data recebido: {update_data}")
+    try:
+        # Get the analysis result
+        result = db.query(GeneralAnalysisResultModel).filter(
+            GeneralAnalysisResultModel.id == result_id,
+            GeneralAnalysisResultModel.user_id == current_user.id
+        ).first()
+
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Analysis result not found"
+            )
+
+        # Get current criteria results
+        criteria_results = result.get_criteria_results()
+
+        # Update specific criteria if provided
+        criteria_key = update_data.criteria_key
+        if criteria_key in criteria_results:
+            criteria_results[criteria_key] = {
+                **criteria_results[criteria_key],
+                **update_data.criteria_data
+            }
+            # Forçar refresh do objeto para evitar conflitos com o ORM
+            db.refresh(result)
+
+            # Usar SQL direto para atualização (último recurso)
+            import json
+            from sqlalchemy import text
+
+            # Obter o JSON atualizado como string
+            updated_json = json.dumps(criteria_results)
+
+            print(f"DEBUG: JSON atualizado como string tem {len(updated_json)} caracteres")
+
+            # Executar atualização SQL direta
+            sql_query = text("""
+                UPDATE general_analysis_results
+                SET criteria_results = :criteria_results,
+                    updated_at = NOW()
+                WHERE id = :result_id AND user_id = :user_id
+            """)
+
+            print(f"DEBUG: Executando SQL direto:")
+            print(f"DEBUG: SQL Query: {sql_query}")
+            print(f"DEBUG: Parâmetros: criteria_results length={len(updated_json)}, result_id={result_id}, user_id={current_user.id}")
+
+            db.execute(sql_query, {
+                'criteria_results': updated_json,
+                'result_id': result_id,
+                'user_id': current_user.id
+            })
+
+            print(f"DEBUG: SQL executado, fazendo commit...")
+            db.commit()
+            print(f"DEBUG: Commit realizado com sucesso!")
+
+            # Verificação adicional - consultar o banco diretamente
+            from sqlalchemy import text
+            verify_query = text("SELECT criteria_results FROM general_analysis_results WHERE id = :result_id")
+            verify_result = db.execute(verify_query, {'result_id': result_id}).fetchone()
+            if verify_result:
+                stored_json = verify_result[0]
+                print(f"DEBUG: Verificação pós-commit: Dados armazenados no banco têm {len(stored_json)} caracteres")
+                import json
+                try:
+                    stored_data = json.loads(stored_json)
+                    if criteria_key in stored_data:
+                        print(f"DEBUG: Verificação pós-commit: {criteria_key} encontrado nos dados armazenados!")
+                        print(f"DEBUG: Conteúdo armazenado: {stored_data[criteria_key].get('content', 'NÃO ENCONTRADO')[:100]}...")
+                    else:
+                        print(f"DEBUG: Verificação pós-commit: {criteria_key} NÃO encontrado nos dados armazenados!")
+                except json.JSONDecodeError as e:
+                    print(f"DEBUG: Erro ao decodificar JSON armazenado: {e}")
+            else:
+                print(f"DEBUG: Verificação pós-commit: Nenhum dado encontrado para result_id={result_id}")
+
+            # Forçar refresh do objeto
+            db.refresh(result)
+            print(f"DEBUG: Objeto refresh realizado")
+
+            # Verificar se o objeto foi atualizado
+            refreshed_criteria = result.get_criteria_results()
+            print(f"DEBUG: Conteúdo após refresh: {refreshed_criteria.get(criteria_key, {}).get('content', 'NÃO ENCONTRADO')[:100]}...")
+
+            return {
+                "success": True,
+                "message": f"Criteria {criteria_key} updated successfully",
+                "updated_criteria": criteria_results[criteria_key]
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"ERROR in update_analysis_result: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error updating analysis result: {str(e)}"
+        )
+
+
+# Endpoint temporário para teste sem autenticação
+@router.put("/results/{result_id}/update-test", response_model=dict)
+async def update_analysis_result_test(
+    result_id: int,
+    update_data: AnalysisResultUpdate,
+    db: Session = Depends(get_db)
+) -> Any:
+    """Update a specific analysis result - TEMPORÁRIO SEM AUTH"""
+    try:
+        # Get the analysis result (sem verificação de usuário)
+        result = db.query(GeneralAnalysisResultModel).filter(
+            GeneralAnalysisResultModel.id == result_id
+        ).first()
+
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Analysis result not found"
+            )
+
+        # Get current criteria results
+        criteria_results = result.get_criteria_results()
+
+        # Update specific criteria if provided
+        criteria_key = update_data.criteria_key
+        if criteria_key in criteria_results:
+            criteria_results[criteria_key] = {
+                **criteria_results[criteria_key],
+                **update_data.criteria_data
+            }
+
+            # Forçar refresh do objeto para evitar conflitos com o ORM
+            db.refresh(result)
+
+            # Usar SQL direto para atualização (último recurso)
+            import json
+            from sqlalchemy import text
+
+            # Obter o JSON atualizado como string
+            updated_json = json.dumps(criteria_results)
+
+            print(f"DEBUG: JSON atualizado como string tem {len(updated_json)} caracteres (endpoint de teste)")
+
+            # Executar atualização SQL direta
+            sql_query = text("""
+                UPDATE general_analysis_results
+                SET criteria_results = :criteria_results,
+                    updated_at = NOW()
+                WHERE id = :result_id
+            """)
+
+            db.execute(sql_query, {
+                'criteria_results': updated_json,
+                'result_id': result_id
+            })
+
+            db.commit()
+
+            # Forçar refresh do objeto
+            db.refresh(result)
+
+            print(f"DEBUG: Atualização SQL direta executada (endpoint de teste)")
+
+            return {
+                "success": True,
+                "message": f"Criteria {criteria_key} updated successfully (TEST)",
+                "updated_criteria": criteria_results[criteria_key]
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Criteria {criteria_key} not found in analysis result"
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"ERROR in update_analysis_result_test: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error updating analysis result: {str(e)}"
+        )
+
+
 @router.put("/results/{analysis_id}/manual", response_model=GeneralAnalysisResult)
 async def update_manual_result(
     analysis_id: int,
@@ -1165,6 +1425,8 @@ async def delete_analysis_result(
         )
 
 
+
+
 @router.delete("/results")
 async def delete_multiple_analysis_results(
     request: dict,
@@ -1173,7 +1435,7 @@ async def delete_multiple_analysis_results(
     """Delete multiple analysis results"""
     try:
         result_ids = request.get("result_ids", [])
-        
+
         if not result_ids:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -1210,4 +1472,6 @@ async def delete_multiple_analysis_results(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error deleting analysis results: {str(e)}"
         )
+
+
 
