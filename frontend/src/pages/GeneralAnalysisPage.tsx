@@ -944,39 +944,102 @@ const GeneralAnalysisPage: React.FC = () => {
         <meta charset='utf-8'>
         <title>Relatório de Análise de Código</title>
         <style>
-          body { font-family: 'Calibri', 'Arial', sans-serif; font-size: 11pt; line-height: 1.5; margin: 2cm; }
-          h1 { font-size: 16pt; color: #2C5282; text-align: center; border-bottom: 2pt solid #2C5282; padding-bottom: 10pt; }
-          h2 { font-size: 14pt; color: #2C5282; margin-top: 20pt; }
-          h3 { font-size: 12pt; color: #2C5282; border-left: 4pt solid #2C5282; padding-left: 8pt; }
-          .header { text-align: center; margin-bottom: 30pt; }
-          .summary { background-color: #F7FAFC; padding: 15pt; border: 1pt solid #E2E8F0; margin-bottom: 20pt; }
-          .result-item { margin-bottom: 20pt; page-break-inside: avoid; }
+          @page Section1 {
+            size: 21.0cm 29.7cm;
+            margin: 1.2cm 1.5cm 1.2cm 1.5cm;
+            mso-header-margin: 1cm;
+            mso-footer-margin: 1cm;
+            mso-paper-source: 0;
+          }
+          div.Section1 { page: Section1; }
+          body {
+            font-family: 'Calibri', 'Arial', sans-serif;
+            font-size: 11pt;
+            line-height: 1.4;
+            margin: 0;
+            padding: 0;
+          }
+          h1 {
+            font-size: 16pt;
+            color: #2C5282;
+            text-align: center;
+            border-bottom: 2pt solid #2C5282;
+            padding-bottom: 8pt;
+            margin: 0 0 15pt 0;
+          }
+          h2 {
+            font-size: 14pt;
+            color: #2C5282;
+            margin: 15pt 0 8pt 0;
+          }
+          h3 {
+            font-size: 12pt;
+            color: #2C5282;
+            border-left: 3pt solid #2C5282;
+            padding-left: 6pt;
+            margin: 12pt 0 6pt 0;
+          }
+          h4 {
+            font-size: 11pt;
+            color: #2C5282;
+            margin: 8pt 0 4pt 0;
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 20pt;
+          }
+          .summary {
+            background-color: #F7FAFC;
+            padding: 10pt;
+            border: 1pt solid #E2E8F0;
+            margin-bottom: 15pt;
+          }
+          .result-item {
+            margin-bottom: 15pt;
+            page-break-inside: avoid;
+          }
           .status-conforme { color: #38A169; font-weight: bold; }
           .status-parcial { color: #D69E2E; font-weight: bold; }
           .status-nao-conforme { color: #E53E3E; font-weight: bold; }
           .confidence { font-style: italic; color: #718096; }
-          .recommendations { margin-top: 10pt; }
-          .recommendations ul { margin: 5pt 0; padding-left: 20pt; }
-          .evidence { background-color: #F7FAFC; padding: 10pt; border: 1pt solid #E2E8F0; margin: 10pt 0; font-family: 'Courier New', monospace; font-size: 10pt; }
-          .footer { text-align: center; margin-top: 30pt; font-size: 10pt; color: #718096; border-top: 1pt solid #E2E8F0; padding-top: 10pt; }
-          @page { margin: 2cm; }
+          .recommendations { margin-top: 8pt; }
+          .recommendations ul { margin: 4pt 0; padding-left: 18pt; }
+          .evidence {
+            background-color: #F7FAFC;
+            padding: 8pt;
+            border: 1pt solid #E2E8F0;
+            margin: 8pt 0;
+            font-family: 'Courier New', monospace;
+            font-size: 10pt;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 20pt;
+            font-size: 10pt;
+            color: #718096;
+            border-top: 1pt solid #E2E8F0;
+            padding-top: 8pt;
+          }
+          p { margin: 4pt 0; }
+          div { margin: 0; }
         </style>
       </head>
       <body>
-        <div class="header">
-          <h1>Relatório de Análise de Código</h1>
-          <h2>VerificAI Code Quality System</h2>
-          <p>Gerado em: ${currentDate} às ${currentTime}</p>
-        </div>
+        <div class="Section1">
+          <div class="header">
+            <h1>Relatório de Análise de Código</h1>
+            <h2>VerificAI Code Quality System</h2>
+            <p>Gerado em: ${currentDate} às ${currentTime}</p>
+          </div>
 
-        <div class="summary">
-          <h3>Resumo da Análise</h3>
-          <p><strong>Total de critérios analisados:</strong> ${results.length}</p>
-          <p><strong>Critérios conformes:</strong> ${results.filter(r => r.status === 'compliant').length}</p>
-          <p><strong>Critérios parcialmente conformes:</strong> ${results.filter(r => r.status === 'partially_compliant').length}</p>
-          <p><strong>Critérios não conformes:</strong> ${results.filter(r => r.status === 'non_compliant').length}</p>
-          <p><strong>Confiança média:</strong> ${Math.round(results.reduce((acc, r) => acc + r.confidence, 0) / results.length * 100)}%</p>
-        </div>`;
+          <div class="summary">
+            <h3>Resumo da Análise</h3>
+            <p><strong>Total de critérios analisados:</strong> ${results.length}</p>
+            <p><strong>Critérios conformes:</strong> ${results.filter(r => r.status === 'compliant').length}</p>
+            <p><strong>Critérios parcialmente conformes:</strong> ${results.filter(r => r.status === 'partially_compliant').length}</p>
+            <p><strong>Critérios não conformes:</strong> ${results.filter(r => r.status === 'non_compliant').length}</p>
+            <p><strong>Confiança média:</strong> ${Math.round(results.reduce((acc, r) => acc + r.confidence, 0) / results.length * 100)}%</p>
+          </div>`;
 
     // Add results
     results.forEach((result, index) => {
@@ -993,7 +1056,7 @@ const GeneralAnalysisPage: React.FC = () => {
 
           <div>
             <h4>Avaliação</h4>
-            <div>${(() => {
+            <div style="margin: 0;">${(() => {
               let processedText = result.assessment;
               // Handle code blocks
               processedText = processedText.replace(/`([^`]+)`/g, '<code style="background-color: #e9ecef; padding: 2px 4px; border-radius: 3px; font-family: monospace;">$1</code>');
@@ -1033,9 +1096,10 @@ const GeneralAnalysisPage: React.FC = () => {
     });
 
     content += `
-        <div class="footer">
-          <p>Relatório gerado automaticamente pelo VerificAI Code Quality System</p>
-          <p>Este relatório é confidencial e deve ser tratado de acordo com as políticas da organização.</p>
+          <div class="footer">
+            <p>Relatório gerado automaticamente pelo VerificAI Code Quality System</p>
+            <p>Este relatório é confidencial e deve ser tratado de acordo com as políticas da organização.</p>
+          </div>
         </div>
       </body>
       </html>`;
@@ -1070,220 +1134,7 @@ const GeneralAnalysisPage: React.FC = () => {
     }
   };
 
-  const handleDownloadReport = async () => {
-    if (results.length === 0) {
-      alert('Nenhum resultado para gerar relatório.');
-      return;
-    }
-
-    try {
-      // Create a temporary div to render the report content
-      const reportDiv = document.createElement('div');
-      reportDiv.style.position = 'absolute';
-      reportDiv.style.left = '-9999px';
-      reportDiv.style.width = '210mm'; // A4 width
-      reportDiv.style.padding = '20mm';
-      reportDiv.style.fontFamily = 'Arial, sans-serif';
-      reportDiv.style.fontSize = '12px';
-      reportDiv.style.lineHeight = '1.6';
-      reportDiv.style.backgroundColor = 'white';
-      reportDiv.style.color = 'black';
-
-      // Generate HTML content
-      const currentDate = new Date().toLocaleDateString('pt-BR');
-      const currentTime = new Date().toLocaleTimeString('pt-BR');
-
-      let htmlContent = `
-        <div style="max-width: 100%; margin: 0;">
-          <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
-            <h1 style="color: #333; margin: 0; font-size: 24px;">Relatório de Análise de Código</h1>
-            <h2 style="color: #666; margin: 10px 0 0 0; font-size: 18px; font-weight: normal;">VerificAI Code Quality System</h2>
-            <p style="color: #888; margin: 20px 0 0 0; font-size: 14px;">
-              Gerado em: ${currentDate} às ${currentTime}
-            </p>
-          </div>
-
-          <div style="margin-bottom: 30px;">
-            <h3 style="color: #333; border-left: 4px solid #007bff; padding-left: 10px; margin-bottom: 15px;">Resumo da Análise</h3>
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-              <tr style="background-color: #f8f9fa;">
-                <td style="padding: 8px 12px; border: 1px solid #dee2e6; font-weight: bold;">Total de Critérios</td>
-                <td style="padding: 8px 12px; border: 1px solid #dee2e6;">${results.length}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 12px; border: 1px solid #dee2e6; font-weight: bold;">Arquivos Analisados</td>
-                <td style="padding: 8px 12px; border: 1px solid #dee2e6;">${uploadedFiles?.length || 0}</td>
-              </tr>
-              <tr style="background-color: #f8f9fa;">
-                <td style="padding: 8px 12px; border: 1px solid #dee2e6; font-weight: bold;">Status Geral</td>
-                <td style="padding: 8px 12px; border: 1px solid #dee2e6;">
-                  ${results.filter(r => r.status === 'compliant').length} Conforme,
-                  ${results.filter(r => r.status === 'non_compliant').length} Não Conforme,
-                  ${results.filter(r => r.status === 'partially_compliant').length} Parcialmente Conforme
-                </td>
-              </tr>
-            </table>
-          </div>
-      `;
-
-      // Add each criterion result
-      results.forEach((result, index) => {
-        const statusColor = {
-          'compliant': '#28a745',
-          'non_compliant': '#dc3545',
-          'partially_compliant': '#ffc107'
-        }[result.status] || '#6c757d';
-
-        const statusText = {
-          'compliant': 'Conforme',
-          'non_compliant': 'Não Conforme',
-          'partially_compliant': 'Parcialmente Conforme'
-        }[result.status] || result.status;
-
-        const confidencePercent = Math.round(result.confidence * 100);
-        const fullCriterionText = getFullCriterionText(result.criterion);
-
-        htmlContent += `
-          <div style="margin-bottom: 40px; page-break-inside: avoid;">
-            <div style="border-left: 4px solid ${statusColor}; padding-left: 15px; margin-bottom: 15px;">
-              <h3 style="color: #333; margin: 0 0 5px 0; font-size: 16px;">
-                Critério ${index + 1}
-              </h3>
-              <div style="background-color: #f8f9fa; padding: 12px; border-radius: 4px; margin-bottom: 10px; border-left: 3px solid #dee2e6;">
-                <div style="color: #333; font-size: 12px; line-height: 1.5; font-weight: 500;">
-                  ${fullCriterionText.replace(/\n/g, '<br>')}
-                </div>
-              </div>
-              <div style="display: flex; gap: 20px; margin: 10px 0; flex-wrap: wrap;">
-                <span style="background-color: ${statusColor}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">
-                  ${statusText}
-                </span>
-                <span style="color: #666; font-size: 12px;">
-                  Confiança: ${confidencePercent}%
-                </span>
-              </div>
-            </div>
-
-            <div style="margin-bottom: 20px;">
-              <h4 style="color: #333; margin-bottom: 10px; font-size: 14px; border-bottom: 1px solid #dee2e6; padding-bottom: 5px;">
-                Avaliação Detalhada
-              </h4>
-              <div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; border-left: 3px solid #dee2e6;">
-                <div style="white-space: pre-wrap; color: #333; font-size: 12px; line-height: 1.5;">
-                  ${(() => {
-                    let processedText = result.assessment;
-                    // Ensure we have the complete text - no truncation
-                    console.log('Processing assessment text, length:', processedText.length);
-                    console.log('Last 100 chars:', processedText.slice(-100));
-
-                    // First handle code blocks to avoid interference
-                    processedText = processedText.replace(/`([^`]+)`/g, '<code style="background-color: #e9ecef; padding: 2px 4px; border-radius: 3px; font-family: monospace;">$1</code>');
-                    // Handle bold text
-                    processedText = processedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-                    // Handle paragraphs more carefully - preserve content integrity
-                    // Split into paragraphs but preserve all text
-                    const paragraphs = processedText.split(/\n\s*\n/);
-                    processedText = paragraphs.map(p => {
-                      // Ensure paragraph is not empty
-                      if (p.trim()) {
-                        // Convert single line breaks within paragraphs to <br>
-                        return '<p>' + p.replace(/\n/g, '<br>') + '</p>';
-                      }
-                      return '';
-                    }).join('');
-
-                    // Handle any remaining single line breaks for paragraphs that weren't caught
-                    processedText = processedText.replace(/^([^\n]+)$/gm, '<p>$1</p>');
-
-                    console.log('Final processed text length:', processedText.length);
-                    return processedText;
-                  })()}
-                </div>
-              </div>
-            </div>
-        `;
-
-        if (result.recommendations.length > 0) {
-          htmlContent += `
-            <div style="margin-bottom: 15px;">
-              <h4 style="color: #333; margin-bottom: 10px; font-size: 14px;">Recomendações</h4>
-              <ul style="margin: 0; padding-left: 20px;">
-                ${result.recommendations.map(rec =>
-                  `<li style="margin-bottom: 5px; color: #333; font-size: 12px;">${rec}</li>`
-                ).join('')}
-              </ul>
-            </div>
-          `;
-        }
-
-        htmlContent += '</div>';
-      });
-
-      // Add footer
-      htmlContent += `
-          <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #dee2e6; text-align: center; color: #666; font-size: 11px;">
-            <p>Relatório gerado automaticamente pelo VerificAI Code Quality System</p>
-            <p>Este relatório contém ${results.length} critérios de análise baseados em boas práticas de desenvolvimento de software.</p>
-          </div>
-        </div>
-      `;
-
-      reportDiv.innerHTML = htmlContent;
-      document.body.appendChild(reportDiv);
-
-      // Log content size for debugging
-      console.log('Total HTML content length:', htmlContent.length);
-      console.log('Report div scrollHeight:', reportDiv.scrollHeight);
-
-      // Convert to canvas with better settings for long content
-      const canvas = await html2canvas(reportDiv, {
-        scale: 2,
-        useCORS: true,
-        scrollX: 0,
-        scrollY: 0,
-        windowWidth: reportDiv.scrollWidth,
-        windowHeight: reportDiv.scrollHeight,
-        allowTaint: true,
-        height: reportDiv.scrollHeight,
-        width: reportDiv.scrollWidth
-      });
-
-      // Create PDF
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgData = canvas.toDataURL('image/png');
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      let heightLeft = pdfHeight;
-      let position = 0;
-
-      // Add first page
-      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-      heightLeft -= pdf.internal.pageSize.getHeight();
-
-      // Add additional pages if needed
-      while (heightLeft >= 0) {
-        position = heightLeft - pdfHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pdf.internal.pageSize.getHeight();
-      }
-
-      // Clean up
-      document.body.removeChild(reportDiv);
-
-      // Download PDF
-      const fileName = `relatorio-analise-codigo-${currentDate.replace(/\//g, '-')}.pdf`;
-      pdf.save(fileName);
-
-    } catch (error) {
-      console.error('Erro ao gerar PDF:', error);
-      alert('Erro ao gerar o relatório PDF. Por favor, tente novamente.');
-    }
-  };
-
+  
   return (
     <div className="general-analysis-page">
       {/* Enhanced Progress Bar */}
@@ -1408,7 +1259,6 @@ const GeneralAnalysisPage: React.FC = () => {
           <ResultsTable
             results={results}
             onEditResult={handleEditResult}
-            onDownloadReport={handleDownloadReport}
             onDownloadDocx={handleDownloadDocx}
             onDeleteResults={handleDeleteResults}
           />

@@ -10,7 +10,6 @@ import {
   Download,
   ExternalLink,
   Trash2,
-  FileText,
   File
 } from 'lucide-react';
 import CodeBlock from '@/components/common/CodeBlock';
@@ -41,7 +40,6 @@ interface CriteriaResult {
 interface ResultsTableProps {
   results: CriteriaResult[];
   onEditResult: (criterion: string, result: Partial<CriteriaResult>) => void;
-  onDownloadReport: () => void;
   onDownloadDocx: () => void;
   onDeleteResults?: (selectedIds: number[]) => void;
 }
@@ -49,7 +47,6 @@ interface ResultsTableProps {
 const ResultsTable: React.FC<ResultsTableProps> = ({
   results,
   onEditResult,
-  onDownloadReport,
   onDownloadDocx,
   onDeleteResults
 }) => {
@@ -57,23 +54,9 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
   const [selectedResults, setSelectedResults] = useState<Set<number>>(new Set());
   const [showDeleteButton, setShowDeleteButton] = useState(false);
   const [fullCriteriaText, setFullCriteriaText] = useState<{[key: string]: string}>({});
-  const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
   const [allCriteria, setAllCriteria] = useState<any[]>([]);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (showDownloadDropdown) {
-        setShowDownloadDropdown(false);
-      }
-    };
-
-    document.addEventListener('click', handleClickOutside);
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, [showDownloadDropdown]);
-
+  
   // Debug log
   console.log('🔍 ResultsTable renderizado com:', results.length, 'resultados');
   console.log('🔍 IDs dos resultados:', results.map(r => ({ id: r.id, criterion: r.criterion.substring(0, 50) + '...' })));
@@ -298,59 +281,14 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
                 </button>
               )}
               {results.length > 0 && (
-                <div className="dropdown" style={{ position: 'relative' }}>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowDownloadDropdown(!showDownloadDropdown);
-                    }}
-                    className="br-button secondary"
-                    style={{ position: 'relative' }}
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Baixar Relatório
-                  </button>
-                  {showDownloadDropdown && (
-                    <div
-                      className="br-menu dropdown-menu show"
-                      style={{
-                      position: 'absolute',
-                      top: '100%',
-                      right: '0',
-                      zIndex: 1000,
-                      minWidth: '200px',
-                      marginTop: '4px'
-                    }}
-                    onClick={(e) => e.stopPropagation()}>
-                      <div className="br-item">
-                        <button
-                          onClick={() => {
-                            onDownloadReport();
-                            setShowDownloadDropdown(false);
-                          }}
-                          className="br-button"
-                          style={{ width: '100%', justifyContent: 'flex-start', border: 'none', background: 'none' }}
-                        >
-                          <FileText className="w-4 h-4 mr-2" />
-                          Baixar PDF
-                        </button>
-                      </div>
-                      <div className="br-item">
-                        <button
-                          onClick={() => {
-                            onDownloadDocx();
-                            setShowDownloadDropdown(false);
-                          }}
-                          className="br-button"
-                          style={{ width: '100%', justifyContent: 'flex-start', border: 'none', background: 'none' }}
-                        >
-                          <File className="w-4 h-4 mr-2" />
-                          Baixar DOC (Editável)
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <button
+                  onClick={onDownloadDocx}
+                  className="br-button secondary"
+                  title="Baixar relatório em formato DOCX editável"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Baixar Relatório (DOCX)
+                </button>
               )}
             </div>
           </div>
