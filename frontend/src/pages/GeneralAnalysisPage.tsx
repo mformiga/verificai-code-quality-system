@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Download, Upload, Settings, FileText, AlertCircle, Trash2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import apiClient from '@/services/apiClient';
 import CriteriaList from '@/components/features/Analysis/CriteriaList';
 import ProgressTracker from '@/components/features/Analysis/ProgressTracker';
 import ResultsTable from '@/components/features/Analysis/ResultsTable';
@@ -220,23 +221,78 @@ const GeneralAnalysisPage: React.FC = () => {
   };
 
   const handleEditResult = (criterion: string, result: Partial<CriteriaResult>) => {
+    console.log('📝 GeneralAnalysisPage: handleEditResult called with:', { criterion, result });
     setEditingResult({
       criterion,
       assessment: result.assessment || '',
       status: result.status || 'partially_compliant',
       confidence: result.confidence || 0.5,
       evidence: result.evidence || [],
-      recommendations: result.recommendations || []
+      recommendations: result.recommendations || [],
+      resultId: result.resultId,
+      criterionKey: result.criterionKey,
+      criteriaId: result.criteriaId,
+      id: result.id
     });
   };
 
-  const handleSaveResult = (updatedResult: CriteriaResult) => {
-    setResults(prev =>
-      prev.map(result =>
-        result.criterion === updatedResult.criterion ? updatedResult : result
-      )
-    );
-    setEditingResult(null);
+  const handleSaveResult = async (updatedResult: CriteriaResult) => {
+    console.log('🎯 GeneralAnalysisPage: handleSaveResult called with:', updatedResult);
+    try {
+      // Show loading state
+      setLoading(true);
+
+      // Get the result ID and criterion key
+      const resultId = updatedResult.resultId;
+      const criterionKey = updatedResult.criterionKey;
+
+      if (!resultId || !criterionKey) {
+        console.error('❌ Missing resultId or criterionKey for saving:', updatedResult);
+        alert('Erro: Não foi possível identificar o resultado a ser salvo.');
+        return;
+      }
+
+      console.log('💾 Saving result update:', {
+        resultId,
+        criterionKey,
+        updatedAssessment: updatedResult.assessment
+      });
+
+      // Prepare the update data
+      const updateData = {
+        criterion_key: criterionKey,
+        criterion_data: {
+          name: updatedResult.criterion,
+          content: updatedResult.assessment
+        }
+      };
+
+      // Call API to update the result
+      const response = await apiClient.put(`/general-analysis/results/${resultId}`, updateData);
+
+      if (response.data.success) {
+        console.log('✅ Result saved successfully:', response.data);
+
+        // Update local state
+        setResults(prev =>
+          prev.map(result =>
+            result.criterion === updatedResult.criterion ? updatedResult : result
+          )
+        );
+
+        // Show success message
+        alert('Alterações salvas com sucesso!');
+      } else {
+        throw new Error(response.data.message || 'Failed to save result');
+      }
+
+    } catch (error) {
+      console.error('❌ Error saving result:', error);
+      alert(`Erro ao salvar alterações: ${error.response?.data?.detail || error.message}`);
+    } finally {
+      setEditingResult(null);
+      setLoading(false);
+    }
   };
 
   const handleCancelAnalysis = () => {
@@ -876,6 +932,135 @@ const GeneralAnalysisPage: React.FC = () => {
     loadAllCriteria();
   }, []);
 
+  const generateReportContent = () => {
+    const currentDate = new Date().toLocaleDateString('pt-BR');
+    const currentTime = new Date().toLocaleTimeString('pt-BR');
+
+    let content = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office'
+            xmlns:w='urn:schemas-microsoft-com:office:word'
+            xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+        <meta charset='utf-8'>
+        <title>Relatório de Análise de Código</title>
+        <style>
+          body { font-family: 'Calibri', 'Arial', sans-serif; font-size: 11pt; line-height: 1.5; margin: 2cm; }
+          h1 { font-size: 16pt; color: #2C5282; text-align: center; border-bottom: 2pt solid #2C5282; padding-bottom: 10pt; }
+          h2 { font-size: 14pt; color: #2C5282; margin-top: 20pt; }
+          h3 { font-size: 12pt; color: #2C5282; border-left: 4pt solid #2C5282; padding-left: 8pt; }
+          .header { text-align: center; margin-bottom: 30pt; }
+          .summary { background-color: #F7FAFC; padding: 15pt; border: 1pt solid #E2E8F0; margin-bottom: 20pt; }
+          .result-item { margin-bottom: 20pt; page-break-inside: avoid; }
+          .status-conforme { color: #38A169; font-weight: bold; }
+          .status-parcial { color: #D69E2E; font-weight: bold; }
+          .status-nao-conforme { color: #E53E3E; font-weight: bold; }
+          .confidence { font-style: italic; color: #718096; }
+          .recommendations { margin-top: 10pt; }
+          .recommendations ul { margin: 5pt 0; padding-left: 20pt; }
+          .evidence { background-color: #F7FAFC; padding: 10pt; border: 1pt solid #E2E8F0; margin: 10pt 0; font-family: 'Courier New', monospace; font-size: 10pt; }
+          .footer { text-align: center; margin-top: 30pt; font-size: 10pt; color: #718096; border-top: 1pt solid #E2E8F0; padding-top: 10pt; }
+          @page { margin: 2cm; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Relatório de Análise de Código</h1>
+          <h2>VerificAI Code Quality System</h2>
+          <p>Gerado em: ${currentDate} às ${currentTime}</p>
+        </div>
+
+        <div class="summary">
+          <h3>Resumo da Análise</h3>
+          <p><strong>Total de critérios analisados:</strong> ${results.length}</p>
+          <p><strong>Critérios conformes:</strong> ${results.filter(r => r.status === 'compliant').length}</p>
+          <p><strong>Critérios parcialmente conformes:</strong> ${results.filter(r => r.status === 'partially_compliant').length}</p>
+          <p><strong>Critérios não conformes:</strong> ${results.filter(r => r.status === 'non_compliant').length}</p>
+          <p><strong>Confiança média:</strong> ${Math.round(results.reduce((acc, r) => acc + r.confidence, 0) / results.length * 100)}%</p>
+        </div>`;
+
+    // Add results
+    results.forEach((result, index) => {
+      const statusClass = result.status === 'compliant' ? 'status-conforme' :
+                         result.status === 'partially_compliant' ? 'status-parcial' : 'status-nao-conforme';
+      const statusText = result.status === 'compliant' ? 'Conforme' :
+                        result.status === 'partially_compliant' ? 'Parcialmente Conforme' : 'Não Conforme';
+
+      content += `
+        <div class="result-item">
+          <h3>${index + 1}. ${result.criterion}</h3>
+          <p><strong>Status:</strong> <span class="${statusClass}">${statusText}</span></p>
+          <p><strong>Confiança:</strong> <span class="confidence">${Math.round(result.confidence * 100)}%</span></p>
+
+          <div>
+            <h4>Avaliação</h4>
+            <div>${result.assessment.replace(/\n/g, '<br>')}</div>
+          </div>`;
+
+      if (result.recommendations && result.recommendations.length > 0) {
+        content += `
+          <div class="recommendations">
+            <h4>Recomendações</h4>
+            <ul>
+              ${result.recommendations.map(rec => `<li>${rec}</li>`).join('')}
+            </ul>
+          </div>`;
+      }
+
+      if (result.evidence && result.evidence.length > 0) {
+        content += `
+          <div>
+            <h4>Evidências de Código</h4>
+            ${result.evidence.map(ev => `
+              <div class="evidence">
+                <p><strong>Arquivo:</strong> ${ev.filePath}</p>
+                <p><strong>Linguagem:</strong> ${ev.language}</p>
+                <pre>${ev.code}</pre>
+              </div>
+            `).join('')}
+          </div>`;
+      }
+
+      content += '</div>';
+    });
+
+    content += `
+        <div class="footer">
+          <p>Relatório gerado automaticamente pelo VerificAI Code Quality System</p>
+          <p>Este relatório é confidencial e deve ser tratado de acordo com as políticas da organização.</p>
+        </div>
+      </body>
+      </html>`;
+
+    return content;
+  };
+
+  const handleDownloadDocx = () => {
+    if (results.length === 0) {
+      alert('Nenhum resultado para gerar relatório.');
+      return;
+    }
+
+    try {
+      const content = generateReportContent();
+      const blob = new Blob(['\ufeff', content], {
+        type: 'application/msword'
+      });
+
+      const currentDate = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+      const fileName = `relatorio-analise-codigo-${currentDate}.doc`;
+
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = fileName;
+      link.click();
+
+      URL.revokeObjectURL(link.href);
+    } catch (error) {
+      console.error('Erro ao gerar DOCX:', error);
+      alert('Erro ao gerar o relatório DOCX. Por favor, tente novamente.');
+    }
+  };
+
   const handleDownloadReport = async () => {
     if (results.length === 0) {
       alert('Nenhum resultado para gerar relatório.');
@@ -1184,7 +1369,7 @@ const GeneralAnalysisPage: React.FC = () => {
             results={results}
             onEditResult={handleEditResult}
             onDownloadReport={handleDownloadReport}
-            onReanalyze={handleReanalyze}
+            onDownloadDocx={handleDownloadDocx}
             onDeleteResults={handleDeleteResults}
           />
         )}

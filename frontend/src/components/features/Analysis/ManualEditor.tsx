@@ -68,28 +68,42 @@ const ManualEditor: React.FC<ManualEditorProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="br-card" style={{ maxWidth: '95vw', width: '1300px', maxHeight: '98vh', overflow: 'hidden' }}>
         {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b border-gray-200">
-          <h3 className="text-xl font-semibold text-gray-800">
-            Editar Resultado Manualmente
-          </h3>
-          <button
-            onClick={onCancel}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
+        <div className="card-header">
+          <div className="d-flex align-items-center justify-content-between">
+            <h3 className="text-h3">
+              Editar Resultado Manualmente
+            </h3>
+            <div className="d-flex align-items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSave}
+                className="br-button primary"
+                title="Salvar Alterações"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                Salvar
+              </button>
+              <button
+                onClick={onCancel}
+                className="br-button circle"
+                title="Fechar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+        <div className="card-content overflow-y-auto" style={{ maxHeight: 'calc(98vh - 140px)' }}>
           <form onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Status */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="br-input">
+                <label className="br-label">
                   Status
                 </label>
                 <select
@@ -98,7 +112,7 @@ const ManualEditor: React.FC<ManualEditorProps> = ({
                     ...result,
                     status: e.target.value as CriteriaResult['status']
                   })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="br-select"
                 >
                   {getStatusOptions.map(option => (
                     <option key={option.value} value={option.value}>
@@ -109,11 +123,11 @@ const ManualEditor: React.FC<ManualEditorProps> = ({
               </div>
 
               {/* Nível de Confiança */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nível de Confiança
+              <div className="br-input">
+                <label className="br-label">
+                  Nível de Confiança: {Math.round(result.confidence * 100)}%
                 </label>
-                <div className="flex items-center gap-4">
+                <div className="d-flex align-items-center gap-3">
                   <input
                     type="range"
                     min="0"
@@ -124,44 +138,46 @@ const ManualEditor: React.FC<ManualEditorProps> = ({
                       ...result,
                       confidence: parseFloat(e.target.value)
                     })}
-                    className="flex-1"
+                    className="br-range flex-1"
+                    style={{ height: '8px' }}
                   />
-                  <span className="text-sm font-medium text-gray-700 min-w-[60px]">
-                    {Math.round(result.confidence * 100)}%
-                  </span>
                 </div>
               </div>
 
               {/* Avaliação */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="br-input">
+                <label className="br-label">
                   Avaliação
                 </label>
-                <textarea
-                  value={assessmentText}
-                  onChange={(e) => setAssessmentText(e.target.value)}
-                  placeholder="Descreva a avaliação do critério em detalhes..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  rows={6}
-                />
-                <p className="text-xs text-gray-500 mt-1">
+                <div className="br-textarea">
+                  <textarea
+                    value={assessmentText}
+                    onChange={(e) => setAssessmentText(e.target.value)}
+                    placeholder="Descreva a avaliação do critério em detalhes..."
+                    rows={20}
+                    style={{ minHeight: '400px', width: '100%', resize: 'vertical' }}
+                  />
+                </div>
+                <p className="br-help-text">
                   Use markdown para formatação (## cabeçalhos, **negrito**, *itálico*, etc.)
                 </p>
               </div>
 
               {/* Recomendações */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="br-input">
+                <label className="br-label">
                   Recomendações
                 </label>
-                <textarea
-                  value={recommendationsText}
-                  onChange={(e) => setRecommendationsText(e.target.value)}
-                  placeholder="Digite as recomendações, uma por linha..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  rows={4}
-                />
-                <p className="text-xs text-gray-500 mt-1">
+                <div className="br-textarea">
+                  <textarea
+                    value={recommendationsText}
+                    onChange={(e) => setRecommendationsText(e.target.value)}
+                    placeholder="Digite as recomendações, uma por linha..."
+                    rows={8}
+                    style={{ width: '100%', resize: 'vertical' }}
+                  />
+                </div>
+                <p className="br-help-text">
                   Digite uma recomendação por linha
                 </p>
               </div>
@@ -197,19 +213,19 @@ const ManualEditor: React.FC<ManualEditorProps> = ({
             </div>
 
             {/* Actions */}
-            <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
+            <div className="d-flex justify-content-end gap-3 mt-4 pt-4 border-top">
               <button
                 type="button"
                 onClick={onCancel}
-                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
+                className="br-button secondary"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
+                className="br-button primary"
               >
-                <Save className="w-4 h-4" />
+                <Save className="w-4 h-4 mr-2" />
                 Salvar Alterações
               </button>
             </div>

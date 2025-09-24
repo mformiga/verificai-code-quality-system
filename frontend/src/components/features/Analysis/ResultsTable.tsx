@@ -6,13 +6,12 @@ import {
   HelpCircle,
   ChevronDown,
   ChevronUp,
-  Edit3,
+  Edit,
   Download,
   ExternalLink,
-  Play,
-  Save,
-  X,
-  Trash2
+  Trash2,
+  FileText,
+  File
 } from 'lucide-react';
 import CodeBlock from '@/components/common/CodeBlock';
 import { criteriaService } from '@/services/criteriaService';
@@ -36,13 +35,14 @@ interface CriteriaResult {
   // Para resultados carregados do banco, precisamos de uma referência ao ID do resultado pai
   resultId?: number;
   criterionKey?: string;
+  criteriaId?: number;
 }
 
 interface ResultsTableProps {
   results: CriteriaResult[];
   onEditResult: (criterion: string, result: Partial<CriteriaResult>) => void;
   onDownloadReport: () => void;
-  onReanalyze?: (criterion: string) => void;
+  onDownloadDocx: () => void;
   onDeleteResults?: (selectedIds: number[]) => void;
 }
 
@@ -50,15 +50,29 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
   results,
   onEditResult,
   onDownloadReport,
-  onReanalyze,
+  onDownloadDocx,
   onDeleteResults
 }) => {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const [editingAssessment, setEditingAssessment] = useState<{[key: string]: string}>({});
   const [selectedResults, setSelectedResults] = useState<Set<number>>(new Set());
   const [showDeleteButton, setShowDeleteButton] = useState(false);
   const [fullCriteriaText, setFullCriteriaText] = useState<{[key: string]: string}>({});
+  const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
   const [allCriteria, setAllCriteria] = useState<any[]>([]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showDownloadDropdown) {
+        setShowDownloadDropdown(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [showDownloadDropdown]);
 
   // Debug log
   console.log('🔍 ResultsTable renderizado com:', results.length, 'resultados');
@@ -125,31 +139,7 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
     setExpandedRows(newExpanded);
   };
 
-  const startEditAssessment = (criterion: string, currentAssessment: string) => {
-    setEditingAssessment({
-      ...editingAssessment,
-      [criterion]: currentAssessment
-    });
-  };
-
-  const saveAssessment = (criterion: string) => {
-    const newAssessment = editingAssessment[criterion];
-    if (newAssessment !== undefined) {
-      onEditResult(criterion, { assessment: newAssessment });
-      setEditingAssessment({
-        ...editingAssessment,
-        [criterion]: ''
-      });
-    }
-  };
-
-  const cancelEdit = (criterion: string) => {
-    setEditingAssessment({
-      ...editingAssessment,
-      [criterion]: ''
-    });
-  };
-
+  
   const handleSelectResult = (resultId: number) => {
     console.log('🔍 handleSelectResult chamado com resultId:', resultId);
     console.log('🔍 selectedResults antes:', Array.from(selectedResults));
@@ -308,13 +298,59 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
                 </button>
               )}
               {results.length > 0 && (
-                <button
-                  onClick={onDownloadReport}
-                  className="br-button secondary"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Baixar Relatório
-                </button>
+                <div className="dropdown" style={{ position: 'relative' }}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowDownloadDropdown(!showDownloadDropdown);
+                    }}
+                    className="br-button secondary"
+                    style={{ position: 'relative' }}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Baixar Relatório
+                  </button>
+                  {showDownloadDropdown && (
+                    <div
+                      className="br-menu dropdown-menu show"
+                      style={{
+                      position: 'absolute',
+                      top: '100%',
+                      right: '0',
+                      zIndex: 1000,
+                      minWidth: '200px',
+                      marginTop: '4px'
+                    }}
+                    onClick={(e) => e.stopPropagation()}>
+                      <div className="br-item">
+                        <button
+                          onClick={() => {
+                            onDownloadReport();
+                            setShowDownloadDropdown(false);
+                          }}
+                          className="br-button"
+                          style={{ width: '100%', justifyContent: 'flex-start', border: 'none', background: 'none' }}
+                        >
+                          <FileText className="w-4 h-4 mr-2" />
+                          Baixar PDF
+                        </button>
+                      </div>
+                      <div className="br-item">
+                        <button
+                          onClick={() => {
+                            onDownloadDocx();
+                            setShowDownloadDropdown(false);
+                          }}
+                          className="br-button"
+                          style={{ width: '100%', justifyContent: 'flex-start', border: 'none', background: 'none' }}
+                        >
+                          <File className="w-4 h-4 mr-2" />
+                          Baixar DOC (Editável)
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -459,15 +495,13 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
                           <ChevronDown className="w-4 h-4" />
                         )}
                       </button>
-                      {onReanalyze && (
-                        <button
-                          onClick={() => onReanalyze(result.criterion)}
-                          className="br-button circle primary"
-                          title="Re-analisar critério"
-                        >
-                          <Play className="w-4 h-4" />
-                        </button>
-                      )}
+                      <button
+                        onClick={() => onEditResult(result.criterion, result)}
+                        className="br-button circle warning"
+                        title="Editar resultado (modal completo)"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -476,60 +510,23 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
                     <td colSpan={5} className="p-0">
                       <div className="br-item-expanded">
                         <div className="p-4">
-                          {/* Área de Edição da Avaliação */}
+                          {/* Avaliação */}
                           <div className="mb-4">
                             <div className="d-flex align-items-center justify-content-between mb-3">
                               <h4 className="text-h4">
-                                Edição da Avaliação
+                                Avaliação
                               </h4>
-                              <div className="btn-group">
-                                {editingAssessment[result.criterion] ? (
-                                  <>
-                                    <button
-                                      onClick={() => saveAssessment(result.criterion)}
-                                      className="br-button success"
-                                    >
-                                      <Save className="w-4 h-4 mr-2" />
-                                      Salvar
-                                    </button>
-                                    <button
-                                      onClick={() => cancelEdit(result.criterion)}
-                                      className="br-button secondary"
-                                    >
-                                      <X className="w-4 h-4 mr-2" />
-                                      Cancelar
-                                    </button>
-                                  </>
-                                ) : (
-                                  <button
-                                    onClick={() => startEditAssessment(result.criterion, result.assessment)}
-                                    className="br-button primary"
-                                  >
-                                    <Edit3 className="w-4 h-4 mr-2" />
-                                    Editar Avaliação
-                                  </button>
-                                )}
-                              </div>
                             </div>
                             <div className="br-card">
                               <div className="card-content p-0">
-                                {editingAssessment[result.criterion] ? (
-                                  <textarea
-                                    value={editingAssessment[result.criterion]}
-                                    onChange={(e) => setEditingAssessment({
-                                      ...editingAssessment,
-                                      [result.criterion]: e.target.value
-                                    })}
-                                    className="br-textarea w-full"
-                                    rows={6}
-                                    placeholder="Digite a avaliação do critério..."
-                                    style={{ minHeight: '150px' }}
-                                  />
-                                ) : (
-                                  <div className="p-4 text-regular">
-                                    {formatAssessment(result.assessment)}
-                                  </div>
-                                )}
+                                <div className="p-4 text-regular" style={{
+                                  maxHeight: '600px',
+                                  overflowY: 'auto',
+                                  whiteSpace: 'pre-wrap',
+                                  wordWrap: 'break-word'
+                                }}>
+                                  {formatAssessment(result.assessment)}
+                                </div>
                               </div>
                             </div>
                           </div>
