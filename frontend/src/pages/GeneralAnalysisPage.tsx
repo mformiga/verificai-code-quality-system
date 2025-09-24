@@ -604,7 +604,7 @@ const GeneralAnalysisPage: React.FC = () => {
         confidence: Math.max(0, Math.min(1, confidence)),
         evidence: [],
         recommendations: [],
-        resultId: undefined,
+        resultId: response.db_result_id, // Usar o ID do resultado salvo no banco
         criterionKey: criteriaKey,
         criteriaId: matchingCriterion.id
       };
@@ -749,7 +749,7 @@ const GeneralAnalysisPage: React.FC = () => {
           confidence: Math.max(0, Math.min(1, confidence)),
           evidence: [],
           recommendations: [],
-          resultId: undefined, // Novos resultados não têm ID no banco ainda
+          resultId: response.db_result_id, // Usar o ID do resultado salvo no banco
           criterionKey: originalCriteriaId, // Usar o ID original do critério selecionado
           criteriaId: criteriaId // Adicionar o ID numérico único do critério
         };
@@ -993,7 +993,16 @@ const GeneralAnalysisPage: React.FC = () => {
 
           <div>
             <h4>Avaliação</h4>
-            <div>${result.assessment.replace(/\n/g, '<br>')}</div>
+            <div>${(() => {
+              let processedText = result.assessment;
+              // Handle code blocks
+              processedText = processedText.replace(/`([^`]+)`/g, '<code style="background-color: #e9ecef; padding: 2px 4px; border-radius: 3px; font-family: monospace;">$1</code>');
+              // Handle bold text
+              processedText = processedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+              // Convert line breaks to <br> tags
+              processedText = processedText.replace(/\n/g, '<br>');
+              return processedText;
+            })()}</div>
           </div>`;
 
       if (result.recommendations && result.recommendations.length > 0) {
@@ -1161,11 +1170,35 @@ const GeneralAnalysisPage: React.FC = () => {
               </h4>
               <div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; border-left: 3px solid #dee2e6;">
                 <div style="white-space: pre-wrap; color: #333; font-size: 12px; line-height: 1.5;">
-                  ${result.assessment.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                                  .replace(/\n\n/g, '</p><p>')
-                                  .replace(/^/, '<p>')
-                                  .replace(/$/, '</p>')
-                                  .replace(/`([^`]+)`/g, '<code style="background-color: #e9ecef; padding: 2px 4px; border-radius: 3px; font-family: monospace;">$1</code>')}
+                  ${(() => {
+                    let processedText = result.assessment;
+                    // Ensure we have the complete text - no truncation
+                    console.log('Processing assessment text, length:', processedText.length);
+                    console.log('Last 100 chars:', processedText.slice(-100));
+
+                    // First handle code blocks to avoid interference
+                    processedText = processedText.replace(/`([^`]+)`/g, '<code style="background-color: #e9ecef; padding: 2px 4px; border-radius: 3px; font-family: monospace;">$1</code>');
+                    // Handle bold text
+                    processedText = processedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+                    // Handle paragraphs more carefully - preserve content integrity
+                    // Split into paragraphs but preserve all text
+                    const paragraphs = processedText.split(/\n\s*\n/);
+                    processedText = paragraphs.map(p => {
+                      // Ensure paragraph is not empty
+                      if (p.trim()) {
+                        // Convert single line breaks within paragraphs to <br>
+                        return '<p>' + p.replace(/\n/g, '<br>') + '</p>';
+                      }
+                      return '';
+                    }).join('');
+
+                    // Handle any remaining single line breaks for paragraphs that weren't caught
+                    processedText = processedText.replace(/^([^\n]+)$/gm, '<p>$1</p>');
+
+                    console.log('Final processed text length:', processedText.length);
+                    return processedText;
+                  })()}
                 </div>
               </div>
             </div>
@@ -1199,14 +1232,21 @@ const GeneralAnalysisPage: React.FC = () => {
       reportDiv.innerHTML = htmlContent;
       document.body.appendChild(reportDiv);
 
-      // Convert to canvas
+      // Log content size for debugging
+      console.log('Total HTML content length:', htmlContent.length);
+      console.log('Report div scrollHeight:', reportDiv.scrollHeight);
+
+      // Convert to canvas with better settings for long content
       const canvas = await html2canvas(reportDiv, {
         scale: 2,
         useCORS: true,
         scrollX: 0,
         scrollY: 0,
         windowWidth: reportDiv.scrollWidth,
-        windowHeight: reportDiv.scrollHeight
+        windowHeight: reportDiv.scrollHeight,
+        allowTaint: true,
+        height: reportDiv.scrollHeight,
+        width: reportDiv.scrollWidth
       });
 
       // Create PDF

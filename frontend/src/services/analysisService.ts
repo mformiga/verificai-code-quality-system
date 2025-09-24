@@ -27,6 +27,7 @@ export interface AnalysisResponse {
   raw_response: string;
   modified_prompt: string;
   file_paths: string[];
+  db_result_id?: number; // Database ID of the saved analysis result
 }
 
 export const analysisService = {
@@ -79,8 +80,8 @@ export const analysisService = {
 
   getAnalysisResults: async () => {
     try {
-      // Use the general-analysis public results endpoint
-      const response = await apiClient.get('/general-analysis/results-public');
+      // Use the authenticated endpoint to get current user's results
+      const response = await apiClient.get('/general-analysis/results');
       return response.data;
     } catch (error) {
       console.error('Error fetching analysis results:', error);
