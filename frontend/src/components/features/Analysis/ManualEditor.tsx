@@ -13,6 +13,9 @@ interface CriteriaResult {
     lineNumbers?: [number, number];
   }>;
   recommendations: string[];
+  resultId?: number;
+  criterionKey?: string;
+  criteriaId?: number;
 }
 
 interface ManualEditorProps {
@@ -28,18 +31,33 @@ const ManualEditor: React.FC<ManualEditorProps> = ({
   onSave,
   onCancel
 }) => {
-  const [result, setResult] = useState<CriteriaResult>(initialResult);
-  const [assessmentText, setAssessmentText] = useState(initialResult.assessment);
+  // Ensure initialResult has all required properties
+  const safeInitialResult: CriteriaResult = {
+    criterion: initialResult.criterion || '',
+    assessment: initialResult.assessment || '',
+    status: initialResult.status || 'partially_compliant',
+    confidence: initialResult.confidence || 0.5,
+    evidence: initialResult.evidence || [],
+    recommendations: initialResult.recommendations || [],
+    resultId: initialResult.resultId,
+    criterionKey: initialResult.criterionKey,
+    criteriaId: initialResult.criteriaId
+  };
+
+  const [result, setResult] = useState<CriteriaResult>(safeInitialResult);
+  const [assessmentText, setAssessmentText] = useState(safeInitialResult.assessment);
   const [recommendationsText, setRecommendationsText] = useState(
-    initialResult.recommendations.join('\n')
+    safeInitialResult.recommendations.join('\n')
   );
 
   const handleSave = () => {
+    console.log('🔄 ManualEditor: handleSave called');
     const updatedResult = {
       ...result,
       assessment: assessmentText,
       recommendations: recommendationsText.split('\n').filter(r => r.trim())
     };
+    console.log('🔄 ManualEditor: Calling onSave with:', updatedResult);
     onSave(updatedResult);
   };
 
