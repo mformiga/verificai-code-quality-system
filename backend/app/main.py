@@ -110,6 +110,35 @@ async def readiness_check():
         "database": "connected" if db_health else "disconnected"
     }
 
+@app.get("/public/file-paths")
+async def get_public_file_paths():
+    """Get file paths for public access - no authentication required"""
+    from app.core.database import get_db
+    from app.models.file_path import FilePath
+    from sqlalchemy.orm import Session
+    from sqlalchemy import desc
+
+    try:
+        db = next(get_db())
+        # Get all file paths without user filtering
+        file_paths = db.query(FilePath).order_by(desc(FilePath.created_at)).limit(50).all()
+
+        # Extract just the full paths for simplicity
+        paths = [fp.full_path for fp in file_paths if fp.full_path]
+
+        print(f"Public endpoint returning {len(paths)} file paths")
+
+        return {
+            "file_paths": paths,
+            "total_count": len(paths),
+            "message": f"Found {len(paths)} file paths"
+        }
+
+    except Exception as e:
+        print(f"Error in public endpoint: {str(e)}")
+        return {"file_paths": [], "total_count": 0, "message": "Error occurred"}
+
+
 @app.options("/{path:path}")
 async def options_handler(request: Request, path: str):
     """Global OPTIONS handler for CORS preflight requests"""

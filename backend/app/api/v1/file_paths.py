@@ -30,6 +30,52 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+@router.get("/public")
+async def get_public_file_paths(db: Session = Depends(get_db)):
+    """Get file paths for public access - no authentication required"""
+    try:
+        # Get all file paths without user filtering
+        file_paths = db.query(FilePath).order_by(desc(FilePath.created_at)).limit(50).all()
+
+        # Extract just the full paths for simplicity
+        paths = [fp.full_path for fp in file_paths if fp.full_path]
+
+        logger.info(f"Public endpoint returning {len(paths)} file paths")
+
+        return {
+            "file_paths": paths,
+            "total_count": len(paths),
+            "message": f"Found {len(paths)} file paths"
+        }
+
+    except Exception as e:
+        logger.error(f"Error in public endpoint: {str(e)}")
+        return {"file_paths": [], "total_count": 0, "message": "Error occurred"}
+
+
+@router.get("/dev-paths")
+async def get_dev_file_paths(db: Session = Depends(get_db)):
+    """Get file paths for development - simple endpoint without authentication"""
+    try:
+        # Get all file paths
+        file_paths = db.query(FilePath).order_by(desc(FilePath.created_at)).limit(10).all()
+
+        # Extract just the full paths for simplicity
+        paths = [fp.full_path for fp in file_paths if fp.full_path]
+
+        logger.info(f"Dev-paths endpoint returning {len(paths)} file paths")
+
+        return {
+            "file_paths": paths,
+            "total_count": len(paths),
+            "message": f"Found {len(paths)} file paths"
+        }
+
+    except Exception as e:
+        logger.error(f"Error in dev-paths endpoint: {str(e)}")
+        return {"file_paths": [], "total_count": 0, "message": "Error occurred"}
+
+
 @router.get("/test")
 async def test_endpoint():
     """Test endpoint to verify router is working"""
@@ -386,3 +432,5 @@ async def get_file_paths_summary(
     except Exception as e:
         logger.error(f"Error getting file paths summary: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+

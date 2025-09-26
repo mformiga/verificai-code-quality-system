@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Download, Upload, Settings, FileText, AlertCircle, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Download, Upload, Settings, FileText, AlertCircle, Trash2, RefreshCw } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import apiClient from '@/services/apiClient';
@@ -31,7 +31,93 @@ interface CriteriaResult {
 }
 
 const GeneralAnalysisPage: React.FC = () => {
-  const { uploadedFiles } = useUploadStore();
+  const uploadStore = useUploadStore();
+  const uploadedFiles = uploadStore?.files || [];
+  const [dbFilePaths, setDbFilePaths] = useState<string[]>([]);
+
+  // Função para recarregar paths do banco de dados
+  const reloadDbPaths = async () => {
+    try {
+      console.log('🔄 Recarregando paths do banco de dados...');
+
+      // Tentar diferentes endpoints
+      const endpoints = [
+        '/public/file-paths',
+        '/api/v1/file-paths/test'
+      ];
+
+      for (const endpoint of endpoints) {
+        try {
+          const response = await fetch(endpoint, {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            console.log(`🔍 Resposta do endpoint ${endpoint}:`, data);
+
+            let paths = [];
+            if (data.file_paths && Array.isArray(data.file_paths)) {
+              paths = data.file_paths.map((fp: any) => fp.full_path);
+            } else if (data.items && Array.isArray(data.items)) {
+              paths = data.items.map((fp: any) => fp.full_path);
+            }
+
+            setDbFilePaths(paths);
+            console.log('✅ Paths recarregados do banco de dados:', paths);
+            return paths;
+          }
+        } catch (endpointError) {
+          console.warn(`❌ Erro ao tentar endpoint ${endpoint}:`, endpointError);
+        }
+      }
+
+      console.warn('❌ Todos os endpoints falharam');
+      return [];
+    } catch (error) {
+      console.error('❌ Erro ao recarregar paths do banco:', error);
+      return [];
+    }
+  };
+
+  // Carregar paths do banco de dados na inicialização
+  useEffect(() => {
+    reloadDbPaths();
+  }, []);
+
+  // Função para obter os file paths corretos (prioridade: upload store > banco de dados)
+  const getAnalysisFilePaths = useCallback(async () => {
+    console.log('🔍 getAnalysisFilePaths chamado:', {
+      uploadedFiles: uploadedFiles.length,
+      dbFilePaths: dbFilePaths.length,
+      uploadedFilesContent: uploadedFiles,
+      dbFilePathsContent: dbFilePaths
+    });
+
+    if (uploadedFiles.length > 0) {
+      const paths = uploadedFiles.map(file => file.path || file.name);
+      console.log('📁 Usando paths do upload store:', paths);
+      return paths;
+    }
+
+    // Se não há arquivos no upload store, tentar recarregar do banco de dados
+    if (dbFilePaths.length === 0) {
+      console.log('🔄 Nenhum path em cache, recarregando do banco...');
+      const freshPaths = await reloadDbPaths();
+      if (freshPaths.length > 0) {
+        console.log('🗄️ Usando paths recarregados do banco:', freshPaths);
+        return freshPaths;
+      }
+    } else {
+      console.log('🗄️ Usando paths do banco de dados em cache:', dbFilePaths);
+      return dbFilePaths;
+    }
+
+    console.log('⚠️ Nenhum path encontrado!');
+    return [];
+  }, [uploadedFiles, dbFilePaths]);
   const [currentAnalysis, setCurrentAnalysis] = useState<any>(null);
   const [results, setResults] = useState<CriteriaResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -145,8 +231,9 @@ const GeneralAnalysisPage: React.FC = () => {
   };
 
   const handleStartAnalysis = async (specificCriteria?: string[]) => {
-    if (uploadedFiles.length === 0) {
-      alert('Por favor, faça upload dos arquivos para análise.');
+    const filePaths = await getAnalysisFilePaths();
+    if (filePaths.length === 0) {
+      alert('Nenhum arquivo encontrado para análise. Por favor, faça upload dos arquivos primeiro.');
       return;
     }
 
@@ -182,6 +269,7 @@ const GeneralAnalysisPage: React.FC = () => {
       'Variáveis devem ter nomes descritivos e significativos'
     ];
 
+    
     // Simulate analysis completion
     setTimeout(() => {
       clearInterval(progressInterval);
@@ -197,7 +285,7 @@ const GeneralAnalysisPage: React.FC = () => {
           {
             code: '// Exemplo de código analisado\nfunction exampleFunction() {\n  // Implementação\n  return true;\n}',
             language: 'javascript',
-            filePath: uploadedFiles[0]?.name || 'example.js',
+            filePath: filePaths[0] || uploadedFiles[0]?.name || 'example.js',
             lineNumbers: [10, 15]
           }
         ],
@@ -347,10 +435,18 @@ const GeneralAnalysisPage: React.FC = () => {
         });
       }, 300);
 
+      // Obter file paths para análise
+      const filePaths = await getAnalysisFilePaths();
+
+      if (filePaths.length === 0) {
+        alert('Nenhum arquivo encontrado para análise. Por favor, faça upload dos arquivos primeiro.');
+        return;
+      }
+
       // Create analysis request para reanálise do critério específico
       const request: AnalysisRequest = {
         criteria_ids: [criteriaKey],
-        file_paths: ['C:\\Users\\formi\\teste_gemini\\dev\\verificAI-code\\codigo_analise.ts'],
+        file_paths: filePaths,
         analysis_name: `Reanálise do Critério: ${criterion}`,
         temperature: 0.7,
         max_tokens: 4000
@@ -547,10 +643,18 @@ const GeneralAnalysisPage: React.FC = () => {
         });
       }, 300);
 
+      // Obter file paths para análise
+      const filePaths = await getAnalysisFilePaths();
+
+      if (filePaths.length === 0) {
+        alert('Nenhum arquivo encontrado para análise. Por favor, faça upload dos arquivos primeiro.');
+        return;
+      }
+
       // Create analysis request para análise do critério específico
       const request: AnalysisRequest = {
         criteria_ids: [criteriaKey],
-        file_paths: ['C:\\Users\\formi\\teste_gemini\\dev\\verificAI-code\\codigo_analise.ts'],
+        file_paths: filePaths,
         analysis_name: `Análise do Critério: ${criterion}`,
         temperature: 0.7,
         max_tokens: 4000
@@ -678,10 +782,18 @@ const GeneralAnalysisPage: React.FC = () => {
         });
       }, 300);
 
-      // Create analysis request com arquivo de exemplo
+      // Obter file paths para análise
+      const filePaths = await getAnalysisFilePaths();
+
+      if (filePaths.length === 0) {
+        alert('Nenhum arquivo encontrado para análise. Por favor, faça upload dos arquivos primeiro.');
+        return;
+      }
+
+      // Create analysis request com os arquivos uploaded
       const request: AnalysisRequest = {
         criteria_ids: selectedCriteriaIds,
-        file_paths: ['C:\\Users\\formi\\teste_gemini\\dev\\verificAI-code\\codigo_analise.ts'], // Arquivo correto para análise
+        file_paths: filePaths,
         analysis_name: 'Análise de Critérios Selecionados',
         temperature: 0.7,
         max_tokens: 4000
@@ -897,6 +1009,7 @@ const GeneralAnalysisPage: React.FC = () => {
 
   const [allCriteria, setAllCriteria] = useState<any[]>([]);
   const [fullCriteriaText, setFullCriteriaText] = useState<Record<string, string>>({});
+  const [refreshingFiles, setRefreshingFiles] = useState(false);
 
   const getFullCriterionText = (criterionName: string) => {
     // Tentar encontrar correspondência exata primeiro
@@ -925,6 +1038,23 @@ const GeneralAnalysisPage: React.FC = () => {
       setFullCriteriaText(textMapping);
     } catch (error) {
       console.error('Erro ao carregar critérios:', error);
+    }
+  };
+
+  const handleRefreshFiles = async () => {
+    setRefreshingFiles(true);
+    try {
+      const freshPaths = await reloadDbPaths();
+      if (freshPaths.length > 0) {
+        alert(`${freshPaths.length} arquivo(s) encontrado(s) no banco de dados!`);
+      } else {
+        alert('Nenhum arquivo encontrado no banco de dados.\n\nPor favor:\n1. Vá para a página de upload\n2. Selecione uma pasta com arquivos\n3. Volva aqui e clique em "Recarregar Arquivos"');
+      }
+    } catch (error) {
+      console.error('Erro ao recarregar arquivos:', error);
+      alert('Erro ao recarregar arquivos. Por favor, tente novamente.');
+    } finally {
+      setRefreshingFiles(false);
     }
   };
 
@@ -1213,11 +1343,30 @@ const GeneralAnalysisPage: React.FC = () => {
       {/* Page Header */}
       <div className="general-analysis-header">
         <div className="br-card">
-          <div className="card-header text-center">
-            <h1 className="text-h1">Análise de Critérios Gerais</h1>
-            <p className="text-regular">
-              Configure seus critérios de avaliação, faça upload dos arquivos e execute análises de código baseadas em padrões de qualidade gerais
-            </p>
+          <div className="card-header">
+            <div className="row align-items-center">
+              <div className="br-col">
+                <h1 className="text-h1">Análise de Critérios Gerais</h1>
+                <p className="text-regular">
+                  Configure seus critérios de avaliação, faça upload dos arquivos e execute análises de código baseadas em padrões de qualidade gerais
+                </p>
+              </div>
+              <div className="br-col-auto">
+                <button
+                  onClick={handleRefreshFiles}
+                  disabled={refreshingFiles}
+                  className="br-button secondary"
+                  title="Recarregar arquivos"
+                >
+                  {refreshingFiles ? (
+                    <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                  )}
+                  {refreshingFiles ? 'Recarregando...' : 'Recarregar Arquivos'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
