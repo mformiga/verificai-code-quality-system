@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Download, Upload, Settings, FileText, AlertCircle, Trash2, RefreshCw } from 'lucide-react';
+import { Download, Upload, Settings, FileText, AlertCircle, Trash2, RefreshCw, Eye } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import apiClient from '@/services/apiClient';
 import CriteriaList from '@/components/features/Analysis/CriteriaList';
 import ProgressTracker from '@/components/features/Analysis/ProgressTracker';
 import ResultsTable from '@/components/features/Analysis/ResultsTable';
+import LatestPromptViewer from '@/components/features/Analysis/LatestPromptViewer';
 import { useUploadStore } from '@/stores/uploadStore';
 import { criteriaService } from '@/services/criteriaService';
 import { analysisService, type AnalysisRequest, type AnalysisResponse } from '@/services/analysisService';
@@ -162,7 +163,7 @@ const GeneralAnalysisPage: React.FC = () => {
   const [results, setResults] = useState<CriteriaResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [resultsManuallyCleared, setResultsManuallyCleared] = useState(false);
-    const [activeTab, setActiveTab] = useState<'criteria' | 'results'>('criteria');
+    const [activeTab, setActiveTab] = useState<'criteria' | 'results' | 'prompt'>('criteria');
   const [selectedCriteriaIds, setSelectedCriteriaIds] = useState<string[]>([]);
   const [showProgress, setShowProgress] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -1437,7 +1438,8 @@ const GeneralAnalysisPage: React.FC = () => {
         <nav className="tab-navigation" role="tablist">
           {[
             { id: 'criteria', name: 'Critérios', icon: Settings },
-            { id: 'results', name: 'Resultados', icon: FileText }
+            { id: 'results', name: 'Resultados', icon: FileText },
+            { id: 'prompt', name: 'Último Prompt Enviado', icon: Eye }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -1471,6 +1473,10 @@ const GeneralAnalysisPage: React.FC = () => {
             onDownloadDocx={handleDownloadDocx}
             onDeleteResults={handleDeleteResults}
           />
+        )}
+
+        {activeTab === 'prompt' && (
+          <LatestPromptViewer />
         )}
 
         {/* Analysis Progress - shown in both tabs */}

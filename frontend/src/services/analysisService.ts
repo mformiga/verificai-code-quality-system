@@ -111,4 +111,24 @@ export const analysisService = {
       throw error;
     }
   },
+
+  deleteAllAnalysisResults: async () => {
+    try {
+      const response = await apiClient.delete('/general-analysis/results/all');
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting all analysis results:', error);
+      throw error;
+    }
+  },
+
+  getLatestPrompt: async () => {
+    try {
+      const response = await apiClient.get('/general-analysis/latest-prompt');
+      return response.data;
+    } catch (error) {
+      console.error('Error getting latest prompt:', error);
+      throw error;
+    }
+  },
 };

@@ -676,7 +676,7 @@ async def analyze_selected_criteria(
             from datetime import datetime
 
             # Create prompts directory if it doesn't exist
-            prompts_dir = Path(__file__).parent.parent.parent / "prompts"
+            prompts_dir = Path(__file__).parent.parent.parent.parent / "prompts"
             prompts_dir.mkdir(exist_ok=True)
 
             # Generate filename with timestamp for archival
@@ -1422,4 +1422,57 @@ async def delete_all_analysis_results(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error deleting all analysis results: {str(e)}"
         )
+
+
+
+
+@router.get("/latest-prompt")
+async def get_latest_prompt(
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """Get the latest prompt sent to LLM"""
+    try:
+        from pathlib import Path
+
+        # Path to the latest prompt file
+        prompts_dir = Path(__file__).parent.parent.parent.parent / "prompts"
+        latest_prompt_path = prompts_dir / "latest_prompt.txt"
+
+        # Check if the file exists
+        if not latest_prompt_path.exists():
+            return {
+                "success": False,
+                "message": "Nenhum prompt encontrado. Execute uma análise primeiro.",
+                "prompt_content": None,
+                "file_exists": False
+            }
+
+        # Read the prompt content
+        with open(latest_prompt_path, "r", encoding="utf-8") as f:
+            prompt_content = f.read()
+
+        # Get file metadata
+        import os
+        file_stats = os.stat(latest_prompt_path)
+        file_size = file_stats.st_size
+        modified_time = file_stats.st_mtime
+
+        return {
+            "success": True,
+            "message": "Prompt recuperado com sucesso",
+            "prompt_content": prompt_content,
+            "file_exists": True,
+            "file_size": file_size,
+            "modified_time": modified_time,
+            "file_path": str(latest_prompt_path)
+        }
+
+    except Exception as e:
+        print(f"DEBUG: Error reading latest prompt: {e}")
+        return {
+            "success": False,
+            "message": f"Erro ao ler prompt: {str(e)}",
+            "prompt_content": None,
+            "file_exists": False
+        }
 
