@@ -119,31 +119,19 @@ const GeneralAnalysisPage: React.FC = () => {
     reloadDbPaths();
   }, []);
 
-  // Função para obter os file paths corretos (prioridade: upload store > banco de dados)
+  // Função para obter os file paths para análise de critérios gerais (apenas banco de dados)
   const getAnalysisFilePaths = useCallback(async () => {
-    console.log('🔍 getAnalysisFilePaths chamado:', {
+    console.log('🔍 getAnalysisFilePaths chamado para análise geral:', {
       uploadedFiles: uploadedFiles.length,
       dbFilePaths: dbFilePaths.length,
       uploadedFilesContent: uploadedFiles,
       dbFilePathsContent: dbFilePaths
     });
 
-    // Verificar se uploadedFiles tem conteúdo
-    console.log('🔍 Verificando uploadedFiles:');
-    console.log('  - uploadedFiles existe?', !!uploadedFiles);
-    console.log('  - uploadedFiles é array?', Array.isArray(uploadedFiles));
-    console.log('  - uploadedFiles.length > 0?', uploadedFiles.length > 0);
-    if (uploadedFiles.length > 0) {
-      console.log('  - Conteúdo do uploadedFiles:', uploadedFiles);
-    }
+    // Para análise de critérios gerais, usar APENAS arquivos do banco de dados
+    // Ignorar arquivos do upload store (que são para testes/temporários)
+    console.log('🗄️ Análise geral: usando apenas arquivos do banco de dados');
 
-    if (uploadedFiles.length > 0) {
-      const paths = uploadedFiles.map(file => file.path || file.name);
-      console.log('📁 Usando paths do upload store:', paths);
-      return paths;
-    }
-
-    // Se não há arquivos no upload store, tentar recarregar do banco de dados
     if (dbFilePaths.length === 0) {
       console.log('🔄 Nenhum path em cache, recarregando do banco...');
       const freshPaths = await reloadDbPaths();
@@ -156,9 +144,9 @@ const GeneralAnalysisPage: React.FC = () => {
       return dbFilePaths;
     }
 
-    console.log('⚠️ Nenhum path encontrado!');
+    console.log('⚠️ Nenhum path encontrado no banco de dados!');
     return [];
-  }, [uploadedFiles, dbFilePaths]);
+  }, [dbFilePaths]);
   const [currentAnalysis, setCurrentAnalysis] = useState<any>(null);
   const [results, setResults] = useState<CriteriaResult[]>([]);
   const [loading, setLoading] = useState(false);
