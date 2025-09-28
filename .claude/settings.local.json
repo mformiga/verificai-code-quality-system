@@ -47,7 +47,10 @@
       "Bash(cat:*)",
       "Bash(docker-compose:*)",
       "Bash(git tag:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(del:*)",
+      "Bash(grep:*)",
+      "Bash(winpty docker exec:*)"
     ],
     "deny": [],
     "ask": []

@@ -39,6 +39,8 @@ services:
       - ENVIRONMENT=development
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
+      - ANTHROPIC_BASE_URL
+      - ANTHROPIC_AUTH_TOKEN
     depends_on:
       - postgres
       - redis
@@ -58,11 +60,13 @@ services:
       cache_from:
         - verificai-frontend:latest
     ports:
-      - "3000:3011"
+      - "3011:3011"
     environment:
       - REACT_APP_API_URL=http://backend:8000
       - CHOKIDAR_USEPOLLING=true
       - NODE_ENV=development
+      - VITE_API_PROXY_TARGET=http://backend:8000
+      - VITE_WS_PROXY_TARGET=ws://backend:8000
     volumes:
       - ./frontend:/app
       - /app/node_modules
