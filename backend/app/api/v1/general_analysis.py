@@ -13,12 +13,60 @@ from app.models.user import User
 from app.models.analysis import Analysis, AnalysisStatus
 from app.models.prompt import Prompt, PromptCategory
 from app.models.prompt import GeneralCriteria, GeneralAnalysisResult as GeneralAnalysisResultModel
+from app.models.uploaded_file import UploadedFile, FileStatus
 from app.schemas.analysis import AnalysisCreate, AnalysisResponse
 from app.api.v1.analysis import process_analysis
 from app.services.prompt_service import get_prompt_service
 from app.services.llm_service import llm_service
 
 router = APIRouter()
+
+def get_uploaded_file_path(file_path: str, db: Session, user_id: int) -> str:
+    """
+    Find an uploaded file by its relative path and return its storage path.
+    This handles the transition from path-based to upload-based file access.
+    """
+    try:
+        # First, try to find by relative_path (for folder uploads)
+        uploaded_file = db.query(UploadedFile).filter(
+            UploadedFile.relative_path == file_path,
+            UploadedFile.user_id == user_id,
+            UploadedFile.status == FileStatus.COMPLETED
+        ).first()
+
+        # If not found, try by original_name (for single file uploads)
+        if not uploaded_file:
+            uploaded_file = db.query(UploadedFile).filter(
+                UploadedFile.original_name == file_path,
+                UploadedFile.user_id == user_id,
+                UploadedFile.status == FileStatus.COMPLETED
+            ).first()
+
+        # If still not found, try partial matching (filename only)
+        if not uploaded_file:
+            filename = file_path.split('/')[-1].split('\\')[-1]
+            uploaded_file = db.query(UploadedFile).filter(
+                UploadedFile.original_name == filename,
+                UploadedFile.user_id == user_id,
+                UploadedFile.status == FileStatus.COMPLETED
+            ).first()
+
+        if uploaded_file:
+            # Check if file actually exists on disk using relative path
+            import os
+            if os.path.exists(uploaded_file.file_path):
+                print(f"DEBUG: Found uploaded file: {uploaded_file.file_path}")
+                return uploaded_file.file_path
+            else:
+                print(f"DEBUG: File not found on disk: {uploaded_file.file_path}")
+
+        # If no uploaded file found, fall back to original path (for backward compatibility)
+        print(f"DEBUG: No uploaded file found for path: {file_path}, using original path")
+        return file_path
+
+    except Exception as e:
+        print(f"DEBUG: Error finding uploaded file: {e}")
+        return file_path
 
 
 class GeneralAnalysisRequest(BaseModel):
@@ -545,9 +593,9 @@ async def analyze_selected_criteria(
         # Step 1: Read the general prompt from database
         print("DEBUG: Getting general prompt from database...")
         try:
-            general_prompt = prompt_service.get_general_prompt(7)  # Try the updated prompt with code structure
+            general_prompt = prompt_service.get_general_prompt(5)  # Use the correct prompt ID
         except Exception as e:
-            print(f"DEBUG: Error getting prompt 7, using default: {e}")
+            print(f"DEBUG: Error getting prompt 5, using default: {e}")
             general_prompt = prompt_service.get_general_prompt()  # Use default prompt
         print(f"DEBUG: Retrieved general prompt length: {len(general_prompt)}")
 
@@ -566,26 +614,117 @@ async def analyze_selected_criteria(
         modified_prompt = prompt_service.insert_criteria_into_prompt(general_prompt, selected_criteria)
         print(f"DEBUG: Modified prompt length: {len(modified_prompt)}")
 
-        # Step 4: Read source code file and replace placeholder
+        # Step 4: Read ALL source code files and replace placeholder
         try:
-            # Use the first file path from the request
+            # Use all file paths from the request
             if not request.file_paths or len(request.file_paths) == 0:
                 raise HTTPException(status_code=400, detail="No file paths provided")
 
-            source_file_path = request.file_paths[0]
-            print(f"DEBUG: Reading source file: {source_file_path}")
+            print(f"DEBUG: Processing {len(request.file_paths)} files for analysis")
 
-            with open(source_file_path, "r", encoding="utf-8") as f:
-                source_code = f.read()
-                print(f"DEBUG: Source code file read successfully: {len(source_code)} characters")
+            all_source_code = ""
+            total_files_processed = 0
+
+            # Process each file and combine them
+            for i, source_file_path in enumerate(request.file_paths):
+                try:
+                    print(f"DEBUG: Processing file {i+1}/{len(request.file_paths)}: {source_file_path}")
+
+                    # Try to find the uploaded file and get its real storage path
+                    actual_file_path = get_uploaded_file_path(source_file_path, db, current_user.id)
+                    print(f"DEBUG: Actual file path to read: {actual_file_path}")
+
+                    with open(actual_file_path, "r", encoding="utf-8") as f:
+                        file_content = f.read()
+                        file_size = len(file_content)
+                        print(f"DEBUG: File read successfully: {file_size} characters")
+
+                    # Add file header and content to the combined source code
+                    file_extension = source_file_path.split('.')[-1] if '.' in source_file_path else 'txt'
+                    all_source_code += f"\n\n{'='*60}\n"
+                    all_source_code += f"ARQUIVO: {source_file_path}\n"
+                    all_source_code += f"TAMANHO: {file_size} caracteres\n"
+                    all_source_code += f"TIPO: {file_extension.upper()}\n"
+                    all_source_code += f"{'='*60}\n\n"
+                    all_source_code += file_content
+
+                    total_files_processed += 1
+
+                except Exception as file_error:
+                    print(f"DEBUG: Error processing file {source_file_path}: {file_error}")
+                    # Continue with other files even if one fails
+                    continue
+
+            print(f"DEBUG: Successfully processed {total_files_processed}/{len(request.file_paths)} files")
+            print(f"DEBUG: Total source code size: {len(all_source_code)} characters")
+
+            if total_files_processed == 0:
+                raise HTTPException(status_code=500, detail="Nenhum arquivo pôde ser lido para análise")
+
         except Exception as e:
-            print(f"DEBUG: Error reading source code file: {e}")
-            raise HTTPException(status_code=500, detail=f"Erro ao ler arquivo de código fonte: {str(e)}")
+            print(f"DEBUG: Error reading source code files: {e}")
+            raise HTTPException(status_code=500, detail=f"Erro ao ler arquivos de código fonte: {str(e)}")
 
-        # Replace placeholder with actual source code
-        final_prompt = modified_prompt.replace("[INSERIR CÓDIGO AQUI]", source_code)
+        # Replace placeholder with combined source code from all files
+        final_prompt = modified_prompt.replace("[INSERIR CÓDIGO AQUI]", all_source_code)
         print(f"DEBUG: Replaced placeholder with source code")
         print(f"DEBUG: Final prompt length: {len(final_prompt)}")
+
+        # Save the final prompt to files for analysis
+        try:
+            import os
+            from datetime import datetime
+
+            # Create prompts directory if it doesn't exist
+            prompts_dir = Path(__file__).parent.parent.parent / "prompts"
+            prompts_dir.mkdir(exist_ok=True)
+
+            # Generate filename with timestamp for archival
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            prompt_filename = f"prompt_llm_{timestamp}.txt"
+            prompt_file_path = prompts_dir / prompt_filename
+
+            # Create latest prompt file (always overwritten with the most recent)
+            latest_prompt_path = prompts_dir / "latest_prompt.txt"
+
+            # Write the complete prompt to archival file
+            with open(prompt_file_path, "w", encoding="utf-8") as f:
+                f.write("="*80 + "\n")
+                f.write(f"PROMPT ENVIADO PARA LLM - {datetime.now().isoformat()}\n")
+                f.write("="*80 + "\n\n")
+                f.write(f"TAMANHO TOTAL: {len(final_prompt)} caracteres\n")
+                f.write(f"ARQUIVOS PROCESSADOS: {total_files_processed}\n")
+                f.write(f"CRITÉRIOS: {len(request.criteria_ids)}\n\n")
+                f.write("="*80 + "\n")
+                f.write("CONTEÚDO COMPLETO DO PROMPT:\n")
+                f.write("="*80 + "\n\n")
+                f.write(final_prompt)
+                f.write("\n\n" + "="*80 + "\n")
+                f.write("FIM DO PROMPT\n")
+                f.write("="*80 + "\n")
+
+            # Write the complete prompt to latest file (always the most recent)
+            with open(latest_prompt_path, "w", encoding="utf-8") as f:
+                f.write("="*80 + "\n")
+                f.write(f"ÚLTIMO PROMPT ENVIADO PARA LLM - {datetime.now().isoformat()}\n")
+                f.write("="*80 + "\n\n")
+                f.write(f"TAMANHO TOTAL: {len(final_prompt)} caracteres\n")
+                f.write(f"ARQUIVOS PROCESSADOS: {total_files_processed}\n")
+                f.write(f"CRITÉRIOS: {len(request.criteria_ids)}\n")
+                f.write(f"USUÁRIO: {current_user.username} (ID: {current_user.id})\n\n")
+                f.write("="*80 + "\n")
+                f.write("CONTEÚDO COMPLETO DO PROMPT:\n")
+                f.write("="*80 + "\n\n")
+                f.write(final_prompt)
+                f.write("\n\n" + "="*80 + "\n")
+                f.write("FIM DO PROMPT\n")
+                f.write("="*80 + "\n")
+
+            print(f"DEBUG: Prompt salvo em: {prompt_file_path}")
+            print(f"DEBUG: Último prompt disponível em: {latest_prompt_path}")
+
+        except Exception as save_error:
+            print(f"DEBUG: Erro ao salvar prompt em arquivo: {save_error}")
 
         # Log do prompt completo para debug
         print("\n" + "="*80)
@@ -698,19 +837,42 @@ async def analyze_selected_criteria(
             # Remap criteria_results to use actual criteria IDs instead of position-based keys
             remapped_criteria_results = {}
 
-            # First pass: Try to map by name matching
+            # First pass: Try to map by name matching and position
             for extracted_key, result_data in extracted_content.get("criteria_results", {}).items():
                 print(f"DEBUG: Processing extracted key: {extracted_key}, result: {result_data}")
 
-                # Try to find matching criteria by name
+                # Extract the position number from the key (criteria_1, criteria_2, etc.)
+                key_position = None
+                if extracted_key.startswith("criteria_"):
+                    try:
+                        key_position = int(extracted_key.replace("criteria_", "")) - 1  # Convert to 0-based index
+                    except ValueError:
+                        pass
+
+                # Method 1: Try to map by position first (most reliable)
+                if key_position is not None and key_position in position_to_id:
+                    criteria_id = position_to_id[key_position]
+                    # IMPORTANT: Always use the original criteria text from database
+                    original_criteria = next((c for c in selected_criteria if c.id == criteria_id), None)
+                    if original_criteria:
+                        result_data["name"] = original_criteria.text  # Override LLM name with original
+                        remapped_criteria_results[f"criteria_{criteria_id}"] = result_data
+                        print(f"DEBUG: Mapped by position {key_position} to criteria_{criteria_id}, using original name: '{original_criteria.text}'")
+                        continue
+
+                # Method 2: Try to find matching criteria by name (fallback)
                 result_name = result_data.get("name", "").strip().lower()
                 print(f"DEBUG: Looking for criteria with name: '{result_name}'")
 
                 # Try exact match first
                 if result_name in criteria_name_to_id:
                     criteria_id = criteria_name_to_id[result_name]
-                    remapped_criteria_results[f"criteria_{criteria_id}"] = result_data
-                    print(f"DEBUG: Found exact match - mapped to criteria_{criteria_id}")
+                    # IMPORTANT: Always use the original criteria text from database
+                    original_criteria = next((c for c in selected_criteria if c.id == criteria_id), None)
+                    if original_criteria:
+                        result_data["name"] = original_criteria.text  # Override LLM name with original
+                        remapped_criteria_results[f"criteria_{criteria_id}"] = result_data
+                        print(f"DEBUG: Found exact match - mapped to criteria_{criteria_id}, using original name: '{original_criteria.text}'")
                 else:
                     # Try fuzzy matching
                     found_match = False
@@ -720,36 +882,46 @@ async def analyze_selected_criteria(
                             criteria_text in result_name or
                             result_name.split(':')[0].strip() in criteria_text or
                             criteria_text.split(':')[0].strip() in result_name):
-                            remapped_criteria_results[f"criteria_{candidate_id}"] = result_data
-                            print(f"DEBUG: Found fuzzy match - mapped '{result_name}' to criteria_{candidate_id}")
-                            found_match = True
-                            break
+                            # IMPORTANT: Always use the original criteria text from database
+                            original_criteria = next((c for c in selected_criteria if c.id == candidate_id), None)
+                            if original_criteria:
+                                result_data["name"] = original_criteria.text  # Override LLM name with original
+                                remapped_criteria_results[f"criteria_{candidate_id}"] = result_data
+                                print(f"DEBUG: Found fuzzy match - mapped '{result_name}' to criteria_{candidate_id}, using original name: '{original_criteria.text}'")
+                                found_match = True
+                                break
 
                     if not found_match:
-                        # Keep original key if no match found
-                        remapped_criteria_results[extracted_key] = result_data
-                        print(f"DEBUG: No match found for '{result_name}', keeping original key")
+                        # CRITICAL FIX: Never keep problematic names like "criteria_2"
+                        # Always override with a clean name or use position-based mapping as final fallback
+                        if key_position is not None and key_position < len(selected_criteria):
+                            # Final fallback: use the criteria at this position
+                            fallback_criteria = selected_criteria[key_position]
+                            result_data["name"] = fallback_criteria.text
+                            remapped_criteria_results[f"criteria_{fallback_criteria.id}"] = result_data
+                            print(f"DEBUG: FINAL FALLBACK - Using position {key_position} to get criteria '{fallback_criteria.text}'")
+                        else:
+                            # Clean up problematic names
+                            if result_name:
+                                # Remove common problematic patterns
+                                cleaned_name = result_name
+                                for prefix in ['criteria_', 'critério ', 'criterion ', '##']:
+                                    if cleaned_name.lower().startswith(prefix):
+                                        cleaned_name = cleaned_name[len(prefix):].strip()
 
-            # Second pass: Ensure all selected criteria have results (fallback for mapping failures)
-            for criteria_id_str in request.criteria_ids:
-                actual_id = int(criteria_id_str.replace("criteria_", ""))
-                criteria_key = f"criteria_{actual_id}"
+                                # If still looks like a technical ID, use generic name
+                                if cleaned_name.startswith('criteria_') or len(cleaned_name) < 3:
+                                    result_data["name"] = "Critério analisado"
+                                else:
+                                    result_data["name"] = cleaned_name.capitalize()
+                            else:
+                                result_data["name"] = "Critério analisado"
 
-                if criteria_key not in remapped_criteria_results:
-                    print(f"DEBUG: Missing result for {criteria_key}, creating fallback entry")
+                            remapped_criteria_results[extracted_key] = result_data
+                            print(f"DEBUG: No match found for '{result_name}', using cleaned name: '{result_data.get('name')}'")
 
-                    # Find the criteria text
-                    criteria_text = "Critério sem nome"
-                    for criteria in selected_criteria:
-                        if criteria.id == actual_id:
-                            criteria_text = criteria.text
-                            break
-
-                    # Create a fallback result
-                    remapped_criteria_results[criteria_key] = {
-                        "name": criteria_text,
-                        "content": "**Status:** Não analisado\n**Confiança:** 0.0\n\nNão foi possível obter a análise para este critério devido a um erro no processamento."
-                    }
+            # Remove fallback logic to prevent duplicate results
+            # Only use results that were actually returned by the LLM analysis
 
             print(f"DEBUG: Final remapped criteria_results: {remapped_criteria_results}")
             extracted_content["criteria_results"] = remapped_criteria_results
@@ -878,6 +1050,26 @@ async def get_analysis_results(
 async def test_endpoint() -> Any:
     """Simple test endpoint"""
     return {"message": "Test endpoint works", "status": "ok"}
+
+
+@router.get("/debug-file-path")
+async def debug_file_path(file_path: str, db: Session = Depends(get_db)) -> Any:
+    """Debug endpoint to test file path resolution"""
+    try:
+        # Test with user_id = 1 (test user)
+        actual_path = get_uploaded_file_path(file_path, db, 1)
+
+        import os
+        file_exists = os.path.exists(actual_path)
+
+        return {
+            "original_path": file_path,
+            "resolved_path": actual_path,
+            "file_exists": file_exists,
+            "can_read": os.access(actual_path, os.R_OK) if file_exists else False
+        }
+    except Exception as e:
+        return {"error": str(e), "original_path": file_path}
 
 
 @router.post("/debug-cors-test")
@@ -1180,5 +1372,54 @@ async def delete_multiple_analysis_results(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error deleting analysis results: {str(e)}"
+        )
+
+
+@router.delete("/results/all")
+async def delete_all_analysis_results(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete all analysis results for current user"""
+    try:
+        print(f"Starting delete all analysis results for user {current_user.id}")
+
+        # Get all analysis results for this user first
+        analysis_results = db.query(GeneralAnalysisResultModel).filter(
+            GeneralAnalysisResultModel.user_id == current_user.id
+        ).all()
+
+        print(f"Found {len(analysis_results)} analysis results to delete for user {current_user.id}")
+
+        if len(analysis_results) == 0:
+            return {
+                "success": True,
+                "message": "No analysis results found to delete",
+                "deleted_count": 0
+            }
+
+        # Delete all results
+        deleted_count = 0
+        for result in analysis_results:
+            db.delete(result)
+            deleted_count += 1
+
+        db.commit()
+
+        print(f"Successfully deleted {deleted_count} analysis results for user {current_user.id}")
+
+        return {
+            "success": True,
+            "message": f"Successfully deleted {deleted_count} analysis results",
+            "deleted_count": deleted_count
+        }
+
+    except Exception as e:
+        print(f"ERROR in delete_all_analysis_results: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting all analysis results: {str(e)}"
         )
 

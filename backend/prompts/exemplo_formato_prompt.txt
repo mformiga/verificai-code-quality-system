@@ -1,0 +1,137 @@
+================================================================================
+ÚLTIMO PROMPT ENVIADO PARA LLM - 2025-09-28T14:50:00.123456
+================================================================================
+
+TAMANHO TOTAL: 45678 caracteres
+ARQUIVOS PROCESSADOS: 3
+CRITÉRIOS: 2
+USUÁRIO: admin (ID: 1)
+
+================================================================================
+CONTEÚDO COMPLETO DO PROMPT:
+================================================================================
+
+Você é um especialista em análise de código.
+
+### CÓDIGO FONTE PARA ANÁLISE:
+```typescript
+============================================================
+ARQUIVO: codigo_de_testecodigo_analise.ts
+TAMANHO: 6039 caracteres
+TIPO: TS
+============================================================
+
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+// Exemplo de código com violações de arquitetura para análise
+
+interface UserData {
+  id: number;
+  name: string;
+  email: string;
+  cpf: string;
+  salary: number;
+}
+
+[... restante do código do primeiro arquivo ...]
+
+============================================================
+ARQUIVO: CodeUploadPathList.tsx
+TAMANHO: 25728 caracteres
+TIPO: TSX
+============================================================
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+// Função alternativa para gerar UUID sem dependência externa
+const generateUUID = (): string => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
+[... restante do código do segundo arquivo ...]
+
+============================================================
+ARQUIVO: CodeUploadDragDropZone.tsx
+TAMANHO: 4368 caracteres
+TIPO: TSX
+============================================================
+
+import React, { useRef } from 'react';
+import { DragDropZoneProps } from '../../../types/fileUpload';
+
+export const DragDropZone: React.FC<DragDropZoneProps> = ({
+  isDragActive,
+  onDrag,
+  onDrop,
+  onFileSelect,
+  acceptedTypes,
+  multiple = true,
+  disabled = false
+}) => {
+[... restante do código do terceiro arquivo ...]
+```
+
+**IMPORTANTE:** O código acima pode conter múltiplos arquivos. Cada arquivo está claramente identificado com cabeçalhos no formato:
+```
+============================================================
+ARQUIVO: [nome_do_arquivo]
+TAMANHO: [X] caracteres
+TIPO: [EXTENSÃO]
+============================================================
+```
+
+Analise TODOS os arquivos de código acima como um conjunto integrado, considerando as interações entre eles, com base nos seguintes critérios:
+
+#
+Critério 1: O código segue princípios de arquitetura limpa e boas práticas de design?
+Critério 2: O código implementa adequate separação de responsabilidades e evita acoplamento excessivo?
+
+Para cada critério, forneça:
+1. Uma avaliação clara sobre se o código atende ao critério
+2. Nível de confiança (0.0-1.0)
+3. Evidências específicas do código
+4. Recomendações para melhoria, se aplicável
+
+Forneça sua análise em um formato estruturado que inclua:
+- Avaliação geral
+- Avaliações individuais dos critérios
+- Exemplos de código que apoiam suas conclusões
+- Recomendações acionáveis
+
+Formate sua resposta em markdown com a seguinte estrutura exata:
+
+## Avaliação Geral
+[Resumo geral da análise]
+
+## Critério 1: O código segue princípios de arquitetura limpa e boas práticas de design?
+**Status:** [Conforme/Parcialmente Conforme/Não Conforme]
+**Confiança:** [X.X]%
+
+[Avaliação detalhada com evidências do código]
+
+**Recomendações:**
+- [Lista de recomendações específicas]
+
+## Critério 2: O código implementa adequate separação de responsabilidades e evita acoplamento excessivo?
+**Status:** [Conforme/Parcialmente Conforme/Não Conforme]
+**Confiança:** [X.X]%
+
+[Avaliação detalhada com evidências do código]
+
+**Recomendações:**
+- [Lista de recomendações específicas]
+
+## Recomendações Gerais
+[Lista de recomendações gerais]
+
+IMPORTANTE: Ao finalizar sua análise, inclua exatamente a tag #FIM# para indicar que a resposta está completa.
+
+#FIM#
+
+================================================================================
+FIM DO PROMPT
+================================================================================

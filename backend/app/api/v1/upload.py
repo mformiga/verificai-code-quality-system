@@ -133,7 +133,7 @@ async def upload_folder(
             uploaded_file = UploadedFile(
                 file_id=file_id,
                 original_name=file.filename or "unknown",
-                file_path=str(file_upload_path.relative_to(Path.cwd())),
+                file_path=str(file_upload_path),
                 relative_path=relative_path,
                 file_size=file.size or 0,
                 mime_type=file.content_type or "application/octet-stream",
@@ -147,6 +147,23 @@ async def upload_folder(
             db.add(uploaded_file)
             db.commit()
             db.refresh(uploaded_file)
+
+            # Also create file_path record for display
+            from app.models.file_path import FilePath
+            file_path_record = FilePath(
+                file_id=f"path_{file_id}",
+                full_path=relative_path,
+                file_name=file.filename or "unknown",
+                file_extension=Path(file.filename or "unknown").suffix.lower().lstrip('.'),
+                folder_path=relative_path.split('/')[0] if '/' in relative_path else "",
+                file_size=file.size or 0,
+                is_processed=True,
+                user_id=current_user.id,
+                is_public=False,
+                access_level="private"
+            )
+            db.add(file_path_record)
+            db.commit()
 
             # Add background task for file processing
             background_tasks.add_task(process_uploaded_file, uploaded_file.id, db)
@@ -212,7 +229,7 @@ async def upload_file(
         uploaded_file = UploadedFile(
             file_id=file_id,
             original_name=original_name,
-            file_path=str(file_upload_path.relative_to(Path.cwd())),
+            file_path=str(file_upload_path),
             relative_path=relative_path,
             file_size=file.size or 0,
             mime_type=file.content_type or "application/octet-stream",
@@ -276,7 +293,8 @@ async def process_uploaded_file(file_id: int, db: Session):
 
             # Count lines (simplified - in production would use proper parsing)
             try:
-                with open(uploaded_file.storage_path, 'r', encoding='utf-8') as f:
+                # Use the file_path which is relative to current working directory
+                with open(uploaded_file.file_path, 'r', encoding='utf-8') as f:
                     line_count = sum(1 for _ in f)
                 uploaded_file.line_count = line_count
             except Exception:
@@ -432,6 +450,58 @@ async def update_file(
     )
 
 
+@router.delete("/{file_id}", response_model=dict)
+async def delete_file(
+    file_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a single file"""
+    try:
+        file = db.query(UploadedFile).filter(
+            and_(
+                UploadedFile.file_id == file_id,
+                UploadedFile.user_id == current_user.id
+            )
+        ).first()
+
+        if not file:
+            raise HTTPException(status_code=404, detail="File not found")
+
+        # Delete physical file
+        if Path(file.storage_path).exists():
+            Path(file.storage_path).unlink()
+
+        # Also delete from file_paths table
+        from app.models.file_path import FilePath
+        file_path_record = db.query(FilePath).filter(
+            FilePath.user_id == current_user.id,
+            (FilePath.full_path == file.original_name) |
+            (FilePath.full_path == file.relative_path) |
+            (FilePath.file_name == file.original_name)
+        ).first()
+
+        if file_path_record:
+            db.delete(file_path_record)
+
+        # Delete database record
+        db.delete(file)
+        db.commit()
+
+        logger.info(f"File deleted successfully: {file_id} by user {current_user.id}")
+
+        return {
+            "success": True,
+            "message": f"File {file.original_name} deleted successfully"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting file {file_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete file: {str(e)}")
+
+
 @router.delete("/", response_model=FileDeleteResponse)
 async def delete_files(
     delete_request: FileDeleteRequest,
@@ -458,6 +528,18 @@ async def delete_files(
             # Delete physical file
             if Path(file.storage_path).exists():
                 Path(file.storage_path).unlink()
+
+            # Also delete from file_paths table
+            from app.models.file_path import FilePath
+            file_path_record = db.query(FilePath).filter(
+                FilePath.user_id == current_user.id,
+                (FilePath.full_path == file.original_name) |
+                (FilePath.full_path == file.relative_path) |
+                (FilePath.file_name == file.original_name)
+            ).first()
+
+            if file_path_record:
+                db.delete(file_path_record)
 
             # Delete database record
             db.delete(file)
