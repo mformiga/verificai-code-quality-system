@@ -424,6 +424,12 @@ const GeneralAnalysisPage: React.FC = () => {
       const filePaths = await getAnalysisFilePaths();
 
       if (filePaths.length === 0) {
+        // Limpar estado de progresso antes de retornar
+        clearInterval(progressInterval);
+        setShowProgress(false);
+        setProgress(0);
+        setActiveTab('criteria');
+        setLoading(false);
         alert('Nenhum arquivo encontrado para análise. Por favor, faça upload dos arquivos primeiro.');
         return;
       }
@@ -642,6 +648,12 @@ const GeneralAnalysisPage: React.FC = () => {
       const filePaths = await getAnalysisFilePaths();
 
       if (filePaths.length === 0) {
+        // Limpar estado de progresso antes de retornar
+        clearInterval(progressInterval);
+        setShowProgress(false);
+        setProgress(0);
+        setActiveTab('criteria');
+        setLoading(false);
         alert('Nenhum arquivo encontrado para análise. Por favor, faça upload dos arquivos primeiro.');
         return;
       }
@@ -807,6 +819,12 @@ const GeneralAnalysisPage: React.FC = () => {
       const filePaths = await getAnalysisFilePaths();
 
       if (filePaths.length === 0) {
+        // Limpar estado de progresso antes de retornar
+        clearInterval(progressInterval);
+        setShowProgress(false);
+        setProgress(0);
+        setActiveTab('criteria');
+        setLoading(false);
         alert('Nenhum arquivo encontrado para análise. Por favor, faça upload dos arquivos primeiro.');
         return;
       }
