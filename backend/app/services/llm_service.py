@@ -11,43 +11,44 @@ from datetime import datetime
 from fastapi import HTTPException, status
 
 class LLMService:
-    """Service for direct LLM API integration using Anthropic"""
+    """Service for direct LLM API integration using Google Gemini"""
 
     def __init__(self):
-        self.base_url = os.getenv("ANTHROPIC_BASE_URL")
-        self.auth_token = os.getenv("ANTHROPIC_AUTH_TOKEN")
-
-        if not self.base_url or not self.auth_token:
-            raise ValueError("ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN environment variables are required")
+        self.base_url = "https://generativelanguage.googleapis.com/v1beta/models"
+        self.api_key = "AIzaSyDmhnKGqN5FnF5BSIYMdTvYlswednA3wL0"
+        self.model = "gemini-2.5-pro"
 
     async def send_prompt(self, prompt: str, **kwargs) -> Dict[str, Any]:
         """Send prompt directly to LLM API"""
         headers = {
-            "Authorization": f"Bearer {self.auth_token}",
-            "Content-Type": "application/json",
-            "anthropic-version": "2023-06-01"
+            "Content-Type": "application/json"
         }
 
         # Default parameters
-        max_tokens = kwargs.get("max_tokens", 16000)
+        max_output_tokens = kwargs.get("max_tokens", 16000)
         temperature = kwargs.get("temperature", 0.7)
 
         payload = {
-            "model": "claude-3-5-sonnet-20241022",
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-            "messages": [
+            "contents": [
                 {
                     "role": "user",
-                    "content": prompt
+                    "parts": [
+                        {
+                            "text": prompt
+                        }
+                    ]
                 }
-            ]
+            ],
+            "generationConfig": {
+                "maxOutputTokens": max_output_tokens,
+                "temperature": temperature
+            }
         }
 
         try:
             async with httpx.AsyncClient(timeout=1800.0) as client:
                 response = await client.post(
-                    f"{self.base_url}/v1/messages",
+                    f"{self.base_url}/{self.model}:generateContent?key={self.api_key}",
                     headers=headers,
                     json=payload
                 )
@@ -60,47 +61,25 @@ class LLMService:
 
                 result = response.json()
 
-                print(f"=== DEBUG LLM API RESPONSE ===")
+                print(f"=== DEBUG GEMINI API RESPONSE ===")
                 print(f"Response keys: {result.keys()}")
-                content = result.get('content', 'NO_CONTENT_KEY')
                 try:
-                    print(f"Content: {content}")
+                    print(f"Response: {json.dumps(result, indent=2, ensure_ascii=False)}")
                 except UnicodeEncodeError:
-                    print(f"Content: {content.encode('ascii', 'ignore').decode('ascii')[:200]}...")
-                print(f"Full response structure: {type(result)}")
-                for key, value in result.items():
-                    print(f"  {key}: {type(value)} - {str(value)[:200] if value else 'None'}")
-                print(f"=== END DEBUG LLM API RESPONSE ===")
+                    print(f"Response: {json.dumps(result, indent=2, ensure_ascii=False).encode('ascii', 'ignore').decode('ascii')[:500]}...")
+                print(f"=== END DEBUG GEMINI API RESPONSE ===")
 
-                # Try different response formats based on the LLM provider
+                # Extract response text from Gemini format
                 response_text = ""
 
-                # Try Anthropic format first
-                content = result.get("content", [{}])
-                if content and len(content) > 0:
-                    response_text = content[0].get("text", "")
-
-                # If empty, try other formats
-                if not response_text:
-                    # Try direct response field
-                    response_text = result.get("response", "")
-
-                    # Try choices format (OpenAI-like)
-                    if not response_text and "choices" in result:
-                        choices = result.get("choices", [])
-                        if choices and len(choices) > 0:
-                            response_text = choices[0].get("message", {}).get("content", "")
-
-                    # Try data field
-                    if not response_text:
-                        response_text = result.get("data", "")
-
-                    # Try text field directly
-                    if not response_text:
-                        response_text = result.get("text", "")
+                # Gemini response format: candidates[0].content.parts[0].text
+                if "candidates" in result and len(result["candidates"]) > 0:
+                    candidate = result["candidates"][0]
+                    if "content" in candidate and "parts" in candidate["content"] and len(candidate["content"]["parts"]) > 0:
+                        response_text = candidate["content"]["parts"][0].get("text", "")
 
                 if not response_text:
-                    print("WARNING: Could not extract response text from any supported format")
+                    print("WARNING: Could not extract response text from Gemini response")
                     print(f"Available keys: {list(result.keys())}")
                     for key, value in result.items():
                         print(f"  {key}: {type(value)} - {str(value)[:100] if value else 'None'}")
@@ -110,8 +89,8 @@ class LLMService:
                 return {
                     "success": True,
                     "response": response_text,
-                    "model": result.get("model", "claude-3-5-sonnet-20241022"),
-                    "usage": result.get("usage", {}),
+                    "model": self.model,
+                    "usage": result.get("usageMetadata", {}),
                     "timestamp": datetime.utcnow().isoformat()
                 }
 
@@ -181,8 +160,8 @@ class LLMService:
         # Extract individual criteria from the content
         criteria_results = {}
 
-        # Look for criteria sections
-        criteria_pattern = r'##\s*Crit[ée]rio\s*(\d+(?:\.\d+)*)\s*[:]\s*(.+?)\n(.*?)(?=\n##\s*Crit[ée]rio\s*\d+|\n##\s*(?:Resultado|Recomendações)\s*(?:Geral|)|#FIM#|$)'
+        # Look for criteria sections - handle both numbered and non-numbered formats
+        criteria_pattern = r'##\s*Crit[ée]rio\s*(?:(\d+(?:\.\d+)*)\s*[:]\s*)?(.+?)\n(.*?)(?=\n##\s*Crit[ée]rio\s*(?:(?:\d+)\s*[:]?\s*)?|\n##\s*(?:Resultado|Recomendações)\s*(?:Geral|)|#FIM#|$)'
         criteria_matches = re.findall(criteria_pattern, content, re.DOTALL)
 
         print(f"=== DEBUG CRITERIA EXTRACTION ===")
@@ -220,43 +199,44 @@ class LLMService:
                     criteria_content = rest_content
                 criteria_matches.append((criteria_num, criteria_name, criteria_content))
 
-        # Also try searching for any pattern that might have been missed
-        if len(criteria_matches) < 3:
-            print("Searching for any remaining criteria patterns...")
-            remaining_content = content
+        # For single criteria analysis, be much more restrictive
+        # Only extract criteria that actually match the expected structure
+        if len(criteria_matches) > 1:
+            print(f"WARNING: Multiple criteria matches found ({len(criteria_matches)}) - checking if this should be single criteria analysis")
 
-            # Remove already found criteria from content
+            # Look for evidence this should be single criteria
+            # If all criteria have very similar content or structure, it might be LLM duplicating
+            unique_criteria_content = set()
             for match in criteria_matches:
-                criteria_num = match[0]
-                # Try to find and remove this criteria from content
-                pattern_to_remove = rf'##\s*Crit[ée]rio\s*{criteria_num}[^\n]*\n+(.*?)(?=\n##\s*Crit[ée]rio\s*\d+|\n##\s*(?:Resultado|Recomendações)|#FIM#|$)'
-                remaining_content = re.sub(pattern_to_remove, '', remaining_content, flags=re.DOTALL)
+                if len(match) >= 3:
+                    content = match[2].lower()[:200]  # First 200 chars of content
+                    unique_criteria_content.add(content)
 
-            # Look for any criteria-like patterns in remaining content
-            additional_pattern = r'##\s*[^#]*?Crit[ée]rio[^#]*?\n+(.*?)(?=\n##|\n#FIM#|$)'
-            additional_matches = re.findall(additional_pattern, remaining_content, re.DOTALL)
+            print(f"Unique criteria content found: {len(unique_criteria_content)}")
 
-            if additional_matches:
-                print(f"Found {len(additional_matches)} additional criteria matches")
-                for i, match in enumerate(additional_matches, len(criteria_matches) + 1):
-                    # Try to extract criteria number and name
-                    num_match = re.search(r'Crit[ée]rio\s*(\d+)', match, re.IGNORECASE)
-                    if num_match:
-                        criteria_num = num_match.group(1)
-                        # Extract name (everything before **Status:**)
-                        name_match = re.search(r'^(.*?)(?=\*\*Status:\*\*|\n)', match, re.DOTALL)
-                        if name_match:
-                            criteria_name = name_match.group(1).replace(f"Critério {criteria_num}:", "").strip()
-                            criteria_content = match[len(name_match.group(1)):].strip()
-                        else:
-                            criteria_name = f"Critério {criteria_num}"
-                            criteria_content = match
-                        criteria_matches.append((criteria_num, criteria_name, criteria_content))
+            # If all criteria have very similar content, keep only the first one
+            if len(unique_criteria_content) <= 1:
+                print(f"WARNING: All criteria appear to have identical content - keeping only first criteria")
+                criteria_matches = criteria_matches[:1]
+
+        # Final safety limit - but prefer single criteria when possible
+        max_criteria = 2  # Reduced from 3 to be more conservative
+        if len(criteria_matches) > max_criteria:
+            print(f"WARNING: Too many criteria matches found ({len(criteria_matches)}), limiting to first {max_criteria}")
+            criteria_matches = criteria_matches[:max_criteria]
 
         for i, match in enumerate(criteria_matches):
-            # Handle different match lengths (3, 4, or 5 groups due to regex capturing)
+            # Handle different match lengths - new format may have 3 groups (num_optional, name, content)
+            print(f"Processing match {i}: {match}")
+            print(f"Match length: {len(match)}")
+
             if len(match) >= 3:
-                criteria_num, criteria_name, criteria_content = match[0], match[1], match[2]
+                criteria_num_optional, criteria_name, criteria_content = match[0], match[1], match[2]
+                # If criteria_num_optional is empty, it's a single criteria format
+                if not criteria_num_optional:
+                    criteria_num = "1"  # Default to 1 for single criteria
+                else:
+                    criteria_num = criteria_num_optional
             else:
                 continue  # Skip invalid matches
             print(f"Processing criteria {i+1}: num={criteria_num}, name={criteria_name[:50]}...")
