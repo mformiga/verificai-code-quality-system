@@ -6,7 +6,6 @@ import apiClient from '@/services/apiClient';
 import CriteriaList from '@/components/features/Analysis/CriteriaList';
 import ProgressTracker from '@/components/features/Analysis/ProgressTracker';
 import ResultsTable from '@/components/features/Analysis/ResultsTable';
-import ManualEditor from '@/components/features/Analysis/ManualEditor';
 import { useUploadStore } from '@/stores/uploadStore';
 import { criteriaService } from '@/services/criteriaService';
 import { analysisService, type AnalysisRequest, type AnalysisResponse } from '@/services/analysisService';
@@ -135,8 +134,7 @@ const GeneralAnalysisPage: React.FC = () => {
   const [results, setResults] = useState<CriteriaResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [resultsManuallyCleared, setResultsManuallyCleared] = useState(false);
-  const [editingResult, setEditingResult] = useState<CriteriaResult | null>(null);
-  const [activeTab, setActiveTab] = useState<'criteria' | 'results'>('criteria');
+    const [activeTab, setActiveTab] = useState<'criteria' | 'results'>('criteria');
   const [selectedCriteriaIds, setSelectedCriteriaIds] = useState<string[]>([]);
   const [showProgress, setShowProgress] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -351,81 +349,8 @@ const GeneralAnalysisPage: React.FC = () => {
     }, 5000);
   };
 
-  const handleEditResult = (criterion: string, result: Partial<CriteriaResult>) => {
-    console.log('📝 GeneralAnalysisPage: handleEditResult called with:', { criterion, result });
-    setEditingResult({
-      criterion,
-      assessment: result.assessment || '',
-      status: result.status || 'partially_compliant',
-      confidence: result.confidence || 0.5,
-      evidence: result.evidence || [],
-      recommendations: result.recommendations || [],
-      resultId: result.resultId,
-      criterionKey: result.criterionKey,
-      criteriaId: result.criteriaId,
-      id: result.id
-    });
-  };
-
-  const handleSaveResult = async (updatedResult: CriteriaResult) => {
-    console.log('🎯 GeneralAnalysisPage: handleSaveResult called with:', updatedResult);
-    try {
-      // Show loading state
-      setLoading(true);
-
-      // Get the result ID and criterion key
-      const resultId = updatedResult.resultId;
-      const criterionKey = updatedResult.criterionKey;
-
-      if (!resultId || !criterionKey) {
-        console.error('❌ Missing resultId or criterionKey for saving:', updatedResult);
-        alert('Erro: Não foi possível identificar o resultado a ser salvo.');
-        return;
-      }
-
-      console.log('💾 Saving result update:', {
-        resultId,
-        criterionKey,
-        updatedAssessment: updatedResult.assessment
-      });
-
-      // Prepare the update data
-      const updateData = {
-        criterion_key: criterionKey,
-        criterion_data: {
-          name: updatedResult.criterion,
-          content: updatedResult.assessment
-        }
-      };
-
-      // Call API to update the result
-      const response = await apiClient.put(`/general-analysis/results/${resultId}`, updateData);
-
-      if (response.data.success) {
-        console.log('✅ Result saved successfully:', response.data);
-
-        // Update local state
-        setResults(prev =>
-          prev.map(result =>
-            result.criterion === updatedResult.criterion ? updatedResult : result
-          )
-        );
-
-        // Show success message
-        alert('Alterações salvas com sucesso!');
-      } else {
-        throw new Error(response.data.message || 'Failed to save result');
-      }
-
-    } catch (error) {
-      console.error('❌ Error saving result:', error);
-      alert(`Erro ao salvar alterações: ${error.response?.data?.detail || error.message}`);
-    } finally {
-      setEditingResult(null);
-      setLoading(false);
-    }
-  };
-
+  
+  
   const handleCancelAnalysis = () => {
     setCurrentAnalysis(null);
     setResults([]);
@@ -1515,7 +1440,6 @@ const GeneralAnalysisPage: React.FC = () => {
         {activeTab === 'results' && (
           <ResultsTable
             results={results}
-            onEditResult={handleEditResult}
             onDownloadDocx={handleDownloadDocx}
             onDeleteResults={handleDeleteResults}
           />
@@ -1542,16 +1466,7 @@ const GeneralAnalysisPage: React.FC = () => {
         )}
       </div>
 
-      {/* Manual Editor Modal */}
-      {editingResult && (
-        <ManualEditor
-          criterion={editingResult.criterion}
-          initialResult={editingResult}
-          onSave={handleSaveResult}
-          onCancel={() => setEditingResult(null)}
-        />
-      )}
-    </div>
+      </div>
   );
 };
 

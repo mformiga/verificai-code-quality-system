@@ -6,8 +6,7 @@ import {
   HelpCircle,
   ChevronDown,
   ChevronUp,
-  Edit,
-  Download,
+    Download,
   ExternalLink,
   Trash2,
   File
@@ -39,14 +38,12 @@ interface CriteriaResult {
 
 interface ResultsTableProps {
   results: CriteriaResult[];
-  onEditResult: (criterion: string, result: Partial<CriteriaResult>) => void;
   onDownloadDocx: () => void;
   onDeleteResults?: (selectedIds: number[]) => void;
 }
 
 const ResultsTable: React.FC<ResultsTableProps> = ({
   results,
-  onEditResult,
   onDownloadDocx,
   onDeleteResults
 }) => {
@@ -91,6 +88,11 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
 
   // Função para obter o texto completo do critério
   const getFullCriterionText = (criterionName: string) => {
+    // Se o critério já parece ser o texto completo (contém ":" ou é longo), retornar como está
+    if (criterionName.includes(':') || criterionName.length > 50) {
+      return criterionName;
+    }
+
     // Tentar encontrar correspondência exata primeiro
     if (fullCriteriaText[criterionName]) {
       return fullCriteriaText[criterionName];
@@ -319,10 +321,7 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
                 <th>
                   Avaliação
                 </th>
-                <th className="text-center">
-                  Ações
-                </th>
-              </tr>
+                </tr>
             </thead>
           <tbody>
             {sortedResults.map((result) => (
@@ -394,7 +393,7 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
 
                   {/* Avaliação Resumida */}
                   <td className="align-middle" style={{
-                    width: '45%',
+                    width: '55%',
                     borderRight: '1px solid #e9ecef',
                     padding: '16px 12px',
                     borderBottom: '1px solid #e9ecef'
@@ -415,37 +414,10 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
                       )}
                     </div>
                   </td>
-
-                  {/* Ações */}
-                  <td className="align-middle text-center" style={{
-                    padding: '16px 12px',
-                    borderBottom: '1px solid #e9ecef'
-                  }}>
-                    <div className="btn-group">
-                      <button
-                        onClick={() => toggleRow(result.criterion)}
-                        className="br-button circle"
-                        title={expandedRows.has(result.criterion) ? 'Recolher' : 'Expandir'}
-                      >
-                        {expandedRows.has(result.criterion) ? (
-                          <ChevronUp className="w-4 h-4" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => onEditResult(result.criterion, result)}
-                        className="br-button circle warning"
-                        title="Editar resultado (modal completo)"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
                 </tr>
                 {expandedRows.has(result.criterion) && (
                   <tr>
-                    <td colSpan={5} className="p-0">
+                    <td colSpan={4} className="p-0">
                       <div className="br-item-expanded">
                         <div className="p-4">
                           {/* Avaliação */}
