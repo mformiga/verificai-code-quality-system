@@ -38,8 +38,27 @@ interface Criterion {
 
 const GeneralAnalysisPage: React.FC = () => {
   const uploadStore = useUploadStore();
+
+  // Clear upload store on component mount to ensure sync with database
+  React.useEffect(() => {
+    if (uploadStore.files.length > 0) {
+      console.log('🔍 GeneralAnalysisPage montado - limpando upload store para sincronizar com banco de dados');
+      uploadStore.clearFiles();
+    }
+
+    // Forçar recarga dos paths do banco para garantir sincronização
+    reloadDbPaths();
+  }, [uploadStore]);
+
   const uploadedFiles = uploadStore?.files || [];
   const [dbFilePaths, setDbFilePaths] = useState<string[]>([]);
+
+  // Debug: Log onde os arquivos estão vindo
+  console.log('🔍 DEBUG - Fontes de arquivos:');
+  console.log('  - uploadedFiles (uploadStore):', uploadedFiles);
+  console.log('  - uploadedFiles.length:', uploadedFiles.length);
+  console.log('  - dbFilePaths:', dbFilePaths);
+  console.log('  - dbFilePaths.length:', dbFilePaths.length);
 
   // Função para recarregar paths do banco de dados
   const reloadDbPaths = async () => {
@@ -107,6 +126,15 @@ const GeneralAnalysisPage: React.FC = () => {
       uploadedFilesContent: uploadedFiles,
       dbFilePathsContent: dbFilePaths
     });
+
+    // Verificar se uploadedFiles tem conteúdo
+    console.log('🔍 Verificando uploadedFiles:');
+    console.log('  - uploadedFiles existe?', !!uploadedFiles);
+    console.log('  - uploadedFiles é array?', Array.isArray(uploadedFiles));
+    console.log('  - uploadedFiles.length > 0?', uploadedFiles.length > 0);
+    if (uploadedFiles.length > 0) {
+      console.log('  - Conteúdo do uploadedFiles:', uploadedFiles);
+    }
 
     if (uploadedFiles.length > 0) {
       const paths = uploadedFiles.map(file => file.path || file.name);

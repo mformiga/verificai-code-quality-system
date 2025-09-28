@@ -3,13 +3,13 @@ API endpoints for file path management
 """
 
 import logging
-from typing import List
+from typing import List, Any
 from uuid import uuid4
 from datetime import datetime
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Body
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, or_
 
 from app.core.database import get_db
 from app.core.security import get_current_user
@@ -51,6 +51,66 @@ async def get_public_file_paths(db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"Error in public endpoint: {str(e)}")
         return {"file_paths": [], "total_count": 0, "message": "Error occurred"}
+
+
+@router.post("/sync-uploaded")
+async def sync_uploaded_files(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Sync uploaded files to file_paths table for display"""
+    try:
+        from app.models.uploaded_file import UploadedFile, FileStatus
+
+        # Get all uploaded files for this user that don't have corresponding file_paths
+        uploaded_files = db.query(UploadedFile).filter(
+            UploadedFile.user_id == current_user.id,
+            UploadedFile.status == FileStatus.COMPLETED
+        ).all()
+
+        synced_count = 0
+
+        for uploaded_file in uploaded_files:
+            # Check if file_path already exists for this uploaded file
+            existing_path = db.query(FilePath).filter(
+                FilePath.user_id == current_user.id,
+                or_(
+                    FilePath.full_path == uploaded_file.relative_path,
+                    FilePath.full_path == uploaded_file.original_name
+                )
+            ).first()
+
+            if not existing_path:
+                # Create file_path record for uploaded file
+                file_path = FilePath(
+                    file_id=f"path_{uuid4().hex}",
+                    full_path=uploaded_file.relative_path or uploaded_file.original_name,
+                    file_name=uploaded_file.original_name,
+                    file_extension=uploaded_file.file_extension or "",
+                    folder_path=uploaded_file.relative_path.split('/')[0] if uploaded_file.relative_path else "",
+                    file_size=uploaded_file.file_size,
+                    is_processed=False,
+                    user_id=current_user.id,
+                    is_public=False,
+                    access_level="private"
+                )
+                db.add(file_path)
+                synced_count += 1
+
+        db.commit()
+
+        return {
+            "success": True,
+            "synced_count": synced_count,
+            "message": f"Successfully synced {synced_count} files"
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error syncing uploaded files: {str(e)}"
+        )
 
 
 @router.get("/dev-paths")
@@ -194,6 +254,8 @@ async def get_file_paths(
 
         # Get total count
         total_count = query.count()
+
+        # Calculate total pages
         total_pages = (total_count + per_page - 1) // per_page
 
         # Get paginated results
@@ -211,7 +273,7 @@ async def get_file_paths(
         )
 
     except Exception as e:
-        logger.error(f"Error getting file paths: {str(e)}")
+        logger.error(f"Error getting file paths: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 

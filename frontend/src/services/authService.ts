@@ -3,13 +3,9 @@ import type { User, LoginCredentials, RegisterData, AuthResponse } from '@/types
 
 export const authService = {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const response = await apiClient.post('/login', new URLSearchParams({
+    const response = await apiClient.post('/login/json', {
       username: credentials.username,
       password: credentials.password,
-    }), {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
     });
     return response.data;
   },

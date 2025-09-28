@@ -53,31 +53,42 @@ def login(
     db: Session = Depends(get_db)
 ) -> Any:
     """Login user and return access token"""
+    print("--- LOGIN ATTEMPT ---")
+    print(f"Username: {form_data.username}")
     user = db.query(User).filter(User.username == form_data.username).first()
+    print(f"User found in DB: {'Yes' if user else 'No'}")
 
     if not user or not user.verify_password(form_data.password):
+        print("Authentication failed: Incorrect username or password.")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    print("Password verification successful.")
+    print(f"Is user active? {user.is_active}")
 
     if not user.is_active:
+        print("Authentication failed: Inactive user.")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Inactive user"
         )
 
     # Update last login
+    print("Updating last login...")
     user.update_last_login()
     db.commit()
+    print("Last login updated.")
 
     # Create access token
+    print("Creating access token...")
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         subject=user.username, expires_delta=access_token_expires
     )
-
+    print("Access token created.")
     return {
         "access_token": access_token,
         "token_type": "bearer",
