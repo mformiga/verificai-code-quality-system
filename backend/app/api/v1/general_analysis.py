@@ -3,6 +3,7 @@ General analysis endpoints for VerificAI Backend - STO-007
 """
 
 from typing import List, Optional, Any
+from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks, Body, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -27,38 +28,68 @@ def get_uploaded_file_path(file_path: str, db: Session, user_id: int) -> str:
     This handles the transition from path-based to upload-based file access.
     """
     try:
+        print(f"DEBUG: get_uploaded_file_path called with: file_path='{file_path}', user_id={user_id}")
+
+        # Helper function to find the most recent file that exists on disk
+        def find_most_recent_existing(files_query):
+            # Order by created_at descending to get most recent first
+            files = files_query.order_by(UploadedFile.created_at.desc()).all()
+
+            for uploaded_file in files:
+                import os
+                full_disk_path = f"/app/{uploaded_file.file_path}"
+                if os.path.exists(full_disk_path):
+                    print(f"DEBUG: Found existing file: {uploaded_file.file_path} from {uploaded_file.created_at}")
+                    return uploaded_file, full_disk_path
+                else:
+                    print(f"DEBUG: File not found on disk: {full_disk_path}")
+
+            return None, None
+
         # First, try to find by relative_path (for folder uploads)
-        uploaded_file = db.query(UploadedFile).filter(
+        print(f"DEBUG: Trying to find by relative_path: '{file_path}'")
+        files_query = db.query(UploadedFile).filter(
             UploadedFile.relative_path == file_path,
             UploadedFile.user_id == user_id,
             UploadedFile.status == FileStatus.COMPLETED
-        ).first()
+        )
+        uploaded_file, full_disk_path = find_most_recent_existing(files_query)
 
-        # If not found, try by original_name (for single file uploads)
         if not uploaded_file:
-            uploaded_file = db.query(UploadedFile).filter(
+            # If not found, try by original_name (for single file uploads)
+            print(f"DEBUG: Trying to find by original_name: '{file_path}'")
+            files_query = db.query(UploadedFile).filter(
                 UploadedFile.original_name == file_path,
                 UploadedFile.user_id == user_id,
                 UploadedFile.status == FileStatus.COMPLETED
-            ).first()
+            )
+            uploaded_file, full_disk_path = find_most_recent_existing(files_query)
 
-        # If still not found, try partial matching (filename only)
         if not uploaded_file:
+            # If still not found, try partial matching (filename only)
             filename = file_path.split('/')[-1].split('\\')[-1]
-            uploaded_file = db.query(UploadedFile).filter(
+            print(f"DEBUG: Trying to find by filename only: '{filename}'")
+            files_query = db.query(UploadedFile).filter(
                 UploadedFile.original_name == filename,
                 UploadedFile.user_id == user_id,
                 UploadedFile.status == FileStatus.COMPLETED
-            ).first()
+            )
+            uploaded_file, full_disk_path = find_most_recent_existing(files_query)
 
-        if uploaded_file:
-            # Check if file actually exists on disk using relative path
-            import os
-            if os.path.exists(uploaded_file.file_path):
-                print(f"DEBUG: Found uploaded file: {uploaded_file.file_path}")
-                return uploaded_file.file_path
-            else:
-                print(f"DEBUG: File not found on disk: {uploaded_file.file_path}")
+        # Let's also check what files are available for this user if still not found
+        if not uploaded_file:
+            print(f"DEBUG: Checking all available files for user {user_id}:")
+            all_files = db.query(UploadedFile).filter(
+                UploadedFile.user_id == user_id,
+                UploadedFile.status == FileStatus.COMPLETED
+            ).order_by(UploadedFile.upload_date.desc()).all()
+            print(f"DEBUG: Found {len(all_files)} total files for user")
+            for f in all_files[:5]:  # Show first 5 files
+                print(f"DEBUG:  - original_name: '{f.original_name}', file_path: '{f.file_path}', date: {f.upload_date}")
+
+        if uploaded_file and full_disk_path:
+            print(f"DEBUG: Returning valid file path: {full_disk_path}")
+            return full_disk_path
 
         # If no uploaded file found, fall back to original path (for backward compatibility)
         print(f"DEBUG: No uploaded file found for path: {file_path}, using original path")
@@ -66,6 +97,8 @@ def get_uploaded_file_path(file_path: str, db: Session, user_id: int) -> str:
 
     except Exception as e:
         print(f"DEBUG: Error finding uploaded file: {e}")
+        import traceback
+        traceback.print_exc()
         return file_path
 
 
@@ -583,8 +616,10 @@ async def analyze_selected_criteria(
 ) -> Any:
     """Analyze selected criteria using LLM with dynamic prompt insertion"""
     try:
+        print(f"DEBUG: === STARTING ANALYZE-SELECTED FUNCTION ===")
         print(f"DEBUG: Starting analysis for criteria: {request.criteria_ids}")
         print(f"DEBUG: File paths: {request.file_paths}")
+        print(f"DEBUG: User: {current_user.username} (ID: {current_user.id})")
 
         # Get prompt service
         print("DEBUG: Getting prompt service...")
@@ -670,6 +705,10 @@ async def analyze_selected_criteria(
         print(f"DEBUG: Replaced placeholder with source code")
         print(f"DEBUG: Final prompt length: {len(final_prompt)}")
 
+        # DEBUG: Check if we're reaching the prompt saving section
+        print(f"DEBUG: About to save prompt - total_files_processed: {total_files_processed}")
+        print(f"DEBUG: Prompt directory will be: {Path(__file__).parent.parent.parent.parent / 'prompts'}")
+
         # Save the final prompt to files for analysis
         try:
             import os
@@ -677,7 +716,9 @@ async def analyze_selected_criteria(
 
             # Create prompts directory if it doesn't exist
             prompts_dir = Path(__file__).parent.parent.parent.parent / "prompts"
+            print(f"DEBUG: Creating prompts directory at: {prompts_dir}")
             prompts_dir.mkdir(exist_ok=True)
+            print(f"DEBUG: Prompts directory exists: {prompts_dir.exists()}")
 
             # Generate filename with timestamp for archival
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
