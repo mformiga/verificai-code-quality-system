@@ -3,7 +3,7 @@ import { Plus, Edit2, Trash2, Save, X, Loader2, Play, Square, CheckSquare } from
 import { criteriaService } from '@/services/criteriaService';
 
 interface Criterion {
-  id: number;
+  id: number | string;
   text: string;
   active: boolean;
   order: number;
@@ -11,7 +11,7 @@ interface Criterion {
 
 interface CriteriaListProps {
   onCriteriaSelect: (selected: number[]) => void;
-  onAnalyzeCriterion?: (criterion: string) => void;
+  onAnalyzeCriterion?: (criterion: Criterion) => void;
   onAnalyzeSelected?: (selected: string[]) => void;
   onCriteriaChange?: () => void;
 }
@@ -176,9 +176,9 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect, onAnalyze
     }
   };
 
-  const handleAnalyze = (criterionText: string) => {
+  const handleAnalyze = (criterion: Criterion) => {
     if (onAnalyzeCriterion) {
-      onAnalyzeCriterion(criterionText);
+      onAnalyzeCriterion(criterion);
     }
   };
 
@@ -389,7 +389,7 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect, onAnalyze
                       </button>
                       {onAnalyzeCriterion && (
                         <button
-                          onClick={() => handleAnalyze(criterion.text)}
+                          onClick={() => handleAnalyze(criterion)}
                           disabled={loading || !criterion.active}
                           className={`br-button circle ${criterion.active ? 'primary' : 'secondary'}`}
                           title="Analisar critério"

@@ -3,7 +3,7 @@ import { useAuthStore } from '@/stores/authStore';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 interface Criterion {
-  id: number;
+  id: number | string;
   text: string;
   active: boolean;
   order: number;
@@ -231,39 +231,57 @@ export const criteriaService = {
     return response.json();
   },
 
-  async deleteCriterion(id: number): Promise<void> {
+  async deleteCriterion(id: number | string): Promise<void> {
     const { token } = useAuthStore.getState();
 
+    // Extract numeric ID if it's in format "criteria_123"
+    let numericId = id;
+    if (typeof id === 'string' && id.startsWith('criteria_')) {
+      numericId = parseInt(id.replace('criteria_', ''), 10);
+    }
+
     if (!token) {
+      console.log('No auth token found, deleting from localStorage');
+      console.log('Deleting criterion with ID:', id, 'numeric ID:', numericId);
+
       // Get current criteria from localStorage
       const storedCriteria = localStorage.getItem('criteria-storage');
       const currentCriteria = storedCriteria ? JSON.parse(storedCriteria) : [];
 
-      // Remove the criterion
-      const updatedCriteria = currentCriteria.filter((criterion: any) => criterion.id !== id);
+      console.log('Current criteria in localStorage:', currentCriteria.length);
+
+      // Remove the criterion (handle both string and numeric IDs)
+      const updatedCriteria = currentCriteria.filter((criterion: any) => {
+        let criterionId = criterion.id;
+
+        // If criterion ID is in format "criteria_X", extract the number
+        if (typeof criterion.id === 'string' && criterion.id.startsWith('criteria_')) {
+          criterionId = parseInt(criterion.id.replace('criteria_', ''), 10);
+        }
+
+        // Compare with the numeric ID we're trying to delete
+        const shouldKeep = criterionId !== numericId;
+
+        if (!shouldKeep) {
+          console.log('Removing criterion:', criterion);
+        }
+
+        return shouldKeep;
+      });
 
       // Save updated criteria to localStorage
       localStorage.setItem('criteria-storage', JSON.stringify(updatedCriteria));
 
-      console.log('Deleted criterion from localStorage');
+      console.log('Deleted criterion from localStorage. Remaining criteria:', updatedCriteria.length);
       return;
     }
 
     try {
-      // Try the external delete service (port 8001) first - it works!
-      const externalResponse = await fetch(`http://localhost:8001/delete-criterion/${id}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      // Backend expects ID in format "criteria_{id}", so format it correctly
+      const formattedId = `criteria_${numericId}`;
 
-      if (externalResponse.ok) {
-        return;
-      }
-
-      // Try the main backend DELETE method
-      const deleteResponse = await fetch(`${API_BASE_URL}/general-analysis/criteria/${id}`, {
+      // Try the main backend DELETE method first
+      const deleteResponse = await fetch(`${API_BASE_URL}/general-analysis/criteria/${formattedId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -272,11 +290,12 @@ export const criteriaService = {
       });
 
       if (deleteResponse.ok) {
+        console.log('Criterion deleted successfully using DELETE method');
         return;
       }
 
       // If DELETE fails, try POST method as fallback
-      const postResponse = await fetch(`${API_BASE_URL}/general-analysis/criteria/${id}/delete`, {
+      const postResponse = await fetch(`${API_BASE_URL}/general-analysis/criteria/${formattedId}/delete`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -285,11 +304,39 @@ export const criteriaService = {
       });
 
       if (postResponse.ok) {
+        console.log('Criterion deleted successfully using POST method');
         return;
       }
 
-      console.error('All methods failed');
-      throw new Error(`Failed to delete criterion: ${externalResponse.status}`);
+      // If both methods fail, try with just the numeric ID (for backward compatibility)
+      const fallbackDeleteResponse = await fetch(`${API_BASE_URL}/general-analysis/criteria/${numericId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (fallbackDeleteResponse.ok) {
+        console.log('Criterion deleted successfully using fallback numeric ID');
+        return;
+      }
+
+      const fallbackPostResponse = await fetch(`${API_BASE_URL}/general-analysis/criteria/${numericId}/delete`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (fallbackPostResponse.ok) {
+        console.log('Criterion deleted successfully using fallback POST with numeric ID');
+        return;
+      }
+
+      console.error('All deletion methods failed');
+      throw new Error('Failed to delete criterion: All methods failed');
     } catch (error) {
       console.error('Delete criterion error:', error);
       throw error;
