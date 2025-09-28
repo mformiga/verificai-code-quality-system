@@ -30,6 +30,13 @@ interface CriteriaResult {
   criteriaId?: number; // ID numérico único do critério do banco de dados
 }
 
+interface Criterion {
+  id: number;
+  text: string;
+  active: boolean;
+  order: number;
+}
+
 const GeneralAnalysisPage: React.FC = () => {
   const uploadStore = useUploadStore();
   const uploadedFiles = uploadStore?.files || [];
@@ -42,6 +49,7 @@ const GeneralAnalysisPage: React.FC = () => {
 
       // Tentar diferentes endpoints
       const endpoints = [
+        '/api/v1/file-paths/dev-paths',
         '/public/file-paths',
         '/api/v1/file-paths/test'
       ];
@@ -60,7 +68,12 @@ const GeneralAnalysisPage: React.FC = () => {
 
             let paths = [];
             if (data.file_paths && Array.isArray(data.file_paths)) {
-              paths = data.file_paths.map((fp: any) => fp.full_path);
+              // Verificar se é array de strings ou objetos
+              if (typeof data.file_paths[0] === 'string') {
+                paths = data.file_paths;
+              } else {
+                paths = data.file_paths.map((fp: any) => fp.full_path);
+              }
             } else if (data.items && Array.isArray(data.items)) {
               paths = data.items.map((fp: any) => fp.full_path);
             }
@@ -121,6 +134,7 @@ const GeneralAnalysisPage: React.FC = () => {
   const [currentAnalysis, setCurrentAnalysis] = useState<any>(null);
   const [results, setResults] = useState<CriteriaResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [resultsManuallyCleared, setResultsManuallyCleared] = useState(false);
   const [editingResult, setEditingResult] = useState<CriteriaResult | null>(null);
   const [activeTab, setActiveTab] = useState<'criteria' | 'results'>('criteria');
   const [selectedCriteriaIds, setSelectedCriteriaIds] = useState<string[]>([]);
@@ -133,6 +147,12 @@ const GeneralAnalysisPage: React.FC = () => {
       // Não carregar resultados se já houver resultados na tela
       if (results.length > 0) {
         console.log('Já existem resultados na tela, pulando carregamento do banco de dados');
+        return;
+      }
+
+      // Não carregar resultados se o usuário já os excluiu manualmente nesta sessão
+      if (resultsManuallyCleared) {
+        console.log('Resultados foram excluídos manualmente pelo usuário, pulando carregamento automático');
         return;
       }
 
@@ -174,27 +194,50 @@ const GeneralAnalysisPage: React.FC = () => {
                     confidence = confidenceValue > 1.0 ? Math.min(confidenceValue / 100, 1.0) : Math.min(confidenceValue, 1.0);
                   }
 
-                  // Extrair status do conteúdo
+                  // Extrair status do conteúdo usando formato estruturado
                   let status: 'compliant' | 'partially_compliant' | 'non_compliant' = 'compliant';
-                  const content = criterionData.content.toLowerCase();
-                  if (content.includes('não atende') || content.includes('não cumpre') || content.includes('viol') || content.includes('defeito')) {
-                    status = 'non_compliant';
-                  } else if (content.includes('parcialmente') || content.includes('atende parcialmente') || content.includes('precisa melhorar')) {
-                    status = 'partially_compliant';
+                  const statusMatch = criterionData.content.match(/\*\*Status:\*\*\s*([^*\n]+)/i);
+                  if (statusMatch) {
+                    const statusText = statusMatch[1].trim().toLowerCase();
+                    if (statusText.includes('não conforme') || statusText.includes('não atende') || statusText.includes('não cumpre')) {
+                      status = 'non_compliant';
+                    } else if (statusText.includes('parcialmente conforme') || statusText.includes('parcialmente atende') || statusText.includes('atende parcialmente')) {
+                      status = 'partially_compliant';
+                    } else if (statusText.includes('conforme') || statusText.includes('atende') || statusText.includes('cumpre')) {
+                      status = 'compliant';
+                    }
+                  } else {
+                    // Fallback para busca por palavra-chave se formato estruturado não for encontrado
+                    const content = criterionData.content.toLowerCase();
+                    if (content.includes('não atende') || content.includes('não cumpre') || content.includes('viol') || content.includes('defeito')) {
+                      status = 'non_compliant';
+                    } else if (content.includes('parcialmente') || content.includes('atende parcialmente') || content.includes('precisa melhorar')) {
+                      status = 'partially_compliant';
+                    }
                   }
 
                   // Tentar encontrar o ID numérico do critério
-                  const criterionName = criterionData.name || `Critério ${key}`;
-                  const criteriaId = criteriaTextToIdMap.get(criterionName) ||
-                                   criteriaTextToIdMap.get(criterionName.split(':')[0].trim());
+                  const criterionNameFromDB = criterionData.name || `Critério ${key}`;
+                  const criteriaId = criteriaTextToIdMap.get(criterionNameFromDB) ||
+                                   criteriaTextToIdMap.get(criterionNameFromDB.split(':')[0].trim());
+
+                  // Encontrar o critério correspondente para obter o texto original
+                  const matchingCriterion = allCriteria.find(c => c.id === criteriaId);
+
+                  // SEMPRE usar o texto original do critério se encontrado, senão usar o do banco
+                  const finalCriterionText = matchingCriterion ? matchingCriterion.text : criterionNameFromDB;
 
                   if (!criteriaId) {
-                    console.log(`⚠️ Critério não encontrado no mapa: "${criterionName}"`);
+                    console.log(`⚠️ Critério não encontrado no mapa: "${criterionNameFromDB}"`);
+                  }
+
+                  if (matchingCriterion) {
+                    console.log(`✅ Critério encontrado no mapa: "${criterionNameFromDB}" -> "${matchingCriterion.text}"`);
                   }
 
                   formattedResults.push({
                     id: criteriaId || (mostRecentResult.id * 1000 + parseInt(key.replace(/\D/g, ''))), // Usar criteriaId como ID principal
-                    criterion: criterionData.name || `Critério ${key}`,
+                    criterion: finalCriterionText, // Usar texto original do critério quando disponível
                     assessment: criterionData.content,
                     status: status,
                     confidence: confidence,
@@ -494,7 +537,7 @@ const GeneralAnalysisPage: React.FC = () => {
       // Create the new result object
       const updatedResult: CriteriaResult = {
         id: criteriaId,
-        criterion: result.name,
+        criterion: criterion, // Usar o título original do critério em vez do LLM response.name
         assessment: content,
         status: status,
         confidence: Math.max(0, Math.min(1, confidence)),
@@ -594,6 +637,9 @@ const GeneralAnalysisPage: React.FC = () => {
       // Remover todos os resultados selecionados da lista local
       setResults(prev => prev.filter(result => result.id === undefined || !selectedIds.includes(result.id)));
 
+      // Marcar que os resultados foram limpos manualmente para evitar recarregamento automático
+      setResultsManuallyCleared(true);
+
       let successMessage = '';
       if (uniqueDatabaseResultIds.length > 0) {
         successMessage += `${uniqueDatabaseResultIds.length} conjunto(s) de análise do banco excluído(s)`;
@@ -611,22 +657,29 @@ const GeneralAnalysisPage: React.FC = () => {
     }
   };
 
-  const handleAnalyzeCriterion = async (criterion: string) => {
+  const handleAnalyzeCriterion = async (criterionObj: Criterion) => {
     try {
-      // Buscar todos os critérios para encontrar o ID correspondente
-      const allCriteriaData = await criteriaService.getCriteria();
-      const matchingCriterion = allCriteriaData.find(c =>
-        c.text === criterion || c.text.includes(criterion) || criterion.includes(c.text)
-      );
+      console.log('🔍 DEBUG handleAnalyzeCriterion:');
+      console.log('  - criterionObj recebido:', criterionObj);
 
-      if (!matchingCriterion) {
-        alert('Critério não encontrado na lista de critérios cadastrados.');
-        return;
-      }
-
-      const criteriaKey = `criteria_${matchingCriterion.id}`;
+      const criteriaKey = `criteria_${criterionObj.id}`;
+      console.log('  - criteriaKey gerado:', criteriaKey);
 
       setLoading(true);
+
+      // Excluir todos os resultados anteriores antes de iniciar nova análise
+      try {
+        console.log('🗑️ Excluindo todos os resultados anteriores antes da nova análise...');
+        await analysisService.deleteAllAnalysisResults();
+        console.log('✅ Todos os resultados anteriores excluídos com sucesso');
+      } catch (deleteError) {
+        console.warn('⚠️ Erro ao excluir resultados anteriores, continuando com análise:', deleteError);
+      }
+
+      // Limpar resultados anteriores para evitar misturar com nova análise
+      setResults([]);
+      // Resetar a flag de exclusão manual pois estamos iniciando uma nova análise
+      setResultsManuallyCleared(false);
 
       // Show simple progress bar at top of page
       setShowProgress(true);
@@ -655,7 +708,7 @@ const GeneralAnalysisPage: React.FC = () => {
       const request: AnalysisRequest = {
         criteria_ids: [criteriaKey],
         file_paths: filePaths,
-        analysis_name: `Análise do Critério: ${criterion}`,
+        analysis_name: `Análise do Critério: ${criterionObj.text}`,
         temperature: 0.7,
         max_tokens: 4000
       };
@@ -699,10 +752,10 @@ const GeneralAnalysisPage: React.FC = () => {
         status = 'partially_compliant';
       }
 
-      // Create the new result object
+      // Create the new result object - sempre usar o texto original do critério
       const newResult: CriteriaResult = {
-        id: matchingCriterion.id,
-        criterion: result.name,
+        id: criterionObj.id,
+        criterion: criterionObj.text, // Usar SEMPRE o texto original do critério
         assessment: content,
         status: status,
         confidence: Math.max(0, Math.min(1, confidence)),
@@ -710,8 +763,20 @@ const GeneralAnalysisPage: React.FC = () => {
         recommendations: [],
         resultId: response.db_result_id, // Usar o ID do resultado salvo no banco
         criterionKey: criteriaKey,
-        criteriaId: matchingCriterion.id
+        criteriaId: criterionObj.id
       };
+
+      console.log('🔍 DEBUG handleAnalyzeCriterion - criação do resultado:');
+      console.log('  - criterionObj.text (original):', criterionObj.text);
+      console.log('  - result.name (LLM):', result.name);
+      console.log('  - newResult.criterion (usado):', newResult.criterion);
+      console.log('  - result.name do backend:', result.name);
+
+      // IMPORTANTE: Usar o nome enviado pelo backend se estiver disponível e for diferente do ID
+      if (result.name && result.name !== key) {
+        newResult.criterion = result.name;
+        console.log('  - Usando nome do backend:', newResult.criterion);
+      }
 
       // Hide progress immediately after successful completion
       setShowProgress(false);
@@ -720,14 +785,14 @@ const GeneralAnalysisPage: React.FC = () => {
       // Update results: check if criterion already exists and update, or add new
       setResults(prevResults => {
         const existingIndex = prevResults.findIndex(r =>
-          (r.criteriaId && r.criteriaId === matchingCriterion.id) ||
-          (r.criterion === criterion) ||
-          (r.criterion.includes(criterion)) ||
-          (criterion.includes(r.criterion))
+          (r.criteriaId && r.criteriaId === criterionObj.id) ||
+          (r.criterion === criterionObj.text) ||
+          (r.criterion.includes(criterionObj.text)) ||
+          (criterionObj.text.includes(r.criterion))
         );
 
         if (existingIndex >= 0) {
-          console.log(`🔄 ANÁLISE INDIVIDUAL - Atualizando resultado existente para: ${criterion}`);
+          console.log(`🔄 ANÁLISE INDIVIDUAL - Atualizando resultado existente para: ${criterionObj.text}`);
           const updatedResults = [...prevResults];
           updatedResults[existingIndex] = {
             ...prevResults[existingIndex],
@@ -738,12 +803,12 @@ const GeneralAnalysisPage: React.FC = () => {
           };
           return updatedResults;
         } else {
-          console.log(`➕ ANÁLISE INDIVIDUAL - Adicionando novo resultado para: ${criterion}`);
+          console.log(`➕ ANÁLISE INDIVIDUAL - Adicionando novo resultado para: ${criterionObj.text}`);
           return [...prevResults, newResult];
         }
       });
 
-      console.log(`✅ Análise individual concluída com sucesso para: ${criterion}`);
+      console.log(`✅ Análise individual concluída com sucesso para: ${criterionObj.text}`);
 
     } catch (error) {
       console.error('Erro na análise do critério:', error);
@@ -766,6 +831,20 @@ const GeneralAnalysisPage: React.FC = () => {
     try {
       setLoading(true);
       setSelectedCriteriaIds(selectedCriteriaIds);
+
+      // Excluir todos os resultados anteriores antes de iniciar nova análise
+      try {
+        console.log('🗑️ Excluindo todos os resultados anteriores antes da nova análise...');
+        await analysisService.deleteAllAnalysisResults();
+        console.log('✅ Todos os resultados anteriores excluídos com sucesso');
+      } catch (deleteError) {
+        console.warn('⚠️ Erro ao excluir resultados anteriores, continuando com análise:', deleteError);
+      }
+
+      // Limpar resultados anteriores para evitar misturar com nova análise
+      setResults([]);
+      // Resetar a flag de exclusão manual pois estamos iniciando uma nova análise
+      setResultsManuallyCleared(false);
 
       // Show simple progress bar at top of page
       setShowProgress(true);
@@ -814,9 +893,14 @@ const GeneralAnalysisPage: React.FC = () => {
         selectedCriteriaMap.set(criteriaId, numericId);
       });
 
+      // Carregar todos os critérios para obter os textos originais
+      const allCriteriaData = await criteriaService.getCriteria();
+
       // Extract confidence from LLM response content
       const newResults: CriteriaResult[] = Object.entries(response.criteria_results).map(([key, result]) => {
         const content = result.content;
+
+        console.log('🔍 FRONTEND: Processando resultado:', { key, result, name: result.name });
 
         // Extract confidence from content (look for confidence value)
         let confidence = 0.8;
@@ -853,9 +937,33 @@ const GeneralAnalysisPage: React.FC = () => {
         console.log(`🔍 TODOS OS SELECTED:`, selectedCriteriaIds);
         console.log(`🔍 MAPA COMPLETO:`, Array.from(selectedCriteriaMap.entries()));
 
+        // Encontrar o critério correspondente para obter o texto original
+        let matchingCriterion = allCriteriaData.find(c => c.id === criteriaId);
+
+        // Se não encontrou por ID, tentar encontrar pelo criteriaKey
+        if (!matchingCriterion && originalCriteriaId) {
+          const numericId = parseInt(originalCriteriaId.replace('criteria_', ''));
+          matchingCriterion = allCriteriaData.find(c => c.id === numericId);
+        }
+
+        // SEMPRE usar o texto original do critério do banco de dados
+        let criterionText = matchingCriterion ? matchingCriterion.text : `Critério ${criteriaId || key}`;
+        if (!matchingCriterion && criteriaId) {
+          // Se temos o ID mas não encontramos o critério, usar um nome mais descritivo
+          criterionText = `Critério ID ${criteriaId}`;
+        }
+
+        console.log(`🔍 Mapeamento de critério: key=${key}, criteriaId=${criteriaId}, matchingCriterion=${matchingCriterion ? 'SIM' : 'NÃO'}, textoFinal="${criterionText}"`);
+        console.log(`🔍 result.name do backend: "${result.name}"`);
+
+        // IMPORTANTE: Usar o nome enviado pelo backend se estiver disponível, pois já foi corrigido lá
+        const finalCriterionText = result.name && result.name !== key ? result.name : criterionText;
+
+        console.log(`🔍 Texto final usado: "${finalCriterionText}"`);
+
         return {
           id: criteriaId || Date.now() + parseInt(key.replace(/\D/g, '')), // Usar o ID numérico do critério se disponível
-          criterion: result.name,
+          criterion: finalCriterionText, // Usar nome corrigido do backend ou fazer fallback para mapeamento
           assessment: content,
           status: status,
           confidence: Math.max(0, Math.min(1, confidence)),
