@@ -44,7 +44,7 @@ class LLMProvider:
         code: str,
         provider: str = 'openai',
         temperature: float = 0.7,
-        max_tokens: int = 2000
+        max_tokens: int = 32000  # Aumentado para acomodar análises completas
     ) -> LLMResponse:
         """Analyze code using specified LLM provider"""
         if provider not in self.providers:
@@ -58,7 +58,7 @@ class LLMProvider:
         code: str,
         preferred_provider: str = 'openai',
         temperature: float = 0.7,
-        max_tokens: int = 2000
+        max_tokens: int = 32000  # Aumentado para acomodar análises completas
     ) -> LLMResponse:
         """Analyze with fallback between providers"""
         providers = [preferred_provider]
@@ -112,7 +112,7 @@ class OpenAIProvider:
         self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
         self.model = settings.MODEL or "gpt-4-turbo-preview"
 
-    async def analyze(self, prompt: str, code: str, temperature: float = 0.7, max_tokens: int = 2000) -> LLMResponse:
+    async def analyze(self, prompt: str, code: str, temperature: float = 0.7, max_tokens: int = 32000) -> LLMResponse:
         """Analyze code using OpenAI"""
         if not settings.OPENAI_API_KEY:
             raise ValueError("OpenAI API key not configured")
@@ -165,7 +165,7 @@ class AnthropicProvider:
         self.client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
         self.model = "claude-3-sonnet-20240229"
 
-    async def analyze(self, prompt: str, code: str, temperature: float = 0.7, max_tokens: int = 2000) -> LLMResponse:
+    async def analyze(self, prompt: str, code: str, temperature: float = 0.7, max_tokens: int = 32000) -> LLMResponse:
         """Analyze code using Anthropic Claude"""
         if not settings.ANTHROPIC_API_KEY:
             raise ValueError("Anthropic API key not configured")
@@ -222,7 +222,7 @@ class TokenOptimizer:
     """Token optimization utilities"""
 
     def __init__(self):
-        self.max_tokens = 4000  # Default context window limit
+        self.max_tokens = 32000  # Default context window limit - aumentado para evitar truncamento
 
     def estimate_tokens(self, text: str) -> int:
         """Estimate token count for text"""
@@ -272,7 +272,7 @@ class TokenOptimizer:
 
         return chunks
 
-    def optimize_content(self, processed_files: List[Dict[str, Any]], max_tokens: int = 4000) -> str:
+    def optimize_content(self, processed_files: List[Dict[str, Any]], max_tokens: int = 100000) -> str:
         """Optimize content from processed files"""
         optimized_content = ""
 

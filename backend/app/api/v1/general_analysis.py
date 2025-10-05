@@ -37,9 +37,10 @@ def get_uploaded_file_path(file_path: str, db: Session, user_id: int) -> str:
 
             for uploaded_file in files:
                 import os
-                full_disk_path = f"/app/{uploaded_file.file_path}"
+                # Use storage_path which contains the full path to the file
+                full_disk_path = uploaded_file.storage_path
                 if os.path.exists(full_disk_path):
-                    print(f"DEBUG: Found existing file: {uploaded_file.file_path} from {uploaded_file.created_at}")
+                    print(f"DEBUG: Found existing file: {uploaded_file.original_name} at {full_disk_path} from {uploaded_file.created_at}")
                     return uploaded_file, full_disk_path
                 else:
                     print(f"DEBUG: File not found on disk: {full_disk_path}")
@@ -76,16 +77,26 @@ def get_uploaded_file_path(file_path: str, db: Session, user_id: int) -> str:
             )
             uploaded_file, full_disk_path = find_most_recent_existing(files_query)
 
+        if not uploaded_file:
+            # If still not found, try by storage_path containing the filename
+            print(f"DEBUG: Trying to find by storage_path containing: '{file_path}'")
+            files_query = db.query(UploadedFile).filter(
+                UploadedFile.storage_path.like(f'%{file_path}%'),
+                UploadedFile.user_id == user_id,
+                UploadedFile.status == FileStatus.COMPLETED
+            )
+            uploaded_file, full_disk_path = find_most_recent_existing(files_query)
+
         # Let's also check what files are available for this user if still not found
         if not uploaded_file:
             print(f"DEBUG: Checking all available files for user {user_id}:")
             all_files = db.query(UploadedFile).filter(
                 UploadedFile.user_id == user_id,
                 UploadedFile.status == FileStatus.COMPLETED
-            ).order_by(UploadedFile.upload_date.desc()).all()
+            ).order_by(UploadedFile.created_at.desc()).all()
             print(f"DEBUG: Found {len(all_files)} total files for user")
             for f in all_files[:5]:  # Show first 5 files
-                print(f"DEBUG:  - original_name: '{f.original_name}', file_path: '{f.file_path}', date: {f.upload_date}")
+                print(f"DEBUG:  - original_name: '{f.original_name}', file_path: '{f.file_path}', date: {f.created_at}")
 
         if uploaded_file and full_disk_path:
             print(f"DEBUG: Returning valid file path: {full_disk_path}")
@@ -110,7 +121,7 @@ class GeneralAnalysisRequest(BaseModel):
     criteria: List[str]
     llm_provider: str = "openai"
     temperature: float = 0.7
-    max_tokens: int = 16000
+    max_tokens: int = 500000
 
 
 class AnalyzeSelectedRequest(BaseModel):
@@ -119,7 +130,7 @@ class AnalyzeSelectedRequest(BaseModel):
     file_paths: List[str]
     analysis_name: Optional[str] = "Análise de Critérios Gerais"
     temperature: float = 0.7
-    max_tokens: int = 16000
+    max_tokens: int = 500000
 
 
 class GeneralCriteriaResponse(BaseModel):
@@ -776,16 +787,20 @@ async def analyze_selected_criteria(
         print("FIM DO PROMPT")
         print("="*80 + "\n")
 
+        # Force override max_tokens to prevent truncation
+        forced_max_tokens = 32000  # Force 32000 tokens to ensure complete response
+
         print(f"=== SENDING TO LLM SERVICE ===")
         print(f"DEBUG: About to send prompt of length {len(final_prompt)}")
-        print(f"DEBUG: Temperature: {request.temperature}, Max tokens: {request.max_tokens}")
+        print(f"DEBUG: Temperature: {request.temperature}, Original Max tokens: {request.max_tokens}")
+        print(f"DEBUG: FORCED Max tokens: {forced_max_tokens} (overriding frontend value)")
 
         # Increase timeout for LLM response to ensure complete analysis
         try:
             llm_response = await llm_service.send_prompt(
                 final_prompt,
                 temperature=request.temperature,
-                max_tokens=16000  # Increased max tokens for longer responses
+                max_tokens=forced_max_tokens  # Force 32000 tokens to prevent truncation
             )
         except Exception as llm_error:
             print(f"ERROR: LLM service failed: {llm_error}")
@@ -1117,6 +1132,57 @@ async def debug_file_path(file_path: str, db: Session = Depends(get_db)) -> Any:
 async def debug_cors_test() -> Any:
     """Test CORS without authentication"""
     return {"message": "CORS test successful", "status": "ok", "cors": "working"}
+
+
+@router.get("/latest-raw-response")
+async def get_latest_raw_response(
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """Get the latest raw LLM response without any processing"""
+    try:
+        from pathlib import Path
+
+        # Path to the raw response file
+        prompts_dir = Path(__file__).parent.parent.parent.parent / "prompts"
+        raw_response_path = prompts_dir / "raw_response.txt"
+
+        # Check if the file exists
+        if not raw_response_path.exists():
+            return {
+                "success": False,
+                "message": "Nenhuma resposta bruta da LLM encontrada. Execute uma análise primeiro.",
+                "response_content": None,
+                "file_exists": False
+            }
+
+        # Read the raw response content
+        with open(raw_response_path, "r", encoding="utf-8") as f:
+            response_content = f.read()
+
+        # Get file metadata
+        import os
+        file_stats = os.stat(raw_response_path)
+        file_size = file_stats.st_size
+        modified_time = file_stats.st_mtime
+
+        return {
+            "success": True,
+            "message": "Resposta bruta da LLM carregada com sucesso",
+            "response_content": response_content,
+            "file_size": file_size,
+            "modified_time": modified_time,
+            "file_path": str(raw_response_path),
+            "is_raw": True
+        }
+
+    except Exception as e:
+        print(f"DEBUG: Error reading raw response: {e}")
+        return {
+            "success": False,
+            "message": f"Erro ao ler resposta bruta da LLM: {str(e)}",
+            "response_content": None,
+            "file_exists": False
+        }
 
 
 @router.get("/criteria-working")
@@ -1514,6 +1580,57 @@ async def get_latest_prompt(
             "success": False,
             "message": f"Erro ao ler prompt: {str(e)}",
             "prompt_content": None,
+            "file_exists": False
+        }
+
+
+@router.get("/latest-response")
+async def get_latest_response(
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """Get the latest LLM response"""
+    try:
+        from pathlib import Path
+
+        # Path to the latest response file
+        prompts_dir = Path(__file__).parent.parent.parent.parent / "prompts"
+        latest_response_path = prompts_dir / "latest_response.txt"
+
+        # Check if the file exists
+        if not latest_response_path.exists():
+            return {
+                "success": False,
+                "message": "Nenhuma resposta da LLM encontrada. Execute uma análise primeiro.",
+                "response_content": None,
+                "file_exists": False
+            }
+
+        # Read the response content
+        with open(latest_response_path, "r", encoding="utf-8") as f:
+            response_content = f.read()
+
+        # Get file metadata
+        import os
+        file_stats = os.stat(latest_response_path)
+        file_size = file_stats.st_size
+        modified_time = file_stats.st_mtime
+
+        return {
+            "success": True,
+            "message": "Resposta da LLM recuperada com sucesso",
+            "response_content": response_content,
+            "file_exists": True,
+            "file_size": file_size,
+            "modified_time": modified_time,
+            "file_path": str(latest_response_path)
+        }
+
+    except Exception as e:
+        print(f"DEBUG: Error reading latest response: {e}")
+        return {
+            "success": False,
+            "message": f"Erro ao ler resposta da LLM: {str(e)}",
+            "response_content": None,
             "file_exists": False
         }
 

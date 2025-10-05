@@ -37,7 +37,7 @@ class AnalysisConfig:
         files: List[str],
         prompt_content: str,
         llm_provider: str = 'openai',
-        max_tokens: int = 4000,
+        max_tokens: int = 32000,  # Aumentado drasticamente para acomodar análises completas
         temperature: float = 0.7,
         **kwargs
     ):
@@ -211,7 +211,8 @@ class AnalysisOrchestrator:
                 config.prompt_content,
                 optimized_content,
                 config.llm_provider,
-                config.temperature
+                config.temperature,
+                config.max_tokens  # Adicionando max_tokens que estava faltando!
             )
             await self.queue.update_progress(str(analysis.id), 80)
 
@@ -247,7 +248,7 @@ class AnalysisOrchestrator:
             files=files,
             prompt_content=prompt_content,
             llm_provider=config_data.get('llm_provider', 'openai'),
-            max_tokens=config_data.get('max_tokens', 4000),
+            max_tokens=config_data.get('max_tokens', 32000),  # Aumentado para evitar truncamento
             temperature=config_data.get('temperature', 0.7)
         )
 
