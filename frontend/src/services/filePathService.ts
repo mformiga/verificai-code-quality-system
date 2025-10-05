@@ -16,16 +16,17 @@ export interface FilePath {
 
 export const filePathService = {
   getFilePaths: async (page = 1, perPage = 100): Promise<{ paths: FilePath[], total: number }> => {
-    const response = await apiClient.get(`/file-paths/?page=${page}&per_page=${perPage}`);
+    // Use public endpoint to get ALL files without pagination
+    const response = await apiClient.get('/file-paths/public');
     return {
-      paths: response.data.items || [],
-      total: response.data.total || 0
+      paths: response.data.file_paths || [],
+      total: response.data.total_count || 0
     };
   },
 
   getProcessedFilePaths: async (): Promise<FilePath[]> => {
     const response = await apiClient.get('/file-paths/public');
-    return response.data.items || [];
+    return response.data.file_paths || [];
   },
 
   createFilePath: async (filePath: Omit<FilePath, 'id' | 'created_at'>): Promise<FilePath> => {

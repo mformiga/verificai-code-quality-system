@@ -306,14 +306,11 @@ const PathList: React.FC<PathListProps> = ({
       const authHeaders = getAuthHeaders();
       console.log('🔑 Auth headers:', Object.keys(authHeaders));
 
-      const requestUrl = '/api/v1/file-paths/?page=1&per_page=20';
-      console.log('🌐 Fazendo requisição para:', requestUrl);
-      console.log('🔑 Headers:', authHeaders);
+      const requestUrl = '/api/v1/file-paths/public';
+      console.log('🌐 Fazendo requisição para endpoint público (todos os arquivos):', requestUrl);
       console.log('📍 URL completa:', window.location.origin + requestUrl);
 
-      const response = await fetch(requestUrl, {
-        headers: authHeaders
-      });
+      const response = await fetch(requestUrl);
 
       console.log('📡 Resposta da API:', {
         status: response.status,
@@ -331,20 +328,44 @@ const PathList: React.FC<PathListProps> = ({
       const result = await response.json();
       console.log('📦 Dados recebidos da API:', result);
 
-      // Transform backend snake_case to frontend camelCase
-      const transformedPaths = (result.file_paths || []).map((path: any) => ({
-        id: path.file_id, // Use file_id instead of id for consistent identification
-        fullPath: path.full_path,
-        fileName: path.file_name,
-        fileExtension: path.file_extension,
-        folderPath: path.folder_path,
-        fileSize: path.file_size,
-        lastModified: path.last_modified ? new Date(path.last_modified) : undefined,
-        created_at: path.created_at
-      }));
+      // Transform backend response to frontend format
+      // Public endpoint returns just strings (paths), so we need to create objects
+      const transformedPaths = (result.file_paths || []).map((path: any, index: number) => {
+        // If path is already an object (from other endpoints), keep structure
+        if (typeof path === 'object' && path !== null) {
+          return {
+            id: path.file_id || path.id,
+            fullPath: path.full_path,
+            fileName: path.file_name,
+            fileExtension: path.file_extension,
+            folderPath: path.folder_path,
+            fileSize: path.file_size,
+            lastModified: path.last_modified ? new Date(path.last_modified) : undefined,
+            created_at: path.created_at
+          };
+        }
 
-      console.log('🔄 Paths transformados:', transformedPaths);
+        // If path is a string (from public endpoint), create object from string
+        const pathStr = path as string;
+        const fileName = pathStr.split('/').pop() || pathStr;
+        const fileExtension = fileName.includes('.') ? fileName.split('.').pop() : '';
+
+        return {
+          id: `path_${index}`, // Generate unique ID
+          fullPath: pathStr,
+          fileName: fileName,
+          fileExtension: fileExtension,
+          folderPath: pathStr.includes('/') ? pathStr.split('/')[0] : '',
+          fileSize: undefined, // Not available from public endpoint
+          lastModified: undefined,
+          created_at: undefined
+        };
+      });
+
+      console.log('🔄 Paths transformados (TODOS OS 89 ARQUIVOS):', transformedPaths.slice(0, 3)); // Show first 3 for debug
       console.log('📊 Total de paths:', transformedPaths.length);
+      console.log('🔥🔥🔥 CARREGADOS TODOS OS ARQUIVOS - SEM LIMITE 🔥🔥🔥');
+      console.log('🎯 Primeiro arquivo transformado:', transformedPaths[0]);
 
       setPaths(transformedPaths);
 
