@@ -362,7 +362,7 @@ const PathList: React.FC<PathListProps> = ({
         };
       });
 
-      console.log('🔄 Paths transformados (TODOS OS 89 ARQUIVOS):', transformedPaths.slice(0, 3)); // Show first 3 for debug
+      console.log('🔄 Paths transformados (TODOS OS ARQUIVOS):', transformedPaths.slice(0, 3)); // Show first 3 for debug
       console.log('📊 Total de paths:', transformedPaths.length);
       console.log('🔥🔥🔥 CARREGADOS TODOS OS ARQUIVOS - SEM LIMITE 🔥🔥🔥');
       console.log('🎯 Primeiro arquivo transformado:', transformedPaths[0]);

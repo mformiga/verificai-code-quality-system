@@ -120,18 +120,18 @@ async def get_public_file_paths():
 
     try:
         db = next(get_db())
-        # Get all file paths without user filtering
-        file_paths = db.query(FilePath).order_by(desc(FilePath.created_at)).limit(50).all()
+        # Get ALL file paths without user filtering - NO LIMIT
+        file_paths = db.query(FilePath).order_by(desc(FilePath.created_at)).all()
 
         # Extract just the full paths for simplicity
         paths = [fp.full_path for fp in file_paths if fp.full_path]
 
-        print(f"Public endpoint returning {len(paths)} file paths")
+        print(f"🔥🔥🔥 MAIN.PY Public endpoint returning {len(paths)} file paths - ALL FILES - NO LIMIT 🔥🔥🔥")
 
         return {
             "file_paths": paths,
             "total_count": len(paths),
-            "message": f"Found {len(paths)} file paths"
+            "message": f"Found {len(paths)} file paths - ALL FILES"
         }
 
     except Exception as e:
@@ -156,3 +156,32 @@ if __name__ == "__main__":
  reload=True,  # Force reload for development
         log_level=settings.LOG_LEVEL.lower()
     )# Reload trigger - touched at 2025-09-18 19:06
+# NO LIMIT FOR FILES
+
+@app.get("/test-all-files")
+async def test_all_files():
+    """Test endpoint to return all files - NO LIMIT"""
+    from app.core.database import get_db
+    from app.models.file_path import FilePath
+    from sqlalchemy.orm import Session
+    from sqlalchemy import desc
+
+    try:
+        db = next(get_db())
+        # Get ALL file paths without any limits
+        file_paths = db.query(FilePath).order_by(desc(FilePath.created_at)).all()
+
+        # Extract just the full paths for simplicity
+        paths = [fp.full_path for fp in file_paths if fp.full_path]
+
+        print(f"🔥🔥🔥 TEST ENDPOINT: Returning {len(paths)} files - ALL FILES - NO LIMIT 🔥🔥🔥")
+
+        return {
+            "file_paths": paths,
+            "total_count": len(paths),
+            "message": f"TEST: Found {len(paths)} file paths - ALL FILES"
+        }
+
+    except Exception as e:
+        print(f"Error in test endpoint: {str(e)}")
+        return {"file_paths": [], "total_count": 0, "message": "Error occurred"}

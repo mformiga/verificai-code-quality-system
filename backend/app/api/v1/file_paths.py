@@ -34,18 +34,18 @@ router = APIRouter()
 async def get_public_file_paths(db: Session = Depends(get_db)):
     """Get file paths for public access - no authentication required"""
     try:
-        # Get all file paths without user filtering
-        file_paths = db.query(FilePath).order_by(desc(FilePath.created_at)).limit(50).all()
+        # Get ALL file paths without user filtering - NO LIMIT
+        file_paths = db.query(FilePath).order_by(desc(FilePath.created_at)).all()
 
         # Extract just the full paths for simplicity
         paths = [fp.full_path for fp in file_paths if fp.full_path]
 
-        logger.info(f"Public endpoint returning {len(paths)} file paths")
+        logger.info(f"🔥🔥🔥 Public endpoint returning {len(paths)} file paths - ALL FILES - NO LIMIT 🔥🔥🔥")
 
         return {
             "file_paths": paths,
             "total_count": len(paths),
-            "message": f"Found {len(paths)} file paths"
+            "message": f"Found {len(paths)} file paths - ALL FILES"
         }
 
     except Exception as e:
@@ -117,18 +117,21 @@ async def sync_uploaded_files(
 async def get_dev_file_paths(db: Session = Depends(get_db)):
     """Get file paths for development - simple endpoint without authentication"""
     try:
-        # Get all file paths
-        file_paths = db.query(FilePath).order_by(desc(FilePath.created_at)).limit(10).all()
+        # Get all file paths - NO LIMIT
+        file_paths = db.query(FilePath).order_by(desc(FilePath.created_at)).all()
+        logger.info(f"DEBUG: Total file_paths queried: {len(file_paths)}")
 
         # Extract just the full paths for simplicity
         paths = [fp.full_path for fp in file_paths if fp.full_path]
+        logger.info(f"DEBUG: Paths with non-null full_path: {len(paths)}")
 
-        logger.info(f"Dev-paths endpoint returning {len(paths)} file paths")
+        # Returns ALL FILES with NO LIMIT
+        logger.info(f"🚀 dev-paths endpoint returning {len(paths)} file paths - ALL FILES - NO LIMIT 🚀")
 
         return {
             "file_paths": paths,
             "total_count": len(paths),
-            "message": f"Found {len(paths)} file paths"
+            "message": f"Found {len(paths)} file paths - VERSION 2.0"
         }
 
     except Exception as e:
