@@ -7,6 +7,7 @@ import CriteriaList from '@/components/features/Analysis/CriteriaList';
 import ProgressTracker from '@/components/features/Analysis/ProgressTracker';
 import ResultsTable from '@/components/features/Analysis/ResultsTable';
 import LatestPromptViewer from '@/components/features/Analysis/LatestPromptViewer';
+import LatestResponseViewer from '@/components/features/Analysis/LatestResponseViewer';
 import { useUploadStore } from '@/stores/uploadStore';
 import { criteriaService } from '@/services/criteriaService';
 import { analysisService, type AnalysisRequest, type AnalysisResponse } from '@/services/analysisService';
@@ -151,7 +152,7 @@ const GeneralAnalysisPage: React.FC = () => {
   const [results, setResults] = useState<CriteriaResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [resultsManuallyCleared, setResultsManuallyCleared] = useState(false);
-    const [activeTab, setActiveTab] = useState<'criteria' | 'results' | 'prompt'>('criteria');
+    const [activeTab, setActiveTab] = useState<'criteria' | 'results' | 'prompt' | 'response'>('criteria');
   const [selectedCriteriaIds, setSelectedCriteriaIds] = useState<string[]>([]);
   const [showProgress, setShowProgress] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -214,21 +215,37 @@ const GeneralAnalysisPage: React.FC = () => {
                   const statusMatch = criterionData.content.match(/\*\*Status:\*\*\s*([^*\n]+)/i);
                   if (statusMatch) {
                     const statusText = statusMatch[1].trim().toLowerCase();
-                    if (statusText.includes('não conforme') || statusText.includes('não atende') || statusText.includes('não cumpre')) {
+                    console.log(`[DEBUG] Status extracted: "${statusText}" from criterion: ${criterionData.name}`);
+
+                    // Check for "não conforme" first (most specific)
+                    if (statusText === 'não conforme' || statusText === 'nao conforme' || statusText.startsWith('não conforme') || statusText.startsWith('nao conforme')) {
                       status = 'non_compliant';
-                    } else if (statusText.includes('parcialmente conforme') || statusText.includes('parcialmente atende') || statusText.includes('atende parcialmente')) {
+                    } else if (statusText === 'parcialmente conforme' || statusText.startsWith('parcialmente conforme')) {
                       status = 'partially_compliant';
-                    } else if (statusText.includes('conforme') || statusText.includes('atende') || statusText.includes('cumpre')) {
+                    } else if (statusText === 'conforme' || statusText.startsWith('conforme')) {
                       status = 'compliant';
+                    } else {
+                      // Fallback: check for contains (less precise)
+                      if (statusText.includes('não conforme') || statusText.includes('nao conforme')) {
+                        status = 'non_compliant';
+                      } else if (statusText.includes('parcialmente conforme')) {
+                        status = 'partially_compliant';
+                      } else if (statusText.includes('conforme') && !statusText.includes('não') && !statusText.includes('nao')) {
+                        status = 'compliant';
+                      }
                     }
+                    console.log(`[DEBUG] Status mapped to: ${status} for criterion: ${criterionData.name}`);
                   } else {
                     // Fallback para busca por palavra-chave se formato estruturado não for encontrado
                     const content = criterionData.content.toLowerCase();
+                    console.log(`[DEBUG] No structured status found, using content search for criterion: ${criterionData.name}`);
+
                     if (content.includes('não atende') || content.includes('não cumpre') || content.includes('viol') || content.includes('defeito')) {
                       status = 'non_compliant';
                     } else if (content.includes('parcialmente') || content.includes('atende parcialmente') || content.includes('precisa melhorar')) {
                       status = 'partially_compliant';
                     }
+                    console.log(`[DEBUG] Fallback status mapped to: ${status} for criterion: ${criterionData.name}`);
                   }
 
                   // Tentar encontrar o ID numérico do critério
@@ -467,19 +484,47 @@ const GeneralAnalysisPage: React.FC = () => {
         confidence = confidenceValue > 1.0 ? Math.min(confidenceValue / 100, 1.0) : Math.min(confidenceValue, 1.0);
       }
 
-      // Extract status from content
+      // Extract status from content using formato estruturado primeiro
       let status: 'compliant' | 'partially_compliant' | 'non_compliant' = 'compliant';
-      if (content.toLowerCase().includes('não atende') ||
-          content.toLowerCase().includes('não cumpre') ||
-          content.toLowerCase().includes('viol') ||
-          content.toLowerCase().includes('defeito') ||
-          content.toLowerCase().includes('problema')) {
-        status = 'non_compliant';
-      } else if (content.toLowerCase().includes('parcialmente') ||
-                 content.toLowerCase().includes('atende parcialmente') ||
-                 content.toLowerCase().includes('precisa melhorar') ||
-                 content.toLowerCase().includes('recomenda')) {
-        status = 'partially_compliant';
+      const statusMatch = content.match(/\*\*Status:\*\*\s*([^*\n]+)/i);
+      if (statusMatch) {
+        const statusText = statusMatch[1].trim().toLowerCase();
+        console.log(`[DEBUG] Status extracted from structured format: "${statusText}"`);
+
+        // Check for "não conforme" first (most specific)
+        if (statusText === 'não conforme' || statusText === 'nao conforme' || statusText.startsWith('não conforme') || statusText.startsWith('nao conforme')) {
+          status = 'non_compliant';
+        } else if (statusText === 'parcialmente conforme' || statusText.startsWith('parcialmente conforme')) {
+          status = 'partially_compliant';
+        } else if (statusText === 'conforme' || statusText.startsWith('conforme')) {
+          status = 'compliant';
+        } else {
+          // Fallback: check for contains (less precise)
+          if (statusText.includes('não conforme') || statusText.includes('nao conforme')) {
+            status = 'non_compliant';
+          } else if (statusText.includes('parcialmente conforme')) {
+            status = 'partially_compliant';
+          } else if (statusText.includes('conforme') && !statusText.includes('não') && !statusText.includes('nao')) {
+            status = 'compliant';
+          }
+        }
+        console.log(`[DEBUG] Status mapped to: ${status}`);
+      } else {
+        // Fallback para busca por palavra-chave se formato estruturado não for encontrado
+        console.log(`[DEBUG] No structured status found, using content search`);
+        if (content.toLowerCase().includes('não atende') ||
+            content.toLowerCase().includes('não cumpre') ||
+            content.toLowerCase().includes('viol') ||
+            content.toLowerCase().includes('defeito') ||
+            content.toLowerCase().includes('problema')) {
+          status = 'non_compliant';
+        } else if (content.toLowerCase().includes('parcialmente') ||
+                   content.toLowerCase().includes('atende parcialmente') ||
+                   content.toLowerCase().includes('precisa melhorar') ||
+                   content.toLowerCase().includes('recomenda')) {
+          status = 'partially_compliant';
+        }
+        console.log(`[DEBUG] Fallback status mapped to: ${status}`);
       }
 
       // Create the new result object
@@ -691,19 +736,47 @@ const GeneralAnalysisPage: React.FC = () => {
         confidence = confidenceValue > 1.0 ? Math.min(confidenceValue / 100, 1.0) : Math.min(confidenceValue, 1.0);
       }
 
-      // Extract status from content
+      // Extract status from content using formato estruturado primeiro
       let status: 'compliant' | 'partially_compliant' | 'non_compliant' = 'compliant';
-      if (content.toLowerCase().includes('não atende') ||
-          content.toLowerCase().includes('não cumpre') ||
-          content.toLowerCase().includes('viol') ||
-          content.toLowerCase().includes('defeito') ||
-          content.toLowerCase().includes('problema')) {
-        status = 'non_compliant';
-      } else if (content.toLowerCase().includes('parcialmente') ||
-                 content.toLowerCase().includes('atende parcialmente') ||
-                 content.toLowerCase().includes('precisa melhorar') ||
-                 content.toLowerCase().includes('recomenda')) {
-        status = 'partially_compliant';
+      const statusMatch = content.match(/\*\*Status:\*\*\s*([^*\n]+)/i);
+      if (statusMatch) {
+        const statusText = statusMatch[1].trim().toLowerCase();
+        console.log(`[DEBUG] Status extracted from structured format: "${statusText}"`);
+
+        // Check for "não conforme" first (most specific)
+        if (statusText === 'não conforme' || statusText === 'nao conforme' || statusText.startsWith('não conforme') || statusText.startsWith('nao conforme')) {
+          status = 'non_compliant';
+        } else if (statusText === 'parcialmente conforme' || statusText.startsWith('parcialmente conforme')) {
+          status = 'partially_compliant';
+        } else if (statusText === 'conforme' || statusText.startsWith('conforme')) {
+          status = 'compliant';
+        } else {
+          // Fallback: check for contains (less precise)
+          if (statusText.includes('não conforme') || statusText.includes('nao conforme')) {
+            status = 'non_compliant';
+          } else if (statusText.includes('parcialmente conforme')) {
+            status = 'partially_compliant';
+          } else if (statusText.includes('conforme') && !statusText.includes('não') && !statusText.includes('nao')) {
+            status = 'compliant';
+          }
+        }
+        console.log(`[DEBUG] Status mapped to: ${status}`);
+      } else {
+        // Fallback para busca por palavra-chave se formato estruturado não for encontrado
+        console.log(`[DEBUG] No structured status found, using content search`);
+        if (content.toLowerCase().includes('não atende') ||
+            content.toLowerCase().includes('não cumpre') ||
+            content.toLowerCase().includes('viol') ||
+            content.toLowerCase().includes('defeito') ||
+            content.toLowerCase().includes('problema')) {
+          status = 'non_compliant';
+        } else if (content.toLowerCase().includes('parcialmente') ||
+                   content.toLowerCase().includes('atende parcialmente') ||
+                   content.toLowerCase().includes('precisa melhorar') ||
+                   content.toLowerCase().includes('recomenda')) {
+          status = 'partially_compliant';
+        }
+        console.log(`[DEBUG] Fallback status mapped to: ${status}`);
       }
 
       // Create the new result object - sempre usar o texto original do critério
@@ -1445,7 +1518,8 @@ const GeneralAnalysisPage: React.FC = () => {
           {[
             { id: 'criteria', name: 'Critérios', icon: Settings },
             { id: 'results', name: 'Resultados', icon: FileText },
-            { id: 'prompt', name: 'Último Prompt Enviado', icon: Eye }
+            { id: 'prompt', name: 'Último Prompt Enviado', icon: Eye },
+            { id: 'response', name: 'Última Resposta da LLM', icon: FileText }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -1483,6 +1557,10 @@ const GeneralAnalysisPage: React.FC = () => {
 
         {activeTab === 'prompt' && (
           <LatestPromptViewer />
+        )}
+
+        {activeTab === 'response' && (
+          <LatestResponseViewer />
         )}
 
         {/* Analysis Progress - shown in both tabs */}

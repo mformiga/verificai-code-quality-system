@@ -10,6 +10,11 @@ interface LatestPromptData {
   file_size?: number;
   modified_time?: number;
   file_path?: string;
+  token_usage?: {
+    total_tokens?: number;
+    prompt_tokens?: number;
+    completion_tokens?: number;
+  };
 }
 
 const LatestPromptViewer: React.FC = () => {
@@ -44,6 +49,12 @@ const LatestPromptViewer: React.FC = () => {
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleString('pt-BR');
+  };
+
+  const formatTokenCount = (tokens: number) => {
+    if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(1)}M`;
+    if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}K`;
+    return tokens.toString();
   };
 
   const downloadPrompt = () => {
@@ -124,6 +135,16 @@ const LatestPromptViewer: React.FC = () => {
               {promptData.file_size && (
                 <span className="ml-3">
                   Tamanho: {formatFileSize(promptData.file_size)}
+                </span>
+              )}
+              {promptData.token_usage && promptData.token_usage.total_tokens && (
+                <span className="ml-3">
+                  Tokens: {formatTokenCount(promptData.token_usage.total_tokens)}
+                  {promptData.token_usage.prompt_tokens && (
+                    <span className="ml-1 text-muted">
+                      (Prompt: {formatTokenCount(promptData.token_usage.prompt_tokens)})
+                    </span>
+                  )}
                 </span>
               )}
             </div>

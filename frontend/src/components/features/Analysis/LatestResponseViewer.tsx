@@ -10,6 +10,11 @@ interface LatestResponseData {
   file_size?: number;
   modified_time?: number;
   file_path?: string;
+  token_usage?: {
+    total_tokens?: number;
+    prompt_tokens?: number;
+    completion_tokens?: number;
+  };
 }
 
 const LatestResponseViewer: React.FC = () => {
@@ -44,6 +49,12 @@ const LatestResponseViewer: React.FC = () => {
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleString('pt-BR');
+  };
+
+  const formatTokenCount = (tokens: number) => {
+    if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(1)}M`;
+    if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}K`;
+    return tokens.toString();
   };
 
   const downloadResponse = () => {
@@ -124,6 +135,17 @@ const LatestResponseViewer: React.FC = () => {
               {responseData.file_size && (
                 <span className="ml-3">
                   Tamanho: {formatFileSize(responseData.file_size)}
+                </span>
+              )}
+              {responseData.token_usage && responseData.token_usage.total_tokens && (
+                <span className="ml-3">
+                  Tokens: {formatTokenCount(responseData.token_usage.total_tokens)}
+                  {responseData.token_usage.completion_tokens && responseData.token_usage.prompt_tokens && (
+                    <span className="ml-1 text-muted">
+                      (Prompt: {formatTokenCount(responseData.token_usage.prompt_tokens)},
+                      Completion: {formatTokenCount(responseData.token_usage.completion_tokens)})
+                    </span>
+                  )}
                 </span>
               )}
             </div>

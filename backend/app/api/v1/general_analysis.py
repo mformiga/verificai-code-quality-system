@@ -1564,6 +1564,34 @@ async def get_latest_prompt(
         file_size = file_stats.st_size
         modified_time = file_stats.st_mtime
 
+        # Try to get token usage information from the latest analysis result
+        token_usage = {}
+        try:
+            from app.core.database import SessionLocal
+            from app.models.analysis import AnalysisResult
+
+            db = SessionLocal()
+            # Get the most recent analysis result for the current user
+            latest_result = db.query(AnalysisResult)\
+                .join(AnalysisResult.analysis)\
+                .filter(Analysis.user_id == current_user.id)\
+                .order_by(AnalysisResult.created_at.desc())\
+                .first()
+
+            if latest_result and latest_result.tokens_used:
+                # Use basic token count if available
+                token_usage = {
+                    "total_tokens": latest_result.tokens_used,
+                    "prompt_tokens": latest_result.tokens_used,  # Approximation
+                    "completion_tokens": 0  # Not available separately
+                }
+
+            db.close()
+        except Exception as token_error:
+            print(f"DEBUG: Error getting token usage: {token_error}")
+            # Continue without token info
+            token_usage = {}
+
         return {
             "success": True,
             "message": "Prompt recuperado com sucesso",
@@ -1571,7 +1599,8 @@ async def get_latest_prompt(
             "file_exists": True,
             "file_size": file_size,
             "modified_time": modified_time,
-            "file_path": str(latest_prompt_path)
+            "file_path": str(latest_prompt_path),
+            "token_usage": token_usage
         }
 
     except Exception as e:
@@ -1580,7 +1609,8 @@ async def get_latest_prompt(
             "success": False,
             "message": f"Erro ao ler prompt: {str(e)}",
             "prompt_content": None,
-            "file_exists": False
+            "file_exists": False,
+            "token_usage": {}
         }
 
 
@@ -1615,6 +1645,34 @@ async def get_latest_response(
         file_size = file_stats.st_size
         modified_time = file_stats.st_mtime
 
+        # Try to get token usage information from the latest analysis result
+        token_usage = {}
+        try:
+            from app.core.database import SessionLocal
+            from app.models.analysis import AnalysisResult
+
+            db = SessionLocal()
+            # Get the most recent analysis result for the current user
+            latest_result = db.query(AnalysisResult)\
+                .join(AnalysisResult.analysis)\
+                .filter(Analysis.user_id == current_user.id)\
+                .order_by(AnalysisResult.created_at.desc())\
+                .first()
+
+            if latest_result and latest_result.tokens_used:
+                # Use basic token count if available
+                token_usage = {
+                    "total_tokens": latest_result.tokens_used,
+                    "prompt_tokens": latest_result.tokens_used,  # Approximation
+                    "completion_tokens": 0  # Not available separately
+                }
+
+            db.close()
+        except Exception as token_error:
+            print(f"DEBUG: Error getting token usage: {token_error}")
+            # Continue without token info
+            token_usage = {}
+
         return {
             "success": True,
             "message": "Resposta da LLM recuperada com sucesso",
@@ -1622,7 +1680,8 @@ async def get_latest_response(
             "file_exists": True,
             "file_size": file_size,
             "modified_time": modified_time,
-            "file_path": str(latest_response_path)
+            "file_path": str(latest_response_path),
+            "token_usage": token_usage
         }
 
     except Exception as e:
@@ -1631,6 +1690,7 @@ async def get_latest_response(
             "success": False,
             "message": f"Erro ao ler resposta da LLM: {str(e)}",
             "response_content": None,
-            "file_exists": False
+            "file_exists": False,
+            "token_usage": {}
         }
 
