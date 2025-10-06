@@ -1538,6 +1538,7 @@ async def get_latest_prompt(
     current_user: User = Depends(get_current_user)
 ) -> Any:
     """Get the latest prompt sent to LLM"""
+    print(f"DEBUG: === LATEST-PROMPT ENDPOINT CALLED BY USER {current_user.id} ===")
     try:
         from pathlib import Path
 
@@ -1564,27 +1565,35 @@ async def get_latest_prompt(
         file_size = file_stats.st_size
         modified_time = file_stats.st_mtime
 
-        # Try to get token usage information from the latest analysis result
+        # Try to get token usage information from the latest general analysis result
+        print("DEBUG: Starting token usage retrieval")  # Basic debug log
         token_usage = {}
         try:
             from app.core.database import SessionLocal
-            from app.models.analysis import AnalysisResult
+            from app.models.prompt import GeneralAnalysisResult
 
             db = SessionLocal()
-            # Get the most recent analysis result for the current user
-            latest_result = db.query(AnalysisResult)\
-                .join(AnalysisResult.analysis)\
-                .filter(Analysis.user_id == current_user.id)\
-                .order_by(AnalysisResult.created_at.desc())\
+            # Get the most recent general analysis result for the current user
+            latest_result = db.query(GeneralAnalysisResult)\
+                .filter(GeneralAnalysisResult.user_id == current_user.id)\
+                .order_by(GeneralAnalysisResult.created_at.desc())\
                 .first()
 
-            if latest_result and latest_result.tokens_used:
-                # Use basic token count if available
+            if latest_result and latest_result.usage:
+                # Use the complete token usage data from Gemini
+                usage_data = latest_result.usage
+                print("DEBUG: Found usage data")  # Simple debug log
+
                 token_usage = {
-                    "total_tokens": latest_result.tokens_used,
-                    "prompt_tokens": latest_result.tokens_used,  # Approximation
-                    "completion_tokens": 0  # Not available separately
+                    "total_tokens": usage_data.get("totalTokenCount", 0),
+                    "prompt_tokens": usage_data.get("promptTokenCount", 0),
+                    "completion_tokens": usage_data.get("candidatesTokenCount", 0),
+                    # Include additional token data for completeness
+                    "thoughts_tokens": usage_data.get("thoughtsTokenCount", 0)
                 }
+                print(f"DEBUG: Mapped token_usage: {token_usage}")  # Simple debug log
+            else:
+                print("DEBUG: No usage data found")  # Simple debug log
 
             db.close()
         except Exception as token_error:
@@ -1645,27 +1654,35 @@ async def get_latest_response(
         file_size = file_stats.st_size
         modified_time = file_stats.st_mtime
 
-        # Try to get token usage information from the latest analysis result
+        # Try to get token usage information from the latest general analysis result
+        print("DEBUG: Starting token usage retrieval")  # Basic debug log
         token_usage = {}
         try:
             from app.core.database import SessionLocal
-            from app.models.analysis import AnalysisResult
+            from app.models.prompt import GeneralAnalysisResult
 
             db = SessionLocal()
-            # Get the most recent analysis result for the current user
-            latest_result = db.query(AnalysisResult)\
-                .join(AnalysisResult.analysis)\
-                .filter(Analysis.user_id == current_user.id)\
-                .order_by(AnalysisResult.created_at.desc())\
+            # Get the most recent general analysis result for the current user
+            latest_result = db.query(GeneralAnalysisResult)\
+                .filter(GeneralAnalysisResult.user_id == current_user.id)\
+                .order_by(GeneralAnalysisResult.created_at.desc())\
                 .first()
 
-            if latest_result and latest_result.tokens_used:
-                # Use basic token count if available
+            if latest_result and latest_result.usage:
+                # Use the complete token usage data from Gemini
+                usage_data = latest_result.usage
+                print("DEBUG: Found usage data")  # Simple debug log
+
                 token_usage = {
-                    "total_tokens": latest_result.tokens_used,
-                    "prompt_tokens": latest_result.tokens_used,  # Approximation
-                    "completion_tokens": 0  # Not available separately
+                    "total_tokens": usage_data.get("totalTokenCount", 0),
+                    "prompt_tokens": usage_data.get("promptTokenCount", 0),
+                    "completion_tokens": usage_data.get("candidatesTokenCount", 0),
+                    # Include additional token data for completeness
+                    "thoughts_tokens": usage_data.get("thoughtsTokenCount", 0)
                 }
+                print(f"DEBUG: Mapped token_usage: {token_usage}")  # Simple debug log
+            else:
+                print("DEBUG: No usage data found")  # Simple debug log
 
             db.close()
         except Exception as token_error:

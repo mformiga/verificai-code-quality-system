@@ -131,4 +131,24 @@ export const analysisService = {
       throw error;
     }
   },
+
+  getLatestResponse: async () => {
+    try {
+      const response = await apiClient.get('/general-analysis/latest-response');
+      return response.data;
+    } catch (error) {
+      console.error('Error getting latest response:', error);
+      throw error;
+    }
+  },
+
+  getLatestRawResponse: async () => {
+    try {
+      const response = await apiClient.get('/general-analysis/latest-raw-response');
+      return response.data;
+    } catch (error) {
+      console.error('Error getting latest raw response:', error);
+      throw error;
+    }
+  },
 };

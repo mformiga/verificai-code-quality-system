@@ -139,7 +139,7 @@ const LatestResponseViewer: React.FC = () => {
               )}
               {responseData.token_usage && responseData.token_usage.total_tokens && (
                 <span className="ml-3">
-                  Tokens: {formatTokenCount(responseData.token_usage.total_tokens)}
+                  Quantidade de tokens: {formatTokenCount(responseData.token_usage.total_tokens)}
                   {responseData.token_usage.completion_tokens && responseData.token_usage.prompt_tokens && (
                     <span className="ml-1 text-muted">
                       (Prompt: {formatTokenCount(responseData.token_usage.prompt_tokens)},

@@ -139,7 +139,7 @@ const LatestPromptViewer: React.FC = () => {
               )}
               {promptData.token_usage && promptData.token_usage.total_tokens && (
                 <span className="ml-3">
-                  Tokens: {formatTokenCount(promptData.token_usage.total_tokens)}
+                  Quantidade de tokens: {formatTokenCount(promptData.token_usage.total_tokens)}
                   {promptData.token_usage.prompt_tokens && (
                     <span className="ml-1 text-muted">
                       (Prompt: {formatTokenCount(promptData.token_usage.prompt_tokens)})

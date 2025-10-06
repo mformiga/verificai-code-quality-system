@@ -75,12 +75,12 @@ class PromptService:
                 criteria_text += f"Avalie este critério especificamente usando o nome exato: \"{criterion.text}\"\n\n"
                 criteria_text += "---\n\n"
 
-            # Look for # delimiter in prompt
-            if "#" in prompt:
-                # Replace the first occurrence of # with formatted criteria
-                modified_prompt = prompt.replace("#", criteria_text.strip(), 1)
+            # Look for [INSERIR_CRITÉRIOS_AQUI] delimiter in prompt
+            if "[INSERIR_CRITÉRIOS_AQUI]" in prompt:
+                # Replace the placeholder with formatted criteria
+                modified_prompt = prompt.replace("[INSERIR_CRITÉRIOS_AQUI]", criteria_text.strip())
             else:
-                # If no # found, append criteria to the end
+                # If no placeholder found, append criteria to the end
                 modified_prompt = prompt + f"\n\nCritérios a serem avaliados:\n{criteria_text}"
 
             # Now update the structure example to match the actual number of criteria
@@ -124,6 +124,11 @@ class PromptService:
 **Recomendações:**
 - [Lista de recomendações específicas]
 
+**IMPORTANTE: Ao finalizar a análise deste critério, inclua EXATAMENTE a tag: #FIM_ANALISE_CRITERIO#**
+Esta tag marca o fim completo da análise do critério acima.
+
+#FIM_ANALISE_CRITERIO#
+
 ## Recomendações Gerais
 [Lista de recomendações gerais]
 
@@ -144,8 +149,8 @@ class PromptService:
 CRÍTICO: Esta análise deve conter APENAS UM critério de avaliação.
 - NÃO crie múltiplos critérios
 - NÃO invente critérios adicionais
-- NÃO use "Critério 1", "Critério 2", etc.
-- Use OBRIGATORIAMENTE o cabeçalho exato: "## Critério: {criteria_text}"
+- Use OBRIGATORIAMENTE o cabeçalho exato: "## Critério 1: {criteria_text}"
+- A numeração é OBRIGATÓRIA para o processamento correto da análise
 - NÃO modifique o nome do critério: use exatamente "{criteria_text}"
 - Avalie exclusivamente o critério fornecido acima
 - O título do critério na resposta DEVE ser idêntico ao fornecido
@@ -179,8 +184,8 @@ CRÍTICO: Esta análise deve conter exatamente {count} critérios de avaliação
 - Use exatamente os nomes dos critérios fornecidos acima
 - NÃO modifique os nomes dos critérios
 - NÃO invente critérios adicionais
-- NÃO use "Critério 1", "Critério 2" como genéricos - use os nomes específicos fornecidos
-- Cada critério DEVE usar o cabeçalho exato: "## Critério: [Nome exato do critério]"
+- CADA critério DEVE usar o cabeçalho com numeração: "## Critério 1: [Nome exato do critério]", "## Critério 2: [Nome exato do critério]", etc.
+- A numeração é OBRIGATÓRIA para o processamento correto da análise
 
 """
 
@@ -204,10 +209,15 @@ CRÍTICO: Esta análise deve conter exatamente {count} critérios de avaliação
 **Recomendações:**
 - [Lista de recomendações específicas]
 
+**IMPORTANTE: Ao finalizar a análise deste critério, inclua EXATAMENTE a tag: #FIM_ANALISE_CRITERIO#**
+Esta tag marca o fim completo da análise do critério acima.
+
+#FIM_ANALISE_CRITERIO#
+
 """
 
             # Replace the entire format section with the correct number of examples
-            format_section_pattern = r'Formate sua resposta em markdown com a seguinte estrutura exata:.*?(?=IMPORTANTE:|#FIM#|$)'
+            format_section_pattern = r'Formate sua resposta em markdown com a seguinte estrutura exata:.*?(?=## Recomendações Gerais|#FIM#|$)'
 
             new_format_section = f"""Formate sua resposta em markdown com a seguinte estrutura exata:
 
@@ -228,6 +238,14 @@ CRÍTICO: Esta análise deve conter exatamente {count} critérios de avaliação
         """Get default general prompt"""
         return """
 Você é um especialista em análise de código.
+
+**INSTRUÇÃO CRÍTICA - OBRIGATÓRIO:**
+Para cada critério de avaliação, você DEVE incluir EXATAMENTE a tag #FIM_ANALISE_CRITERIO# ao final da análise completa do critério.
+Esta tag é ESSENCIAL para garantir que a análise completa seja capturada pelo sistema.
+NÃO trunc suas respostas - forneça análises detalhadas e completas.
+
+### CRITÉRIOS PARA ANÁLISE:
+[INSERIR_CRITÉRIOS_AQUI]
 
 ### CÓDIGO FONTE PARA ANÁLISE:
 ```typescript
@@ -281,6 +299,11 @@ Formate sua resposta em markdown com a seguinte estrutura exata:
 
 **Recomendações:**
 - [Lista de recomendações específicas]
+
+**IMPORTANTE: Ao finalizar a análise deste critério, inclua EXATAMENTE a tag: #FIM_ANALISE_CRITERIO#**
+Esta tag marca o fim completo da análise do critério acima.
+
+#FIM_ANALISE_CRITERIO#
 
 ## Recomendações Gerais
 [Lista de recomendações gerais]

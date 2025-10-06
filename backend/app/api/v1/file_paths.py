@@ -126,7 +126,7 @@ async def get_dev_file_paths(db: Session = Depends(get_db)):
         logger.info(f"DEBUG: Paths with non-null full_path: {len(paths)}")
 
         # Returns ALL FILES with NO LIMIT
-        logger.info(f"🚀 dev-paths endpoint returning {len(paths)} file paths - ALL FILES - NO LIMIT 🚀")
+        logger.info(f"[INFO] dev-paths endpoint returning {len(paths)} file paths - ALL FILES - NO LIMIT")
 
         return {
             "file_paths": paths,
