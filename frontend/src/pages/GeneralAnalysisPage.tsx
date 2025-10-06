@@ -11,6 +11,9 @@ import LatestResponseViewer from '@/components/features/Analysis/LatestResponseV
 import { useUploadStore } from '@/stores/uploadStore';
 import { criteriaService } from '@/services/criteriaService';
 import { analysisService, type AnalysisRequest, type AnalysisResponse } from '@/services/analysisService';
+import Modal from '@/components/common/Modal';
+import Alert from '@/components/common/Alert';
+import Button from '@/components/common/Button';
 import './GeneralAnalysisPage.css';
 
 interface CriteriaResult {
@@ -156,6 +159,8 @@ const GeneralAnalysisPage: React.FC = () => {
   const [selectedCriteriaIds, setSelectedCriteriaIds] = useState<string[]>([]);
   const [showProgress, setShowProgress] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [pendingAnalysis, setPendingAnalysis] = useState<string[] | null>(null);
   const [latestTokenInfo, setLatestTokenInfo] = useState<any>(null);
 
   // Carregar resultados salvos do banco de dados na inicialização
@@ -897,6 +902,18 @@ const GeneralAnalysisPage: React.FC = () => {
       return;
     }
 
+    // Verificar se há resultados anteriores e mostrar confirmação
+    if (results.length > 0) {
+      setPendingAnalysis(selectedCriteriaIds);
+      setConfirmModalOpen(true);
+      return;
+    }
+
+    // Se não há resultados anteriores, prosseguir diretamente
+    executeAnalysis(selectedCriteriaIds);
+  };
+
+  const executeAnalysis = async (selectedCriteriaIds: string[]) => {
     try {
       setLoading(true);
       setSelectedCriteriaIds(selectedCriteriaIds);
@@ -1216,6 +1233,19 @@ const GeneralAnalysisPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleConfirmAnalysis = () => {
+    setConfirmModalOpen(false);
+    if (pendingAnalysis) {
+      executeAnalysis(pendingAnalysis);
+      setPendingAnalysis(null);
+    }
+  };
+
+  const handleCancelAnalysis = () => {
+    setConfirmModalOpen(false);
+    setPendingAnalysis(null);
   };
 
   const [allCriteria, setAllCriteria] = useState<any[]>([]);
@@ -1622,6 +1652,51 @@ const GeneralAnalysisPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Modal de Confirmação de Nova Análise */}
+      <Modal
+        isOpen={confirmModalOpen}
+        onClose={handleCancelAnalysis}
+        title="⚠️ Confirmar Nova Análise"
+        size="md"
+      >
+        <div className="space-y-4">
+          <Alert variant="warning" title="Atenção!">
+            Você está prestes a iniciar uma nova análise, e todos os resultados das análises anteriores serão <strong>permanentemente perdidos</strong>.
+          </Alert>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="font-medium text-blue-800 mb-2">📋 Recomendação:</h4>
+            <p className="text-sm text-blue-700">
+              Antes de prosseguir, considere gerar um relatório da análise atual para salvar seus resultados.
+              Você pode exportar os resultados usando os botões de download disponíveis na aba de resultados.
+            </p>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+            <p className="text-sm text-gray-600">
+              <strong>Deseja prosseguir com a nova análise?</strong>
+            </p>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <Button
+              variant="outline"
+              onClick={handleCancelAnalysis}
+              className="px-4 py-2"
+            >
+              ❌ Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmAnalysis}
+              className="px-4 py-2"
+            >
+              ⚠️ Prosseguir e Perder Dados
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       </div>
   );
