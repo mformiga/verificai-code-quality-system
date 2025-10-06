@@ -129,6 +129,44 @@ class LLMService:
                 detail=f"Error calling LLM API: {str(e)}"
             )
 
+    def _filter_prompt_instructions(self, response: str) -> str:
+        """Filter out prompt instruction messages from LLM responses"""
+        print(f"=== FILTERING PROMPT INSTRUCTIONS ===")
+
+        # Patterns to identify prompt instruction messages that should be removed
+        instruction_patterns = [
+            r'IMPORTANTE:\s*Ao finalizar a análise deste critério, inclua EXATAMENTE a tag[^#]*?#FIM_ANALISE_CRITERIO#',
+            r'Esta tag marca o fim completo da análise do critério acima\.',
+            r'Esta marcação indica que todos os aspectos técnicos foram abordados[^#]*?análise completa e detalhada\.',
+            r'Esta estrutura garante que cada critério seja analisado de forma[^#]*?#FIM_ANALISE_CRITERIO#',
+            r'Este é o marcador final que indica a conclusão[^#]*?análise técnica completa\.',
+            r'Por favor, inclua exatamente esta tag ao final[^#]*?#FIM_ANALISE_CRITERIO#',
+            r'Esta instrução é apenas para orientação[^#]*?não deve ser enviada pela LLM[^#]*?não faz sentido',
+            r'\\*\\*IMPORTANTE:\\*\\*[^\\*]*?inclua EXATAMENTE a tag[^\\*]*?\\*\\*',
+            r'Esta tag.*?marca o fim.*?análise.*?critério.*?acima',
+            r'Esta marcação.*?indica que.*?aspectos técnicos.*?foram abordados',
+            r'Esta estrutura.*?garante que.*?cada critério.*?seja analisado',
+            r'Este é o marcador final.*?indica a conclusão.*?análise técnica',
+        ]
+
+        filtered_response = response
+
+        # Apply each pattern to filter out instruction messages
+        for pattern in instruction_patterns:
+            filtered_response = re.sub(pattern, '', filtered_response, flags=re.MULTILINE | re.DOTALL | re.IGNORECASE)
+
+        # Clean up extra whitespace and blank lines that might be left after filtering
+        filtered_response = re.sub(r'\n\s*\n\s*\n', '\n\n', filtered_response)  # Reduce multiple blank lines
+        filtered_response = filtered_response.strip()
+
+        print(f"=== FILTERING COMPLETE ===")
+        print(f"Original length: {len(response)}")
+        print(f"Filtered length: {len(filtered_response)}")
+        print(f"Removed {len(response) - len(filtered_response)} characters")
+        print(f"=== END FILTERING ===")
+
+        return filtered_response
+
     def extract_markdown_content(self, response: str) -> Dict[str, str]:
         """Extract content from markdown code blocks in LLM response"""
         print(f"=== EXTRACT_MARKDOWN_CONTENT CALLED ===")
@@ -150,6 +188,9 @@ class LLMService:
         print(f"Response length: {len(response)}")
         print(f"Response preview: {response[:800]}")
         print(f"=== END RAW RESPONSE ===")
+
+        # Filter out prompt instruction messages
+        response = self._filter_prompt_instructions(response)
 
         # Check for #FIM# tag first - this is the main completion indicator
         fim_tag_pos = response.find('#FIM#')

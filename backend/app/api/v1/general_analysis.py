@@ -1,5 +1,6 @@
 """
 General analysis endpoints for VerificAI Backend - STO-007
+Updated for token display fix - FINAL VERSION
 """
 
 from typing import List, Optional, Any
@@ -1566,7 +1567,7 @@ async def get_latest_prompt(
         modified_time = file_stats.st_mtime
 
         # Try to get token usage information from the latest general analysis result
-        print("DEBUG: Starting token usage retrieval")  # Basic debug log
+        print("DEBUG: Starting token usage retrieval - UPDATED AGAIN")  # Basic debug log
         token_usage = {}
         try:
             from app.core.database import SessionLocal
@@ -1655,7 +1656,7 @@ async def get_latest_response(
         modified_time = file_stats.st_mtime
 
         # Try to get token usage information from the latest general analysis result
-        print("DEBUG: Starting token usage retrieval")  # Basic debug log
+        print("DEBUG: Starting token usage retrieval - UPDATED AGAIN")  # Basic debug log
         token_usage = {}
         try:
             from app.core.database import SessionLocal
