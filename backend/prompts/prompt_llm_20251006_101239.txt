@@ -1,11 +1,10 @@
 ================================================================================
-LTIMO PROMPT ENVIADO PARA LLM - 2025-10-06T10:17:04.887893
+PROMPT ENVIADO PARA LLM - 2025-10-06T10:12:39.025592
 ================================================================================
 
-TAMANHO TOTAL: 135116 caracteres
+TAMANHO TOTAL: 133427 caracteres
 ARQUIVOS PROCESSADOS: 89
-CRITRIOS: 3
-USURIO: admin (ID: 1)
+CRITRIOS: 1
 
 ================================================================================
 CONTEDO COMPLETO DO PROMPT:
@@ -20,31 +19,21 @@ Esta tag é ESSENCIAL para garantir que a análise completa seja capturada pelo 
 NÃO trunc suas respostas - forneça análises detalhadas e completas.
 
 ### CRITÉRIOS PARA ANÁLISE:
-## Critério 1: Princípios SOLID: Analisar a aplicação de princípios de design consolidados, como a Responsabilidade Única - SRP (evitando componentes que acumulam funções díspares) como controllers com múltiplos endpoints e a Inversão de Dependência (favorecendo o uso de mecanismos de injeção de dependência em vez da instanciação manual de componentes) como a instanciação manual de dependências em vez de usar a injeção padrão do NestJS
-
-Avalie este critério especificamente usando o nome exato: "Princípios SOLID: Analisar a aplicação de princípios de design consolidados, como a Responsabilidade Única - SRP (evitando componentes que acumulam funções díspares) como controllers com múltiplos endpoints e a Inversão de Dependência (favorecendo o uso de mecanismos de injeção de dependência em vez da instanciação manual de componentes) como a instanciação manual de dependências em vez de usar a injeção padrão do NestJS"
-
----
-
-## Critério 2: Acoplamento a Frameworks: Detectar o uso de funcionalidades que acoplam o código a implementações específicas do framework (ex: uso de @Res() do Express no NestJS), o que dificulta a manutenção e a aplicação de interceptors e pipes globais.
+## Critério: Acoplamento a Frameworks: Detectar o uso de funcionalidades que acoplam o código a implementações específicas do framework (ex: uso de @Res() do Express no NestJS), o que dificulta a manutenção e a aplicação de interceptors e pipes globais.
 
 Avalie este critério especificamente usando o nome exato: "Acoplamento a Frameworks: Detectar o uso de funcionalidades que acoplam o código a implementações específicas do framework (ex: uso de @Res() do Express no NestJS), o que dificulta a manutenção e a aplicação de interceptors e pipes globais."
 
 ---
 
-## Critério 3: Acoplamento a Tecnologias: Detectar o uso de funcionalidades que acoplam o código diretamente a implementações da plataforma ou framework subjacente, o que impede o reuso, a testabilidade e a portabilidade da lógica de negócio.
-
-Avalie este critério especificamente usando o nome exato: "Acoplamento a Tecnologias: Detectar o uso de funcionalidades que acoplam o código diretamente a implementações da plataforma ou framework subjacente, o que impede o reuso, a testabilidade e a portabilidade da lógica de negócio."
-
----
-
 #
-CRÍTICO: Esta análise deve conter exatamente 3 critérios de avaliação.
-- Use exatamente os nomes dos critérios fornecidos acima
-- NÃO modifique os nomes dos critérios
+CRÍTICO: Esta análise deve conter APENAS UM critério de avaliação.
+- NÃO crie múltiplos critérios
 - NÃO invente critérios adicionais
-- CADA critério DEVE usar o cabeçalho com numeração: "## Critério 1: [Nome exato do critério]", "## Critério 2: [Nome exato do critério]", etc.
+- Use OBRIGATORIAMENTE o cabeçalho exato: "## Critério 1: Acoplamento a Frameworks: Detectar o uso de funcionalidades que acoplam o código a implementações específicas do framework (ex: uso de @Res() do Express no NestJS), o que dificulta a manutenção e a aplicação de interceptors e pipes globais."
 - A numeração é OBRIGATÓRIA para o processamento correto da análise
+- NÃO modifique o nome do critério: use exatamente "Acoplamento a Frameworks: Detectar o uso de funcionalidades que acoplam o código a implementações específicas do framework (ex: uso de @Res() do Express no NestJS), o que dificulta a manutenção e a aplicação de interceptors e pipes globais."
+- Avalie exclusivamente o critério fornecido acima
+- O título do critério na resposta DEVE ser idêntico ao fornecido
 
 ## CÓDIGO FONTE PARA ANÁLISE:
 ```typescript
@@ -4323,38 +4312,7 @@ Formate sua resposta em markdown com a seguinte estrutura exata:
 ## Avaliação Geral
 [Resumo geral da análise]
 
-
-## Critério 1: [Nome do critério]
-**Status:** [Conforme/Parcialmente Conforme/Não Conforme]
-**Confiança:** [X.X]%
-
-[Avaliação detalhada com evidências do código]
-
-**Recomendações:**
-- [Lista de recomendações específicas]
-
-**IMPORTANTE: Ao finalizar a análise deste critério, inclua EXATAMENTE a tag: #FIM_ANALISE_CRITERIO#**
-Esta tag marca o fim completo da análise do critério acima.
-
-#FIM_ANALISE_CRITERIO#
-
-
-## Critério 2: [Nome do critério]
-**Status:** [Conforme/Parcialmente Conforme/Não Conforme]
-**Confiança:** [X.X]%
-
-[Avaliação detalhada com evidências do código]
-
-**Recomendações:**
-- [Lista de recomendações específicas]
-
-**IMPORTANTE: Ao finalizar a análise deste critério, inclua EXATAMENTE a tag: #FIM_ANALISE_CRITERIO#**
-Esta tag marca o fim completo da análise do critério acima.
-
-#FIM_ANALISE_CRITERIO#
-
-
-## Critério 3: [Nome do critério]
+## Critério: Acoplamento a Frameworks: Detectar o uso de funcionalidades que acoplam o código a implementações específicas do framework (ex: uso de @Res() do Express no NestJS), o que dificulta a manutenção e a aplicação de interceptors e pipes globais.
 **Status:** [Conforme/Parcialmente Conforme/Não Conforme]
 **Confiança:** [X.X]%
 
@@ -4369,10 +4327,9 @@ Esta tag marca o fim completo da análise do critério acima.
 #FIM_ANALISE_CRITERIO#
 
 ## Recomendações Gerais
-[Lista de recomendações gerais]## Recomendações Gerais
 [Lista de recomendações gerais]
 
-IMPORTANTE: Ao finalizar sua análise, inclua exatamente a tag #FIM# para indicar que a resposta está completa.
+#FIM##FIM# para indicar que a resposta está completa.
 
 #FIM#
 

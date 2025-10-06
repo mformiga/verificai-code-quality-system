@@ -1,0 +1,118 @@
+================================================================================
+PROMPT ENVIADO PARA LLM - 2025-10-06T00:46:27.176970
+================================================================================
+
+TAMANHO TOTAL: 4089 caracteres
+ARQUIVOS PROCESSADOS: 89
+CRITRIOS: 2
+
+================================================================================
+CONTEDO COMPLETO DO PROMPT:
+================================================================================
+
+
+Você é um especialista em análise de código.
+
+**INSTRUÇÃO CRÍTICA - OBRIGATÓRIO:**
+Para cada critério de avaliação, você DEVE incluir EXATAMENTE a tag #FIM_ANALISE_CRITERIO# ao final da análise completa do critério.
+Esta tag é ESSENCIAL para garantir que a análise completa seja capturada pelo sistema.
+NÃO trunc suas respostas - forneça análises detalhadas e completas.
+
+### CRITÉRIOS PARA ANÁLISE:
+## Critério 1: Princípios SOLID: Analisar violações do Princípio da Responsabilidade Única (SRP), como controllers com múltiplos endpoints, e do Princípio da Inversão de Dependência (DI), como a instanciação manual de dependências em vez de usar a injeção padrão do NestJS.
+
+Avalie este critério especificamente usando o nome exato: "Princípios SOLID: Analisar violações do Princípio da Responsabilidade Única (SRP), como controllers com múltiplos endpoints, e do Princípio da Inversão de Dependência (DI), como a instanciação manual de dependências em vez de usar a injeção padrão do NestJS."
+
+---
+
+## Critério 2: Acoplamento a Frameworks: Detectar o uso de funcionalidades que acoplam o código a implementações específicas do framework (ex: uso de @Res() do Express no NestJS), o que dificulta a manutenção e a aplicação de interceptors e pipes globais.
+
+Avalie este critério especificamente usando o nome exato: "Acoplamento a Frameworks: Detectar o uso de funcionalidades que acoplam o código a implementações específicas do framework (ex: uso de @Res() do Express no NestJS), o que dificulta a manutenção e a aplicação de interceptors e pipes globais."
+
+---
+
+#
+CRÍTICO: Esta análise deve conter exatamente 2 critérios de avaliação.
+- Use exatamente os nomes dos critérios fornecidos acima
+- NÃO modifique os nomes dos critérios
+- NÃO invente critérios adicionais
+- CADA critério DEVE usar o cabeçalho com numeração: "## Critério 1: [Nome exato do critério]", "## Critério 2: [Nome exato do critério]", etc.
+- A numeração é OBRIGATÓRIA para o processamento correto da análise
+
+## CÓDIGO FONTE PARA ANÁLISE:
+```typescript
+[INSERIR CÓDIGO AQUI]
+```
+
+**IMPORTANTE:** O código acima pode conter múltiplos arquivos. Cada arquivo está claramente identificado com cabeçalhos no formato:
+```
+============================================================
+ARQUIVO: [nome_do_arquivo]
+TAMANHO: [X] caracteres
+TIPO: [EXTENSÃO]
+============================================================
+```
+
+Analise TODOS os arquivos de código acima como um conjunto integrado, considerando as interações entre eles, com base nos seguintes critérios:
+
+#
+
+Para cada critério, forneça:
+1. Uma avaliação clara sobre se o código atende ao critério
+2. Nível de confiança (0.0-1.0)
+3. Evidências específicas do código
+4. Recomendações para melhoria, se aplicável
+
+Forneça sua análise em um formato estruturado que inclua:
+- Avaliação geral
+- Avaliações individuais dos critérios
+- Exemplos de código que apoiam suas conclusões
+- Recomendações acionáveis
+
+Formate sua resposta em markdown com a seguinte estrutura exata:
+
+## Avaliação Geral
+[Resumo geral da análise]
+
+
+## Critério 1: [Nome do critério]
+**Status:** [Conforme/Parcialmente Conforme/Não Conforme]
+**Confiança:** [X.X]%
+
+[Avaliação detalhada com evidências do código]
+
+**Recomendações:**
+- [Lista de recomendações específicas]
+
+**IMPORTANTE: Ao finalizar a análise deste critério, inclua EXATAMENTE a tag: #FIM_ANALISE_CRITERIO#**
+Esta tag marca o fim completo da análise do critério acima.
+
+#FIM_ANALISE_CRITERIO#
+
+
+## Critério 2: [Nome do critério]
+**Status:** [Conforme/Parcialmente Conforme/Não Conforme]
+**Confiança:** [X.X]%
+
+[Avaliação detalhada com evidências do código]
+
+**Recomendações:**
+- [Lista de recomendações específicas]
+
+**IMPORTANTE: Ao finalizar a análise deste critério, inclua EXATAMENTE a tag: #FIM_ANALISE_CRITERIO#**
+Esta tag marca o fim completo da análise do critério acima.
+
+#FIM_ANALISE_CRITERIO#
+
+## Recomendações Gerais
+[Lista de recomendações gerais]## Recomendações Gerais
+[Lista de recomendações gerais]
+
+IMPORTANTE: Ao finalizar sua análise, inclua exatamente a tag #FIM# para indicar que a resposta está completa.
+
+#FIM#
+
+
+================================================================================
+FIM DO PROMPT
+================================================================================

@@ -1220,7 +1220,6 @@ const GeneralAnalysisPage: React.FC = () => {
 
   const [allCriteria, setAllCriteria] = useState<any[]>([]);
   const [fullCriteriaText, setFullCriteriaText] = useState<Record<string, string>>({});
-  const [refreshingFiles, setRefreshingFiles] = useState(false);
 
   const getFullCriterionText = (criterionName: string) => {
     // Tentar encontrar correspondência exata primeiro
@@ -1252,23 +1251,7 @@ const GeneralAnalysisPage: React.FC = () => {
     }
   };
 
-  const handleRefreshFiles = async () => {
-    setRefreshingFiles(true);
-    try {
-      const freshPaths = await reloadDbPaths();
-      if (freshPaths.length > 0) {
-        alert(`${freshPaths.length} arquivo(s) encontrado(s) no banco de dados!`);
-      } else {
-        alert('Nenhum arquivo encontrado no banco de dados.\n\nPor favor:\n1. Vá para a página de upload\n2. Selecione uma pasta com arquivos\n3. Volva aqui e clique em "Recarregar Arquivos"');
-      }
-    } catch (error) {
-      console.error('Erro ao recarregar arquivos:', error);
-      alert('Erro ao recarregar arquivos. Por favor, tente novamente.');
-    } finally {
-      setRefreshingFiles(false);
-    }
-  };
-
+  
   useEffect(() => {
     loadAllCriteria();
   }, []);
@@ -1562,22 +1545,7 @@ const GeneralAnalysisPage: React.FC = () => {
                   Configure seus critérios de avaliação, faça upload dos arquivos e execute análises de código baseadas em padrões de qualidade gerais
                 </p>
               </div>
-              <div className="br-col-auto">
-                <button
-                  onClick={handleRefreshFiles}
-                  disabled={refreshingFiles}
-                  className="br-button secondary"
-                  title="Recarregar arquivos"
-                >
-                  {refreshingFiles ? (
-                    <RefreshCw className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                  )}
-                  {refreshingFiles ? 'Recarregando...' : 'Recarregar Arquivos'}
-                </button>
               </div>
-            </div>
           </div>
         </div>
       </div>
