@@ -52,7 +52,8 @@
       "Bash(grep:*)",
       "Bash(winpty docker exec:*)",
       "Bash(move:*)",
-      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTk3MTAxNTQsInN1YiI6ImFkbWluIn0.5W8DxNROYrBrd21HVzEgFO_qaA-vWznWgIsvoJ0kXFg\")"
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTk3MTAxNTQsInN1YiI6ImFkbWluIn0.5W8DxNROYrBrd21HVzEgFO_qaA-vWznWgIsvoJ0kXFg\")",
+      "Bash(\"C:\\Users\\formi\\AppData\\Local\\Programs\\Python\\Python311\\python.exe\" -c \"\nfrom app.core.database import SessionLocal\nfrom app.models.prompt import GeneralAnalysisResult\n\ndb = SessionLocal()\n# Obter a análise mais recente\nlatest = db.query(GeneralAnalysisResult).order_by(GeneralAnalysisResult.created_at.desc()).first()\n\nif latest:\n    print(f''Latest analysis ID: {latest.id}'')\n    print(f''Created at: {latest.created_at}'')\n    print(f''User ID: {latest.user_id}'')\n    print(f''Usage data: {latest.usage}'')\n    print(f''Raw response length: {len(latest.raw_response) if latest.raw_response else 0}'')\nelse:\n    print(''No analysis found'')\n\ndb.close()\n\")"
     ],
     "deny": [],
     "ask": []

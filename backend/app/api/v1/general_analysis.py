@@ -3,6 +3,8 @@ General analysis endpoints for VerificAI Backend - STO-007
 Updated for token display fix - FINAL VERSION
 """
 
+print("MODULE LOADED: general_analysis.py - 2025-10-05 23:08 - FIXED")
+
 from typing import List, Optional, Any
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks, Body, Request
@@ -129,7 +131,7 @@ class AnalyzeSelectedRequest(BaseModel):
     """Request model for analyzing selected criteria"""
     criteria_ids: List[str]
     file_paths: List[str]
-    analysis_name: Optional[str] = "Análise de Critérios Gerais"
+    analysis_name: Optional[str] = "Anlise de Critrios Gerais"
     temperature: float = 0.7
     max_tokens: int = 500000
 
@@ -706,14 +708,14 @@ async def analyze_selected_criteria(
             print(f"DEBUG: Total source code size: {len(all_source_code)} characters")
 
             if total_files_processed == 0:
-                raise HTTPException(status_code=500, detail="Nenhum arquivo pôde ser lido para análise")
+                raise HTTPException(status_code=500, detail="Nenhum arquivo pde ser lido para anlise")
 
         except Exception as e:
             print(f"DEBUG: Error reading source code files: {e}")
-            raise HTTPException(status_code=500, detail=f"Erro ao ler arquivos de código fonte: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Erro ao ler arquivos de cdigo fonte: {str(e)}")
 
         # Replace placeholder with combined source code from all files
-        final_prompt = modified_prompt.replace("[INSERIR CÓDIGO AQUI]", all_source_code)
+        final_prompt = modified_prompt.replace("[INSERIR CDIGO AQUI]", all_source_code)
         print(f"DEBUG: Replaced placeholder with source code")
         print(f"DEBUG: Final prompt length: {len(final_prompt)}")
 
@@ -747,9 +749,9 @@ async def analyze_selected_criteria(
                 f.write("="*80 + "\n\n")
                 f.write(f"TAMANHO TOTAL: {len(final_prompt)} caracteres\n")
                 f.write(f"ARQUIVOS PROCESSADOS: {total_files_processed}\n")
-                f.write(f"CRITÉRIOS: {len(request.criteria_ids)}\n\n")
+                f.write(f"CRITRIOS: {len(request.criteria_ids)}\n\n")
                 f.write("="*80 + "\n")
-                f.write("CONTEÚDO COMPLETO DO PROMPT:\n")
+                f.write("CONTEDO COMPLETO DO PROMPT:\n")
                 f.write("="*80 + "\n\n")
                 f.write(final_prompt)
                 f.write("\n\n" + "="*80 + "\n")
@@ -759,14 +761,14 @@ async def analyze_selected_criteria(
             # Write the complete prompt to latest file (always the most recent)
             with open(latest_prompt_path, "w", encoding="utf-8") as f:
                 f.write("="*80 + "\n")
-                f.write(f"ÚLTIMO PROMPT ENVIADO PARA LLM - {datetime.now().isoformat()}\n")
+                f.write(f"LTIMO PROMPT ENVIADO PARA LLM - {datetime.now().isoformat()}\n")
                 f.write("="*80 + "\n\n")
                 f.write(f"TAMANHO TOTAL: {len(final_prompt)} caracteres\n")
                 f.write(f"ARQUIVOS PROCESSADOS: {total_files_processed}\n")
-                f.write(f"CRITÉRIOS: {len(request.criteria_ids)}\n")
-                f.write(f"USUÁRIO: {current_user.username} (ID: {current_user.id})\n\n")
+                f.write(f"CRITRIOS: {len(request.criteria_ids)}\n")
+                f.write(f"USURIO: {current_user.username} (ID: {current_user.id})\n\n")
                 f.write("="*80 + "\n")
-                f.write("CONTEÚDO COMPLETO DO PROMPT:\n")
+                f.write("CONTEDO COMPLETO DO PROMPT:\n")
                 f.write("="*80 + "\n\n")
                 f.write(final_prompt)
                 f.write("\n\n" + "="*80 + "\n")
@@ -774,7 +776,7 @@ async def analyze_selected_criteria(
                 f.write("="*80 + "\n")
 
             print(f"DEBUG: Prompt salvo em: {prompt_file_path}")
-            print(f"DEBUG: Último prompt disponível em: {latest_prompt_path}")
+            print(f"DEBUG: ltimo prompt disponvel em: {latest_prompt_path}")
 
         except Exception as save_error:
             print(f"DEBUG: Erro ao salvar prompt em arquivo: {save_error}")
@@ -809,7 +811,7 @@ async def analyze_selected_criteria(
             traceback.print_exc()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Erro na comunicação com o serviço de LLM: {str(llm_error)}"
+                detail=f"Erro na comunicao com o servio de LLM: {str(llm_error)}"
             )
 
         print("XXXXXXXXXX DEBUG: LLM response received XXXXXXXXXX")
@@ -839,10 +841,10 @@ async def analyze_selected_criteria(
 
             # DEBUG: Test if response contains expected patterns
             print(f"=== DEBUG RESPONSE PATTERNS ===")
-            print(f"Contains 'Critério': {'Critério' in llm_response_content}")
+            print(f"Contains 'Critrio': {'Critrio' in llm_response_content}")
             print(f"Contains '##': {'##' in llm_response_content}")
             print(f"Contains 'Status:': {'Status:' in llm_response_content}")
-            print(f"Contains 'Confiança': {'Confiança' in llm_response_content}")
+            print(f"Contains 'Confiana': {'Confiana' in llm_response_content}")
             print(f"=== END DEBUG PATTERNS ===")
 
             print(f"DEBUG: About to call extract_markdown_content with response of length {len(llm_response_content)}")
@@ -962,17 +964,17 @@ async def analyze_selected_criteria(
                             if result_name:
                                 # Remove common problematic patterns
                                 cleaned_name = result_name
-                                for prefix in ['criteria_', 'critério ', 'criterion ', '##']:
+                                for prefix in ['criteria_', 'critrio ', 'criterion ', '##']:
                                     if cleaned_name.lower().startswith(prefix):
                                         cleaned_name = cleaned_name[len(prefix):].strip()
 
                                 # If still looks like a technical ID, use generic name
                                 if cleaned_name.startswith('criteria_') or len(cleaned_name) < 3:
-                                    result_data["name"] = "Critério analisado"
+                                    result_data["name"] = "Critrio analisado"
                                 else:
                                     result_data["name"] = cleaned_name.capitalize()
                             else:
-                                result_data["name"] = "Critério analisado"
+                                result_data["name"] = "Critrio analisado"
 
                             remapped_criteria_results[extracted_key] = result_data
                             print(f"DEBUG: No match found for '{result_name}', using cleaned name: '{result_data.get('name')}'")
@@ -1151,7 +1153,7 @@ async def get_latest_raw_response(
         if not raw_response_path.exists():
             return {
                 "success": False,
-                "message": "Nenhuma resposta bruta da LLM encontrada. Execute uma análise primeiro.",
+                "message": "Nenhuma resposta bruta da LLM encontrada. Execute uma anlise primeiro.",
                 "response_content": None,
                 "file_exists": False
             }
@@ -1539,7 +1541,7 @@ async def get_latest_prompt(
     current_user: User = Depends(get_current_user)
 ) -> Any:
     """Get the latest prompt sent to LLM"""
-    print(f"DEBUG: === LATEST-PROMPT ENDPOINT CALLED BY USER {current_user.id} ===")
+    print("DEBUG: LATEST PROMPT ENDPOINT CALLED")
     try:
         from pathlib import Path
 
@@ -1551,7 +1553,7 @@ async def get_latest_prompt(
         if not latest_prompt_path.exists():
             return {
                 "success": False,
-                "message": "Nenhum prompt encontrado. Execute uma análise primeiro.",
+                "message": "Nenhum prompt encontrado. Execute uma anlise primeiro.",
                 "prompt_content": None,
                 "file_exists": False
             }
@@ -1567,7 +1569,8 @@ async def get_latest_prompt(
         modified_time = file_stats.st_mtime
 
         # Try to get token usage information from the latest general analysis result
-        print("DEBUG: Starting token usage retrieval - UPDATED AGAIN")  # Basic debug log
+        # FIXED VERSION - Token retrieval implemented correctly - 2025-10-05
+        print("DEBUG: TOKEN FIX FINAL - Starting token usage retrieval")  # Final debug marker
         token_usage = {}
         try:
             from app.core.database import SessionLocal
@@ -1583,7 +1586,7 @@ async def get_latest_prompt(
             if latest_result and latest_result.usage:
                 # Use the complete token usage data from Gemini
                 usage_data = latest_result.usage
-                print("DEBUG: Found usage data")  # Simple debug log
+                print("DEBUG: TOKEN FIX FINAL - Found usage data")  # Final debug marker
 
                 token_usage = {
                     "total_tokens": usage_data.get("totalTokenCount", 0),
@@ -1592,13 +1595,13 @@ async def get_latest_prompt(
                     # Include additional token data for completeness
                     "thoughts_tokens": usage_data.get("thoughtsTokenCount", 0)
                 }
-                print(f"DEBUG: Mapped token_usage: {token_usage}")  # Simple debug log
+                print(f"DEBUG: TOKEN FIX FINAL - Mapped token_usage: {token_usage}")  # Final debug marker
             else:
-                print("DEBUG: No usage data found")  # Simple debug log
+                print("DEBUG: TOKEN FIX FINAL - No usage data found")  # Final debug marker
 
             db.close()
         except Exception as token_error:
-            print(f"DEBUG: Error getting token usage: {token_error}")
+            print(f"DEBUG: TOKEN FIX FINAL - Error getting token usage: {token_error}")
             # Continue without token info
             token_usage = {}
 
@@ -1640,7 +1643,7 @@ async def get_latest_response(
         if not latest_response_path.exists():
             return {
                 "success": False,
-                "message": "Nenhuma resposta da LLM encontrada. Execute uma análise primeiro.",
+                "message": "Nenhuma resposta da LLM encontrada. Execute uma anlise primeiro.",
                 "response_content": None,
                 "file_exists": False
             }
@@ -1656,7 +1659,8 @@ async def get_latest_response(
         modified_time = file_stats.st_mtime
 
         # Try to get token usage information from the latest general analysis result
-        print("DEBUG: Starting token usage retrieval - UPDATED AGAIN")  # Basic debug log
+        # FIXED VERSION - Token retrieval implemented correctly - 2025-10-05
+        print("DEBUG: TOKEN FIX FINAL - Starting token usage retrieval")  # Final debug marker
         token_usage = {}
         try:
             from app.core.database import SessionLocal
@@ -1672,7 +1676,7 @@ async def get_latest_response(
             if latest_result and latest_result.usage:
                 # Use the complete token usage data from Gemini
                 usage_data = latest_result.usage
-                print("DEBUG: Found usage data")  # Simple debug log
+                print("DEBUG: TOKEN FIX FINAL - Found usage data")  # Final debug marker
 
                 token_usage = {
                     "total_tokens": usage_data.get("totalTokenCount", 0),
@@ -1681,13 +1685,13 @@ async def get_latest_response(
                     # Include additional token data for completeness
                     "thoughts_tokens": usage_data.get("thoughtsTokenCount", 0)
                 }
-                print(f"DEBUG: Mapped token_usage: {token_usage}")  # Simple debug log
+                print(f"DEBUG: TOKEN FIX FINAL - Mapped token_usage: {token_usage}")  # Final debug marker
             else:
-                print("DEBUG: No usage data found")  # Simple debug log
+                print("DEBUG: TOKEN FIX FINAL - No usage data found")  # Final debug marker
 
             db.close()
         except Exception as token_error:
-            print(f"DEBUG: Error getting token usage: {token_error}")
+            print(f"DEBUG: TOKEN FIX FINAL - Error getting token usage: {token_error}")
             # Continue without token info
             token_usage = {}
 
