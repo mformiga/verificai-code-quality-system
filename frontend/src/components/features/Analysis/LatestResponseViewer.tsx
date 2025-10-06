@@ -137,15 +137,9 @@ const LatestResponseViewer: React.FC = () => {
                   Tamanho: {formatFileSize(responseData.file_size)}
                 </span>
               )}
-              {responseData.token_usage && responseData.token_usage.total_tokens && (
+              {responseData.token_usage && responseData.token_usage.completion_tokens && (
                 <span className="ml-3">
-                  Quantidade de tokens: {formatTokenCount(responseData.token_usage.total_tokens)}
-                  {responseData.token_usage.completion_tokens && responseData.token_usage.prompt_tokens && (
-                    <span className="ml-1 text-muted">
-                      (Prompt: {formatTokenCount(responseData.token_usage.prompt_tokens)},
-                      Completion: {formatTokenCount(responseData.token_usage.completion_tokens)})
-                    </span>
-                  )}
+                  Tokens recebidos: {formatTokenCount(responseData.token_usage.completion_tokens)}
                 </span>
               )}
             </div>

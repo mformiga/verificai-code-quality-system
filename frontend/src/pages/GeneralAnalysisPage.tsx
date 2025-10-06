@@ -1606,49 +1606,7 @@ const GeneralAnalysisPage: React.FC = () => {
         </nav>
       </div>
 
-      {/* Token Info Display - shown above prompt/response tabs */}
-      {(activeTab === 'prompt' || activeTab === 'response') && latestTokenInfo && (
-        <div className="br-container mb-3">
-          <div className="br-card">
-            <div className="card-content py-3">
-              <div className="d-flex align-items-center justify-content-between">
-                <div className="d-flex align-items-center">
-                  <span className="text-small text-muted mr-3">Informações de Tokens:</span>
-                  {activeTab === 'prompt' && latestTokenInfo.prompt && (
-                    <span className="text-small mr-4">
-                      <strong>Quantidade de tokens:</strong> {formatTokenCount(latestTokenInfo.prompt.total_tokens || 0)}
-                      {latestTokenInfo.prompt.prompt_tokens && (
-                        <span className="text-muted ml-2">
-                          (Prompt: {formatTokenCount(latestTokenInfo.prompt.prompt_tokens)})
-                        </span>
-                      )}
-                    </span>
-                  )}
-                  {activeTab === 'response' && latestTokenInfo.response && (
-                    <span className="text-small mr-4">
-                      <strong>Quantidade de tokens:</strong> {formatTokenCount(latestTokenInfo.response.total_tokens || 0)}
-                      {latestTokenInfo.response.completion_tokens && (
-                        <span className="text-muted ml-2">
-                          (Completion: {formatTokenCount(latestTokenInfo.response.completion_tokens)})
-                        </span>
-                      )}
-                    </span>
-                  )}
-                </div>
-                <button
-                  className="br-button circle small"
-                  onClick={loadLatestTokenInfo}
-                  title="Atualizar informações de tokens"
-                  type="button"
-                >
-                  <RefreshCw className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
+  
       {/* Tab Content */}
       <div className="br-container">
         {activeTab === 'criteria' && (

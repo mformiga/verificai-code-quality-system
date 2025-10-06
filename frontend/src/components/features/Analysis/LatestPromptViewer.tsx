@@ -137,14 +137,9 @@ const LatestPromptViewer: React.FC = () => {
                   Tamanho: {formatFileSize(promptData.file_size)}
                 </span>
               )}
-              {promptData.token_usage && promptData.token_usage.total_tokens && (
+              {promptData.token_usage && promptData.token_usage.prompt_tokens && (
                 <span className="ml-3">
-                  Quantidade de tokens: {formatTokenCount(promptData.token_usage.total_tokens)}
-                  {promptData.token_usage.prompt_tokens && (
-                    <span className="ml-1 text-muted">
-                      (Prompt: {formatTokenCount(promptData.token_usage.prompt_tokens)})
-                    </span>
-                  )}
+                  Tokens enviados: {formatTokenCount(promptData.token_usage.prompt_tokens)}
                 </span>
               )}
             </div>
