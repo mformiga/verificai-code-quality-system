@@ -1243,7 +1243,7 @@ const GeneralAnalysisPage: React.FC = () => {
     }
   };
 
-  const handleCancelAnalysis = () => {
+  const handleCancelModalAnalysis = () => {
     setConfirmModalOpen(false);
     setPendingAnalysis(null);
   };
@@ -1656,7 +1656,7 @@ const GeneralAnalysisPage: React.FC = () => {
       {/* Modal de Confirmação de Nova Análise */}
       <Modal
         isOpen={confirmModalOpen}
-        onClose={handleCancelAnalysis}
+        onClose={handleCancelModalAnalysis}
         title="⚠️ Confirmar Nova Análise"
         size="md"
       >
@@ -1682,7 +1682,7 @@ const GeneralAnalysisPage: React.FC = () => {
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
             <Button
               variant="outline"
-              onClick={handleCancelAnalysis}
+              onClick={handleCancelModalAnalysis}
               className="px-4 py-2"
             >
               ❌ Cancelar
