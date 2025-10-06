@@ -715,7 +715,7 @@ async def analyze_selected_criteria(
             raise HTTPException(status_code=500, detail=f"Erro ao ler arquivos de cdigo fonte: {str(e)}")
 
         # Replace placeholder with combined source code from all files
-        final_prompt = modified_prompt.replace("[INSERIR CDIGO AQUI]", all_source_code)
+        final_prompt = modified_prompt.replace("[INSERIR CÓDIGO AQUI]", all_source_code)
         print(f"DEBUG: Replaced placeholder with source code")
         print(f"DEBUG: Final prompt length: {len(final_prompt)}")
 
