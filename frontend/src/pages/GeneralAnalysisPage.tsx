@@ -156,6 +156,7 @@ const GeneralAnalysisPage: React.FC = () => {
   const [selectedCriteriaIds, setSelectedCriteriaIds] = useState<string[]>([]);
   const [showProgress, setShowProgress] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [latestTokenInfo, setLatestTokenInfo] = useState<any>(null);
 
   // Carregar resultados salvos do banco de dados na inicialização
   useEffect(() => {
@@ -303,6 +304,47 @@ const GeneralAnalysisPage: React.FC = () => {
   const refreshResults = async () => {
     // Não faz mais nada para manter a tela limpa até análise explícita
     console.log('Função refreshResults desativada - mantendo tela limpa');
+  };
+
+  // Função para carregar informações de tokens mais recentes
+  const loadLatestTokenInfo = async () => {
+    try {
+      // Tenta carregar tanto informações do prompt quanto da resposta
+      const [promptData, responseData] = await Promise.all([
+        analysisService.getLatestPrompt().catch(() => null),
+        analysisService.getLatestResponse().catch(() => null)
+      ]);
+
+      const tokenInfo: any = {};
+
+      if (promptData?.token_usage) {
+        tokenInfo.prompt = promptData.token_usage;
+      }
+
+      if (responseData?.token_usage) {
+        tokenInfo.response = responseData.token_usage;
+      }
+
+      if (Object.keys(tokenInfo).length > 0) {
+        setLatestTokenInfo(tokenInfo);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar informações de tokens:', error);
+    }
+  };
+
+  // Carregar informações de tokens quando mudar para abas de prompt/response
+  useEffect(() => {
+    if (activeTab === 'prompt' || activeTab === 'response') {
+      loadLatestTokenInfo();
+    }
+  }, [activeTab]);
+
+  // Função para formatar contagem de tokens
+  const formatTokenCount = (tokens: number) => {
+    if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(1)}M`;
+    if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}K`;
+    return tokens.toString();
   };
 
   const handleStartAnalysis = async (specificCriteria?: string[]) => {
@@ -1563,6 +1605,49 @@ const GeneralAnalysisPage: React.FC = () => {
           ))}
         </nav>
       </div>
+
+      {/* Token Info Display - shown above prompt/response tabs */}
+      {(activeTab === 'prompt' || activeTab === 'response') && latestTokenInfo && (
+        <div className="br-container mb-3">
+          <div className="br-card">
+            <div className="card-content py-3">
+              <div className="d-flex align-items-center justify-content-between">
+                <div className="d-flex align-items-center">
+                  <span className="text-small text-muted mr-3">Informações de Tokens:</span>
+                  {activeTab === 'prompt' && latestTokenInfo.prompt && (
+                    <span className="text-small mr-4">
+                      <strong>Quantidade de tokens:</strong> {formatTokenCount(latestTokenInfo.prompt.total_tokens || 0)}
+                      {latestTokenInfo.prompt.prompt_tokens && (
+                        <span className="text-muted ml-2">
+                          (Prompt: {formatTokenCount(latestTokenInfo.prompt.prompt_tokens)})
+                        </span>
+                      )}
+                    </span>
+                  )}
+                  {activeTab === 'response' && latestTokenInfo.response && (
+                    <span className="text-small mr-4">
+                      <strong>Quantidade de tokens:</strong> {formatTokenCount(latestTokenInfo.response.total_tokens || 0)}
+                      {latestTokenInfo.response.completion_tokens && (
+                        <span className="text-muted ml-2">
+                          (Completion: {formatTokenCount(latestTokenInfo.response.completion_tokens)})
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </div>
+                <button
+                  className="br-button circle small"
+                  onClick={loadLatestTokenInfo}
+                  title="Atualizar informações de tokens"
+                  type="button"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tab Content */}
       <div className="br-container">

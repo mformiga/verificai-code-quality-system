@@ -1,0 +1,387 @@
+================================================================================
+PROMPT ENVIADO PARA LLM - 2025-10-05T13:17:03.580787
+================================================================================
+
+TAMANHO TOTAL: 11800 caracteres
+ARQUIVOS PROCESSADOS: 10
+CRITÉRIOS: 2
+
+================================================================================
+CONTEÚDO COMPLETO DO PROMPT:
+================================================================================
+
+
+Você é um especialista em análise de código.
+
+## Critério 1: Princípios SOLID: Analisar violações do Princípio da Responsabilidade Única (SRP), como controllers com múltiplos endpoints, e do Princípio da Inversão de Dependência (DI), como a instanciação manual de dependências em vez de usar a injeção padrão do NestJS.
+
+Avalie este critério especificamente usando o nome exato: "Princípios SOLID: Analisar violações do Princípio da Responsabilidade Única (SRP), como controllers com múltiplos endpoints, e do Princípio da Inversão de Dependência (DI), como a instanciação manual de dependências em vez de usar a injeção padrão do NestJS."
+
+---
+
+## Critério 2: Acoplamento a Frameworks: Detectar o uso de funcionalidades que acoplam o código a implementações específicas do framework (ex: uso de @Res() do Express no NestJS), o que dificulta a manutenção e a aplicação de interceptors e pipes globais.
+
+Avalie este critério especificamente usando o nome exato: "Acoplamento a Frameworks: Detectar o uso de funcionalidades que acoplam o código a implementações específicas do framework (ex: uso de @Res() do Express no NestJS), o que dificulta a manutenção e a aplicação de interceptors e pipes globais."
+
+---
+CRÍTICO: Esta análise deve conter exatamente 2 critérios de avaliação.
+- Use exatamente os nomes dos critérios fornecidos acima
+- NÃO modifique os nomes dos critérios
+- NÃO invente critérios adicionais
+- NÃO use "Critério 1", "Critério 2" como genéricos - use os nomes específicos fornecidos
+- Cada critério DEVE usar o cabeçalho exato: "## Critério: [Nome exato do critério]"
+
+## CÓDIGO FONTE PARA ANÁLISE:
+```typescript
+
+
+============================================================
+ARQUIVO: sistema_teste/olivia-back/src/domains/domain/model-entities/laudo-olivia.entity.ts
+TAMANHO: 1334 caracteres
+TIPO: TS
+============================================================
+
+import {
+  Entity,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
+import { Usuario } from './usuario.entity';
+
+@Entity({ name: 's_laudo_olivia', schema: process.env.POSTGRES_SCHEMA })
+export class LaudoOlivia {
+  @PrimaryGeneratedColumn({ name: 'id_laudo_olivia' })
+  id!: number;
+
+  @Column({ name: 'nr_lpco', type: 'varchar', length: 255 })
+  nrLpco!: string;
+
+  @Column({ name: 'js_dado_bruto', type: 'json', nullable: true })
+  jsDadoBruto?: any | null;
+
+  @Column({ name: 'js_dado_usuario', type: 'json', nullable: true })
+  jsDadoUsuario?: any | null;
+
+  @Column({ name: 'ob_laudo_usuario', type: 'varchar', length: 255, nullable: true })
+  obLaudoUsuario?: string | null;
+
+  @Column({ name: 'ob_laudo_ia', type: 'varchar', length: 255, nullable: true })
+  obLaudoIa?: string | null;
+
+  @CreateDateColumn({ name: 'dh_criacao_registro', type: 'timestamp', default: () => 'NOW()' })
+  dhCriacaoRegistro!: Date;
+
+  @UpdateDateColumn({ name: 'dh_atualizacao_registro', type: 'timestamp', default: () => 'NOW()' })
+  dhAtualizacaoRegistro!: Date;
+
+  @ManyToOne(() => Usuario, (usuario: Usuario) => usuario.laudos, {
+    nullable: false,
+    onDelete: 'RESTRICT',
+  })
+  @JoinColumn([{ name: 'id_usuario', referencedColumnName: 'id' }])
+  usuario!: Usuario;
+}
+
+
+============================================================
+ARQUIVO: sistema_teste/olivia-back/src/domains/domain/model-entities/index.ts
+TAMANHO: 833 caracteres
+TIPO: TS
+============================================================
+
+import { Role } from './role.entity';
+import { User } from './user.entity';
+import { Permission } from './permission.entity';
+import { Resource } from './resource.entity';
+import { DataFilter } from './data-filter';
+import { LaudoOlivia } from './laudo-olivia.entity';
+import { Sessao } from './sessao.entity';
+import { Usuario } from './usuario.entity';
+
+const entities = [User, Role, Permission, Resource, DataFilter, LaudoOlivia, Sessao, Usuario];
+
+export default entities;
+
+export { Role } from './role.entity';
+export { User } from './user.entity';
+export { Permission } from './permission.entity';
+export { Resource } from './resource.entity';
+export { DataFilter } from './data-filter';
+export { LaudoOlivia } from './laudo-olivia.entity';
+export { Sessao } from './sessao.entity';
+export { Usuario } from './usuario.entity';
+
+
+============================================================
+ARQUIVO: sistema_teste/olivia-back/src/domains/domain/index.ts
+TAMANHO: 62 caracteres
+TIPO: TS
+============================================================
+
+export * from './model-entities';
+export * from './services';
+
+
+============================================================
+ARQUIVO: sistema_teste/olivia-back/src/framework/logger/index.ts
+TAMANHO: 139 caracteres
+TIPO: TS
+============================================================
+
+import { AppLogger } from './app-logger.service';
+import { LoggerModule } from './app-logger.module';
+
+export { AppLogger, LoggerModule };
+
+
+============================================================
+ARQUIVO: sistema_teste/olivia-back/src/framework/logger/app-logger.service.ts
+TAMANHO: 569 caracteres
+TIPO: TS
+============================================================
+
+import { ConsoleLogger, Injectable } from '@nestjs/common';
+
+@Injectable()
+export class AppLogger extends ConsoleLogger {
+  log(message: string, context?: string) {
+    super.log(message, context);
+  }
+
+  error(message: string, trace?: string, context?: string) {
+    super.error(message, trace, context);
+  }
+
+  warn(message: string, context?: string) {
+    super.warn(message, context);
+  }
+
+  debug(message: string, context?: string) {
+    super.debug(message, context);
+  }
+
+  verbose(message: string, context?: string) {
+    super.verbose(message, context);
+  }
+}
+
+
+============================================================
+ARQUIVO: sistema_teste/olivia-back/src/framework/logger/app-logger.module.ts
+TAMANHO: 202 caracteres
+TIPO: TS
+============================================================
+
+import { Global, Module } from '@nestjs/common';
+import { AppLogger } from './app-logger.service';
+
+@Global()
+@Module({
+  providers: [AppLogger],
+  exports: [AppLogger],
+})
+export class LoggerModule {}
+
+
+============================================================
+ARQUIVO: sistema_teste/olivia-back/src/framework/index.ts
+TAMANHO: 117 caracteres
+TIPO: TS
+============================================================
+
+export * from './authentication';
+export * from './authorization';
+export * from './jobs';
+export * from './logger';
+
+
+============================================================
+ARQUIVO: sistema_teste/olivia-back/src/gateways/http/controllers/core/index.ts
+TAMANHO: 170 caracteres
+TIPO: TS
+============================================================
+
+import { HealthController } from './health.controller';
+import { GovBrAuthController } from './govbr-auth.controller';
+
+export { HealthController, GovBrAuthController };
+
+
+============================================================
+ARQUIVO: sistema_teste/olivia-back/src/gateways/http/controllers/core/health.controller.ts
+TAMANHO: 1491 caracteres
+TIPO: TS
+============================================================
+
+import { Public } from '@/framework';
+import { getDataSource } from '@/infrastructure/databases/typeorm/postgres/database.providers';
+import { Controller, Get } from '@nestjs/common';
+import { ApiResponse } from '@nestjs/swagger';
+import { HealthCheck, HealthCheckService, TypeOrmHealthIndicator } from '@nestjs/terminus';
+
+@Controller('health')
+@Public()
+export class HealthController {
+  constructor(
+    private health: HealthCheckService,
+    private db: TypeOrmHealthIndicator
+  ) {}
+
+  @Get('ready')
+  @HealthCheck()
+  async readness() {
+    if (process.env.NODE_ENV === 'development') {
+      return { status: 'ok' };
+    }
+    try {
+      const result = await this.health.check([
+        async () =>
+          await this.db.pingCheck('postgres', {
+            connection: getDataSource(),
+          }),
+      ]);
+      return result;
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? `Error: ${error.message}` : 'Unknown error occurred';
+
+      const errorDetails =
+        error && typeof error === 'object' && 'details' in error
+          ? (error as any).details
+          : 'Database connection failed';
+
+      return {
+        status: 'down',
+        error: {
+          message: errorMessage,
+          details: errorDetails,
+        },
+      };
+    }
+  }
+
+  @Get('live')
+  @ApiResponse({
+    status: 200,
+    description: 'Usuário editado com sucesso.',
+    example: { status: 'ok' },
+  })
+  live() {
+    return { status: 'ok' };
+  }
+}
+
+
+============================================================
+ARQUIVO: sistema_teste/olivia-back/src/gateways/http/controllers/core/govbr-auth.controller.ts
+TAMANHO: 1284 caracteres
+TIPO: TS
+============================================================
+
+import { Controller, Get, Query, Headers, Res, BadRequestException } from '@nestjs/common';
+import { GovBrService } from '@/framework/authentication/govbr.service';
+import { Response } from 'express';
+
+@Controller('auth/govbr')
+export class GovBrAuthController {
+  constructor(private readonly govBrService: GovBrService) {}
+
+  @Get('login')
+  login(@Res() res: Response) {
+    const url = this.govBrService.getAuthorizationUrl();
+    return res.redirect(url);
+  }
+
+  @Get('callback')
+  async callback(@Query('code') code: string, @Query('state') state: string) {
+    if (!code || !state) {
+      throw new BadRequestException('Parâmetros code/state ausentes');
+    }
+    return this.govBrService.exchangeCode(code, state);
+  }
+
+  @Get('userinfo')
+  async getUserInfo(@Headers('authorization') authorization?: string) {
+    const accessToken = authorization?.startsWith('Bearer ') ? authorization.slice(7) : undefined;
+
+    if (!accessToken) {
+      throw new BadRequestException('Informe o access_token (Authorization: Bearer ...)');
+    }
+
+    return this.govBrService.getUserInfo(accessToken);
+  }
+
+  @Get('logout')
+  async logout(@Query('session_id') sessionId?: string) {
+    if (sessionId) {
+      await this.govBrService.logout(sessionId);
+    }
+    return { ok: true };
+  }
+}
+
+```
+
+**IMPORTANTE:** O código acima pode conter múltiplos arquivos. Cada arquivo está claramente identificado com cabeçalhos no formato:
+```
+============================================================
+ARQUIVO: [nome_do_arquivo]
+TAMANHO: [X] caracteres
+TIPO: [EXTENSÃO]
+============================================================
+```
+
+Analise TODOS os arquivos de código acima como um conjunto integrado, considerando as interações entre eles, com base nos seguintes critérios:
+
+#
+
+Para cada critério, forneça:
+1. Uma avaliação clara sobre se o código atende ao critério
+2. Nível de confiança (0.0-1.0)
+3. Evidências específicas do código
+4. Recomendações para melhoria, se aplicável
+
+Forneça sua análise em um formato estruturado que inclua:
+- Avaliação geral
+- Avaliações individuais dos critérios
+- Exemplos de código que apoiam suas conclusões
+- Recomendações acionáveis
+
+Formate sua resposta em markdown com a seguinte estrutura exata:
+
+## Avaliação Geral
+[Resumo geral da análise]
+
+
+## Critério 1: [Nome do critério]
+**Status:** [Conforme/Parcialmente Conforme/Não Conforme]
+**Confiança:** [X.X]%
+
+[Avaliação detalhada com evidências do código]
+
+**Recomendações:**
+- [Lista de recomendações específicas]
+
+
+## Critério 2: [Nome do critério]
+**Status:** [Conforme/Parcialmente Conforme/Não Conforme]
+**Confiança:** [X.X]%
+
+[Avaliação detalhada com evidências do código]
+
+**Recomendações:**
+- [Lista de recomendações específicas]
+
+## Recomendações Gerais
+[Lista de recomendações gerais]IMPORTANTE: Ao finalizar sua análise, inclua exatamente a tag #FIM# para indicar que a resposta está completa.
+
+#FIM#
+
+
+================================================================================
+FIM DO PROMPT
+================================================================================
