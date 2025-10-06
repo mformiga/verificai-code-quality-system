@@ -11,9 +11,9 @@ import LatestResponseViewer from '@/components/features/Analysis/LatestResponseV
 import { useUploadStore } from '@/stores/uploadStore';
 import { criteriaService } from '@/services/criteriaService';
 import { analysisService, type AnalysisRequest, type AnalysisResponse } from '@/services/analysisService';
-import Modal from '@/components/common/Modal';
-import Alert from '@/components/common/Alert';
-import Button from '@/components/common/Button';
+// import Modal from '@/components/common/Modal';
+// import Alert from '@/components/common/Alert';
+// import Button from '@/components/common/Button';
 import './GeneralAnalysisPage.css';
 
 interface CriteriaResult {
@@ -161,6 +161,9 @@ const GeneralAnalysisPage: React.FC = () => {
   const [progress, setProgress] = useState(0);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [pendingAnalysis, setPendingAnalysis] = useState<string[] | null>(null);
+
+  // Debug: Log modal state
+  console.log('🔍 DEBUG: Modal render - confirmModalOpen:', confirmModalOpen);
   const [latestTokenInfo, setLatestTokenInfo] = useState<any>(null);
 
   // Carregar resultados salvos do banco de dados na inicialização
@@ -895,21 +898,30 @@ const GeneralAnalysisPage: React.FC = () => {
   };
 
   const handleAnalyzeSelected = async (selectedCriteriaIds: string[]) => {
+    console.log('🔍 DEBUG: GeneralAnalysisPage.handleAnalyzeSelected called');
+    console.log('🔍 DEBUG: selectedCriteriaIds:', selectedCriteriaIds);
+    console.log('🔍 DEBUG: results.length:', results.length);
+
     // Removido check de uploadedFiles - não será usado por enquanto
 
     if (selectedCriteriaIds.length === 0) {
+      console.log('🔍 DEBUG: No criteria selected, showing alert');
       alert('Por favor, selecione pelo menos um critério para análise.');
       return;
     }
 
     // Verificar se há resultados anteriores e mostrar confirmação
     if (results.length > 0) {
+      console.log('🔍 DEBUG: Previous results found, showing confirmation modal');
       setPendingAnalysis(selectedCriteriaIds);
+      console.log('🔍 DEBUG: Setting confirmModalOpen to true');
       setConfirmModalOpen(true);
+      console.log('🔍 DEBUG: confirmModalOpen state updated');
       return;
     }
 
     // Se não há resultados anteriores, prosseguir diretamente
+    console.log('🔍 DEBUG: No previous results, proceeding directly to analysis');
     executeAnalysis(selectedCriteriaIds);
   };
 
@@ -1653,50 +1665,200 @@ const GeneralAnalysisPage: React.FC = () => {
         )}
       </div>
 
-      {/* Modal de Confirmação de Nova Análise */}
-      <Modal
-        isOpen={confirmModalOpen}
-        onClose={handleCancelModalAnalysis}
-        title="⚠️ Confirmar Nova Análise"
-        size="md"
-      >
-        <div className="space-y-4">
-          <Alert variant="warning" title="Atenção!">
-            Você está prestes a iniciar uma nova análise, e todos os resultados das análises anteriores serão <strong>permanentemente perdidos</strong>.
-          </Alert>
+      {/* Modal de Confirmação de Nova Análise - Padrão DSGov Funcional */}
+      {confirmModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: '0',
+          left: '0',
+          right: '0',
+          bottom: '0',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          zIndex: '9999',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '4px',
+            boxShadow: '0 8px 25px rgba(0, 0, 0, 0.15)',
+            maxWidth: '500px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto',
+            border: '1px solid #dee2e6'
+          }}>
+            {/* Header */}
+            <div style={{
+              backgroundColor: '#f8f9fa',
+              padding: '1rem',
+              borderBottom: '1px solid #dee2e6',
+              borderTopLeftRadius: '4px',
+              borderTopRightRadius: '4px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <h3 style={{
+                margin: '0',
+                fontSize: '1.25rem',
+                fontWeight: '600',
+                color: '#495057'
+              }}>
+                ⚠️ Confirmar Nova Análise
+              </h3>
+              <button
+                onClick={handleCancelModalAnalysis}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  color: '#6c757d',
+                  padding: '0',
+                  width: '30px',
+                  height: '30px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                aria-label="Fechar"
+              >
+                ×
+              </button>
+            </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-medium text-blue-800 mb-2">📋 Recomendação:</h4>
-            <p className="text-sm text-blue-700">
-              Antes de prosseguir, considere gerar um relatório da análise atual para salvar seus resultados.
-              Você pode exportar os resultados usando os botões de download disponíveis na aba de resultados.
-            </p>
-          </div>
+            {/* Body */}
+            <div style={{ padding: '1.5rem' }}>
+              {/* Alerta de Aviso */}
+              <div style={{
+                backgroundColor: '#fff3cd',
+                border: '1px solid #ffeaa7',
+                borderRadius: '4px',
+                padding: '1rem',
+                marginBottom: '1rem',
+                borderLeft: '4px solid #f39c12'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: '1.2rem', marginRight: '0.75rem', color: '#f39c12' }}>⚠️</span>
+                  <div>
+                    <h4 style={{
+                      margin: '0 0 0.5rem 0',
+                      color: '#856404',
+                      fontWeight: '600'
+                    }}>
+                      Atenção!
+                    </h4>
+                    <p style={{
+                      margin: '0',
+                      color: '#856404',
+                      lineHeight: '1.5'
+                    }}>
+                      Você está prestes a iniciar uma nova análise, e todos os resultados das análises anteriores serão <strong>permanentemente perdidos</strong>.
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-            <p className="text-sm text-gray-600">
-              <strong>Deseja prosseguir com a nova análise?</strong>
-            </p>
-          </div>
+              {/* Recomendação */}
+              <div style={{
+                backgroundColor: '#e3f2fd',
+                border: '1px solid #bbdefb',
+                borderRadius: '4px',
+                padding: '1rem',
+                marginBottom: '1rem'
+              }}>
+                <h4 style={{
+                  margin: '0 0 0.5rem 0',
+                  color: '#0d47a1',
+                  fontSize: '0.9rem',
+                  fontWeight: '600'
+                }}>
+                  📋 Recomendação:
+                </h4>
+                <p style={{
+                  margin: '0',
+                  color: '#1565c0',
+                  fontSize: '0.875rem',
+                  lineHeight: '1.5'
+                }}>
+                  Antes de prosseguir, considere gerar um relatório da análise atual para salvar seus resultados.
+                  Você pode exportar os resultados usando os botões de download disponíveis na aba de resultados.
+                </p>
+              </div>
 
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-            <Button
-              variant="outline"
-              onClick={handleCancelModalAnalysis}
-              className="px-4 py-2"
-            >
-              ❌ Cancelar
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleConfirmAnalysis}
-              className="px-4 py-2"
-            >
-              ⚠️ Prosseguir e Perder Dados
-            </Button>
+              {/* Pergunta final */}
+              <div style={{
+                backgroundColor: '#f8f9fa',
+                border: '1px solid #e9ecef',
+                borderRadius: '4px',
+                padding: '1rem',
+                marginBottom: '1.5rem'
+              }}>
+                <p style={{
+                  margin: '0',
+                  color: '#495057',
+                  fontSize: '0.9rem',
+                  fontWeight: '500',
+                  textAlign: 'center'
+                }}>
+                  <strong>Deseja prosseguir com a nova análise?</strong>
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              backgroundColor: '#f8f9fa',
+              padding: '1rem 1.5rem',
+              borderTop: '1px solid #dee2e6',
+              borderBottomLeftRadius: '4px',
+              borderBottomRightRadius: '4px',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '0.5rem'
+            }}>
+              <button
+                onClick={handleCancelModalAnalysis}
+                style={{
+                  backgroundColor: '#6c757d',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#5a6268'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#6c757d'}
+              >
+                ❌ Cancelar
+              </button>
+              <button
+                onClick={handleConfirmAnalysis}
+                style={{
+                  backgroundColor: '#0d47a1',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#0a3570'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#0d47a1'}
+              >
+                Prosseguir
+              </button>
+            </div>
           </div>
         </div>
-      </Modal>
+      )}
 
       </div>
   );

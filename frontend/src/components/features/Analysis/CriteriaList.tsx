@@ -218,12 +218,30 @@ const CriteriaList: React.FC<CriteriaListProps> = ({ onCriteriaSelect, onAnalyze
   };
 
   const handleAnalyzeSelected = () => {
+    console.log('🔍 DEBUG: handleAnalyzeSelected called');
+    console.log('🔍 DEBUG: selectedCriteria.size:', selectedCriteria.size);
+    console.log('🔍 DEBUG: onAnalyzeSelected exists:', !!onAnalyzeSelected);
+
     if (onAnalyzeSelected && selectedCriteria.size > 0) {
       const selectedIds = sortedCriteria
         .filter(c => selectedCriteria.has(c.id))
         .map(c => c.id)
         .map(id => `criteria_${id}`);  // ✅ Convertendo para formato esperado pelo backend!
+
+      console.log('🔍 DEBUG: selectedIds:', selectedIds);
+      console.log('🔍 DEBUG: Calling onAnalyzeSelected...');
+
       onAnalyzeSelected(selectedIds);
+
+      console.log('🔍 DEBUG: onAnalyzeSelected called successfully');
+    } else {
+      console.log('🔍 DEBUG: Cannot call onAnalyzeSelected - missing criteria or callback');
+      if (!onAnalyzeSelected) {
+        console.log('🔍 DEBUG: onAnalyzeSelected is undefined');
+      }
+      if (selectedCriteria.size === 0) {
+        console.log('🔍 DEBUG: No criteria selected');
+      }
     }
   };
 
