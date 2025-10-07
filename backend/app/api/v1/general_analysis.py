@@ -734,29 +734,8 @@ async def analyze_selected_criteria(
             prompts_dir.mkdir(exist_ok=True)
             print(f"DEBUG: Prompts directory exists: {prompts_dir.exists()}")
 
-            # Generate filename with timestamp for archival
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            prompt_filename = f"prompt_llm_{timestamp}.txt"
-            prompt_file_path = prompts_dir / prompt_filename
-
             # Create latest prompt file (always overwritten with the most recent)
             latest_prompt_path = prompts_dir / "latest_prompt.txt"
-
-            # Write the complete prompt to archival file
-            with open(prompt_file_path, "w", encoding="utf-8") as f:
-                f.write("="*80 + "\n")
-                f.write(f"PROMPT ENVIADO PARA LLM - {datetime.now().isoformat()}\n")
-                f.write("="*80 + "\n\n")
-                f.write(f"TAMANHO TOTAL: {len(final_prompt)} caracteres\n")
-                f.write(f"ARQUIVOS PROCESSADOS: {total_files_processed}\n")
-                f.write(f"CRITRIOS: {len(request.criteria_ids)}\n\n")
-                f.write("="*80 + "\n")
-                f.write("CONTEDO COMPLETO DO PROMPT:\n")
-                f.write("="*80 + "\n\n")
-                f.write(final_prompt)
-                f.write("\n\n" + "="*80 + "\n")
-                f.write("FIM DO PROMPT\n")
-                f.write("="*80 + "\n")
 
             # Write the complete prompt to latest file (always the most recent)
             with open(latest_prompt_path, "w", encoding="utf-8") as f:
@@ -775,8 +754,7 @@ async def analyze_selected_criteria(
                 f.write("FIM DO PROMPT\n")
                 f.write("="*80 + "\n")
 
-            print(f"DEBUG: Prompt salvo em: {prompt_file_path}")
-            print(f"DEBUG: ltimo prompt disponvel em: {latest_prompt_path}")
+            print(f"DEBUG: ltimo prompt salvo em: {latest_prompt_path}")
 
         except Exception as save_error:
             print(f"DEBUG: Erro ao salvar prompt em arquivo: {save_error}")
