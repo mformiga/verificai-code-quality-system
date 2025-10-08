@@ -1,332 +1,275 @@
 ## Avaliação Geral
-A análise do código-fonte do projeto "Olivia" revela uma aplicação funcional, porém com significativas oportunidades de melhoria em termos de arquitetura de software e boas práticas. A aplicação demonstra um forte acoplamento entre as camadas de controle (gateways), lógica de negócio e acesso a dados/infraestrutura, concentrando muitas responsabilidades em um único componente (`LaudoController`).
+A análise do código-fonte do projeto "olivia-back" revela problemas arquiteturais significativos, especialmente no que tange à aplicação dos princípios SOLID e ao acoplamento com o framework e tecnologias subjacentes. O `LaudoController` centraliza uma quantidade excessiva de responsabilidades, violando o Princípio da Responsabilidade Única (SRP). Além disso, o projeto ignora consistentemente o mecanismo de Injeção de Dependência (DI) do NestJS, optando por acesso direto a provedores de dados (`getRepository`, `getDataSource`) e instanciação manual de clientes (`minioClient`), o que viola o Princípio da Inversão de Dependência (DIP).
 
-Os principais pontos de atenção são:
-1.  **Violação dos Princípios SOLID:** O Princípio da Responsabilidade Única (SRP) é violado no `LaudoController`, que gerencia requisições HTTP, manipulação de arquivos, chamadas a serviços externos e acesso direto ao banco de dados. O Princípio da Inversão de Dependência (DIP) é desrespeitado pelo uso de um *service locator* (`getRepository`) e pela instanciação direta de clientes de serviços (`minioClient`), em vez de utilizar o sistema de injeção de dependência do NestJS.
-2.  **Alto Acoplamento:** O código está fortemente acoplado tanto ao framework subjacente (Express, através do uso de `@Res()`) quanto a tecnologias específicas (TypeORM, MinIO, Axios), dificultando a testabilidade, manutenção e portabilidade da lógica de negócio.
+O uso de funcionalidades específicas da plataforma subjacente, como o decorador `@Res()` do Express, acopla o código desnecessariamente e impede o uso de funcionalidades padrão do NestJS, como interceptors e pipes globais. A lógica de negócio está misturada com detalhes de infraestrutura (acesso a banco de dados, file system, chamadas HTTP, object storage) diretamente nos controllers, resultando em um código difícil de testar, manter e evoluir.
 
-Apesar dessas questões, o projeto está bem estruturado em termos de organização de pastas e utiliza funcionalidades modernas do NestJS, como módulos e configuração de ambiente. As recomendações a seguir visam refatorar o código para uma arquitetura mais limpa, desacoplada e alinhada com as melhores práticas do NestJS.
+Embora o projeto esteja funcional, ele não aproveita os principais benefícios de design que o NestJS oferece, resultando em uma arquitetura frágil e com alto custo de manutenção. As recomendações focam em refatorar o código para introduzir uma camada de serviço adequada, adotar a injeção de dependência e abstrair as interações com tecnologias externas.
 
 ## Critério 1: Princípios SOLID: Analisar a aplicação de princípios de design consolidados, como a Responsabilidade Única - SRP (evitando componentes que acumulam funções díspares) como controllers com múltiplos endpoints e a Inversão de Dependência (favorecendo o uso de mecanismos de injeção de dependência em vez da instanciação manual de componentes) como a instanciação manual de dependências em vez de usar a injeção padrão do NestJS
 **Status:** Não Conforme
-**Confiança:** 100.0%
+**Confiança:** 1.0%
 
-A análise do código revela violações significativas dos princípios de Responsabilidade Única (SRP) e Inversão de Dependência (DIP).
+A análise do código revela violações claras e consistentes dos princípios de Responsabilidade Única (SRP) e Inversão de Dependência (DIP).
 
-**1. Princípio da Responsabilidade Única (SRP):**
-O `LaudoController` acumula um número excessivo de responsabilidades díspares, indo muito além de sua função primária de gerenciar requisições e respostas HTTP. Ele concentra:
--   **Lógica de Negócio:** Validação de dados de entrada, orquestração de chamadas a serviços.
--   **Acesso a Dados:** Comunicação direta com o banco de dados através da função `getRepository`.
--   **Comunicação com Serviços Externos:** Realiza chamadas HTTP para uma API de IA usando `axios`.
--   **Interação com Infraestrutura:** Gerencia o upload e a persistência de arquivos no MinIO e no sistema de arquivos local (`fs`).
--   **Manipulação de Arquivos:** Lê e remove arquivos do sistema de arquivos local.
+**1. Violação do Princípio da Responsabilidade Única (SRP):**
+O `LaudoController` é o principal infrator deste princípio. Ele acumula múltiplas responsabilidades que deveriam ser delegadas a diferentes camadas e serviços:
+- **Manipulação de HTTP e Roteamento:** Responsabilidade primária de um controller.
+- **Manipulação de Sistema de Arquivos:** Lida diretamente com a criação e remoção de arquivos temporários usando o módulo `fs` do Node.js.
+- **Comunicação com API Externa:** Realiza chamadas HTTP para uma API de IA usando `axios`.
+- **Persistência em Banco de Dados:** Acessa diretamente os repositórios do TypeORM para buscar e salvar entidades (`LaudoOlivia`, `Usuario`).
+- **Interação com Object Storage:** Faz upload e busca de arquivos diretamente no MinIO.
+- **Validação e Lógica de Negócio:** Contém lógica de validação de CPF, parsing de dados e orquestração do fluxo de processamento do laudo.
 
-**Evidências de violação do SRP:**
-No arquivo `sistema_teste/olivia-back/src/gateways/http/controllers/domain/laudo/laudo.controller.ts`, o método `extractPdfData` exemplifica essa acumulação de responsabilidades:
+Essa concentração de responsabilidades torna o controller um componente monolítico, difícil de testar unitariamente, manter e reutilizar.
+
+**Evidência de violação de SRP:**
 ```typescript
-// ... imports de axios, FormData, fs ...
-import minioClient, { MINIO_BUCKET } from '@/infrastructure/minio/minio.client';
-import { getRepository } from '@/infrastructure/databases/typeorm/postgres/database.providers';
+// ARQUIVO: sistema_teste/olivia-back/src/gateways/http/controllers/domain/laudo/laudo.controller.ts
+
+import axios from 'axios'; // Comunicação com API externa
+import fs from 'fs'; // Manipulação de File System
+import { getRepository } from '@/infrastructure/databases/typeorm/postgres/database.providers'; // Acesso direto a dados
+import minioClient from '@/infrastructure/minio/minio.client'; // Interação com Object Storage
 
 @Controller('api')
 export class LaudoController {
+  private async removeFile(filePath?: string): Promise<void> {
+    // ... lógica de file system
+  }
+
   // ...
+
   @Post('extract-pdf-data')
-  @UseInterceptors(FileInterceptor('laudo', { dest: 'uploads/' }))
-  async extractPdfData(
-    @UploadedFile() laudoFile: Express.Multer.File,
-    @Body('lpco') lpco: string,
-    @Body('sub') sub: string
-  ) {
-    // 1. Validação de Requisição
-    if (!laudoFile) { /*...*/ }
-    if (laudoFile.mimetype !== 'application/pdf') {
-      await this.removeFile(laudoFile.path); // 2. Manipulação de FS
-      throw new BadRequestException("O arquivo 'laudo' deve ser um PDF.");
-    }
-    
-    // 3. Lógica de Negócio (extração de CPF)
-    const cpf = this.extractCpf(sub);
-
-    // 4. Acesso a Dados
-    const userRepo = getRepository<Usuario>(Usuario);
-    const usuario = await userRepo.findOne({ where: { nrCpf: cpf } });
-    if (!usuario) { /*...*/ }
-
-    const laudoRepo = getRepository<LaudoOlivia>(LaudoOlivia);
+  async extractPdfData(/*...*/) {
     // ...
-
-    try {
-      // 5. Interação com Infraestrutura (MinIO)
-      await minioClient.fPutObject(MINIO_BUCKET, usuarioFileName, laudoFile.path);
-      
-      // 6. Chamada a Serviço Externo (API de IA)
-      const apiResponse = await axios.post(`${process.env.IA_API_URL}/extract-pdf-data`, formData, {
-        headers: formData.getHeaders(),
-      });
-
-      // 7. Acesso a Dados (escrita)
-      if (laudo) {
-        // ...
-        await laudoRepo.save(laudo);
-      } else {
-        // ...
-        await laudoRepo.save(novoLaudo);
-      }
-      return apiResponse.data;
-    } catch (error: any) {
-      // ...
-    } finally {
-      // 8. Manipulação de FS
-      await this.removeFile(laudoFile.path);
-    }
+    const userRepo = getRepository<Usuario>(Usuario); // Acesso a dados
+    const usuario = await userRepo.findOne({ where: { nrCpf: cpf } });
+    // ...
+    await minioClient.fPutObject(MINIO_BUCKET, usuarioFileName, laudoFile.path); // Upload para MinIO
+    const apiResponse = await axios.post(/*...*/); // Chamada para API externa
+    // ...
+    await laudoRepo.save(novoLaudo); // Acesso a dados
+    // ...
   }
 }
 ```
 
-**2. Princípio da Inversão de Dependência (DIP):**
-O código ignora o mecanismo de injeção de dependência (DI) do NestJS em pontos críticos, optando por acoplamento direto a implementações concretas.
--   **Acesso a Repositórios:** A função `getRepository` atua como um *Service Locator*, um anti-padrão que esconde as dependências do componente. O controller busca ativamente suas dependências de repositório em vez de recebê-las via construtor.
--   **Clientes de Serviço:** O cliente MinIO é importado diretamente do seu arquivo de configuração, criando um forte acoplamento com a implementação específica do MinIO.
+**2. Violação do Princípio da Inversão de Dependência (DIP):**
+O projeto consistentemente evita o sistema de injeção de dependência do NestJS, que é um pilar do framework. Em vez de injetar dependências (como repositórios e serviços) através do construtor, os componentes de alto nível (controllers) dependem diretamente de implementações concretas ou de funções utilitárias para obter suas dependências.
 
-**Evidências de violação do DIP:**
--   **Uso de `getRepository`:**
-    ```typescript
-    // sistema_teste/olivia-back/src/gateways/http/controllers/domain/laudo/laudo.controller.ts
-    import { getRepository } from '@/infrastructure/databases/typeorm/postgres/database.providers';
+- **Instanciação Manual de Dependências:** O código utiliza uma função `getRepository` para obter instâncias de repositórios do TypeORM, em vez de usar o decorador `@InjectRepository()` fornecido pelo `@nestjs/typeorm`. Isso acopla fortemente os controllers à implementação específica do `database.providers.ts`.
+- **Acesso a Singletons Globais:** O `minioClient` é importado como um singleton global, em vez de ser fornecido através de um módulo e injetado como um provider.
+
+**Evidência de violação de DIP:**
+```typescript
+// ARQUIVO: sistema_teste/olivia-back/src/gateways/http/controllers/domain/laudo/laudo.controller.ts
+
+// Em vez de injetar via construtor: constructor(@InjectRepository(Usuario) private userRepo: Repository<Usuario>)
+// O código faz:
+const userRepo = getRepository<Usuario>(Usuario);
+const laudoRepo = getRepository<LaudoOlivia>(LaudoOlivia);
+```
+
+```typescript
+// ARQUIVO: sistema_teste/olivia-back/src/gateways/http/controllers/core/health.controller.ts
+
+// Acesso direto à função getDataSource em vez de injetar o DataSource
+const result = await this.health.check([
+  async () =>
+    await this.db.pingCheck('postgres', {
+      connection: getDataSource(),
+    }),
+]);
+```
+
+```typescript
+// ARQUIVO: sistema_teste/olivia-back/src/utils/auth-session.store.ts
+
+// Classe utilitária que busca sua própria dependência
+export class AuthSessionStore {
+  static async set(sessionId: string, userId: number, expiresAt?: number) {
+    const dataSource = getDataSource() as any; // Violação de DIP
+    const repo = dataSource.getRepository(Sessao);
     // ...
-    const laudoRepo = getRepository<LaudoOlivia>(LaudoOlivia);
-    const laudo = await laudoRepo.findOne({ where: { nrLpco: lpco } });
-    ```
--   **Uso direto do cliente MinIO:**
-    ```typescript
-    // sistema_teste/olivia-back/src/gateways/http/controllers/domain/laudo/laudo.controller.ts
-    import minioClient, { MINIO_BUCKET } from '@/infrastructure/minio/minio.client';
-    // ...
-    await minioClient.fPutObject(MINIO_BUCKET, aiFileName, filePath);
-    ```
+  }
+}
+```
 
 **Recomendações:**
-- **Refatorar para SRP:**
-    - Criar um `LaudoService` que encapsule toda a lógica de negócio, orquestração de chamadas e interações com outras camadas. O controller deve apenas receber os dados da requisição, chamar o método apropriado no serviço e retornar a resposta.
-    - Criar um `FileStorageService` (ou `MinioService`) para abstrair as interações com o MinIO. Este serviço deve ser injetado no `LaudoService`.
-    - Criar um `IaApiService` para encapsular as chamadas `axios` para a API externa. Este serviço também deve ser injetado no `LaudoService`.
-- **Adotar Injeção de Dependência para DIP:**
-    - Utilizar os `InjectRepository` do `@nestjs/typeorm` para injetar os repositórios diretamente no construtor dos serviços, em vez de usar `getRepository`.
-    - Transformar a configuração do cliente MinIO em um `MinioModule` e um `MinioService` injetável. O serviço deve expor métodos como `uploadFile` e `getFileStream`, escondendo os detalhes da biblioteca `minio`.
-    - O `LaudoController` refatorado deveria se parecer com:
-      ```typescript
-      @Controller('api')
-      export class LaudoController {
-        constructor(private readonly laudoService: LaudoService) {}
-
-        @Post('extract-pdf-data')
-        @UseInterceptors(FileInterceptor('laudo'))
-        async extractPdfData(
-          @UploadedFile() laudoFile: Express.Multer.File,
-          @Body('lpco') lpco: string,
-          @Body('sub') sub: string
-        ) {
-          return this.laudoService.extractAndProcessPdf(laudoFile, lpco, sub);
-        }
-        // ... outros endpoints delegando para o serviço
-      }
-      ```
+- **Refatorar `LaudoController`:** Extrair as diferentes responsabilidades para serviços injetáveis (`@Injectable`):
+    - `LaudoService`: Conteria a lógica de negócio principal, orquestrando as outras dependências.
+    - `StorageService` (ou `MinioService`): Abstrairia a comunicação com o MinIO.
+    - `IaApiService`: Encapsularia as chamadas `axios` para a API de IA.
+    - `FileSystemService`: Conteria a lógica de manipulação de arquivos temporários, se necessário.
+- **Adotar Injeção de Dependência:**
+    - Utilizar o módulo `@nestjs/typeorm` e o decorador `@InjectRepository()` para injetar repositórios nos serviços.
+    - Criar um `MinioModule` que configure e exporte o `minioClient` como um provider, permitindo que ele seja injetado onde for necessário.
+    - Remover as funções `getDataSource` e `getRepository` e depender exclusivamente do mecanismo de DI do NestJS para fornecer instâncias de `DataSource` e `Repository`.
 
 #FIM_ANALISE_CRITERIO#
 
 ## Critério 2: Acoplamento a Frameworks: Detectar o uso de funcionalidades que acoplam o código a implementações específicas do framework (ex: uso de @Res() do Express no NestJS), o que dificulta a manutenção e a aplicação de interceptors e pipes globais.
 **Status:** Não Conforme
-**Confiança:** 100.0%
+**Confiança:** 1.0%
 
-O código apresenta um forte acoplamento ao framework subjacente (Express) através do uso do decorador `@Res()`. Essa prática, embora funcional, contorna o ciclo de vida de requisição/resposta padrão do NestJS, o que impede a aplicação de interceptadores e decoradores que modificam a resposta (como `@HttpCode` ou `ClassSerializerInterceptor`).
+O código demonstra um forte acoplamento ao framework subjacente (Express.js) através do uso direto do objeto de resposta (`Response`), o que é uma prática desaconselhada pela documentação oficial do NestJS. Ao usar `@Res()`, o controle sobre o ciclo de vida da resposta é retirado do NestJS, o que impede o funcionamento de funcionalidades padrão como:
+- Interceptors globais ou de rota.
+- Decoradores de resposta padrão (`@HttpCode`, `@Header`).
+- Serialização automática de objetos de retorno.
 
-**Evidências:**
+Isso torna o código menos portável (se fosse necessário trocar a plataforma de HTTP, por exemplo, de Express para Fastify) e mais difícil de manter, pois a lógica de resposta fica espalhada e inconsistente.
 
-1.  **`GovBrAuthController`:** O método `login` utiliza `@Res()` para obter o objeto de resposta do Express e realizar um redirecionamento manual.
+**Evidências de Acoplamento:**
+
+1.  **`GovBrAuthController`:** O método `login` utiliza `res.redirect()` para redirecionar o usuário. Embora funcione, isso poderia ser tratado de forma mais agnóstica pelo NestJS, por exemplo, retornando um objeto com a URL e deixando o frontend responsável pelo redirecionamento, ou usando o decorador `@Redirect()`.
+
     ```typescript
-    // sistema_teste/olivia-back/src/gateways/http/controllers/core/govbr-auth.controller.ts
+    // ARQUIVO: sistema_teste/olivia-back/src/gateways/http/controllers/core/govbr-auth.controller.ts
     import { Controller, Get, Query, Headers, Res, BadRequestException } from '@nestjs/common';
     import { Response } from 'express';
 
-    @Controller('auth/govbr')
-    export class GovBrAuthController {
-      constructor(private readonly govBrService: GovBrService) {}
-
-      @Get('login')
-      login(@Res() res: Response) {
-        const url = this.govBrService.getAuthorizationUrl();
-        return res.redirect(url); // Acoplamento direto ao Express
-      }
-      // ...
-    }
-    ```
-
-2.  **`LaudoController`:** O método `getLaudoPdf` usa `@Res()` para fazer o stream de um arquivo PDF diretamente para o cliente. Isso impede que interceptadores de log ou de transformação de resposta atuem nesse endpoint.
-    ```typescript
-    // sistema_teste/olivia-back/src/gateways/http/controllers/domain/laudo/laudo.controller.ts
-    import { Response } from 'express';
     // ...
-    @Controller('api')
-    export class LaudoController {
-      // ...
-      @Get('laudo/:filename')
-      async getLaudoPdf(@Param('filename') filename: string, @Res() res: Response) {
-        // ...
-        try {
-          const fileStream = await minioClient.getObject(MINIO_BUCKET, sanitizedFilename);
-          res.setHeader('Content-Type', 'application/pdf'); // Manipulação direta da resposta
-          fileStream.on('error', () => {
-            res.status(404).json({ error: 'Arquivo não encontrado.' });
-          });
-          fileStream.pipe(res); // Acoplamento direto ao Express
-        } catch (e) {
-          // ...
-          res.status(404).json({ error: 'Arquivo não encontrado.' });
-        }
-      }
-      // ...
+
+    @Get('login')
+    login(@Res() res: Response) {
+      const url = this.govBrService.getAuthorizationUrl();
+      return res.redirect(url); // Uso direto do objeto de resposta do Express
     }
     ```
 
-Quando `@Res()` é utilizado, o NestJS entrega o controle do objeto de resposta nativo da plataforma (Express, neste caso) diretamente ao desenvolvedor. Como resultado, o valor retornado pelo método do controller é ignorado, e funcionalidades que dependem desse retorno, como interceptadores, não funcionarão como esperado.
+2.  **`LaudoController`:** O método `getLaudoPdf` utiliza `res.setHeader()` e `fileStream.pipe(res)` para enviar um arquivo PDF para o cliente. Esta é uma violação clara, pois o NestJS fornece a classe `StreamableFile` para lidar com streaming de arquivos de uma maneira que se integra corretamente ao seu pipeline de resposta.
+
+    ```typescript
+    // ARQUIVO: sistema_teste/olivia-back/src/gateways/http/controllers/domain/laudo/laudo.controller.ts
+    import { /*...,*/ Res } from '@nestjs/common';
+    import { Response } from 'express';
+
+    // ...
+
+    @Get('laudo/:filename')
+    async getLaudoPdf(@Param('filename') filename: string, @Res() res: Response) {
+      // ...
+      try {
+        const fileStream = await minioClient.getObject(MINIO_BUCKET, sanitizedFilename);
+        res.setHeader('Content-Type', 'application/pdf'); // Manipulação direta do header
+        // ...
+        fileStream.pipe(res); // Streaming direto para a resposta do Express
+      } catch (e) {
+        // ...
+        res.status(404).json({ error: 'Arquivo não encontrado.' }); // Envio manual da resposta
+      }
+    }
+    ```
 
 **Recomendações:**
-- **Para redirecionamentos (`GovBrAuthController`):**
-    - Utilize o objeto `RedirectResponse` do NestJS. O método pode ser refatorado para usar o decorador `@Redirect`.
+- **Para o método `getLaudoPdf`:**
+    - Refatorar o método para retornar uma instância de `StreamableFile`. O controller deve obter o stream do arquivo (a partir de um serviço que lida com o MinIO) e encapsulá-lo.
+    - Definir o `Content-Type` usando o decorador `@Header('Content-Type', 'application/pdf')`.
+    - Exemplo de refatoração:
       ```typescript
-      import { Controller, Get, Redirect } from '@nestjs/common';
-      
-      // ...
-      @Get('login')
-      @Redirect()
-      login() {
-        const url = this.govBrService.getAuthorizationUrl();
-        return { url, statusCode: 302 };
+      // No serviço de storage
+      async getFileStream(filename: string): Promise<Stream> {
+        return minioClient.getObject(MINIO_BUCKET, filename);
       }
-      ```
-- **Para streaming de arquivos (`LaudoController`):**
-    - Retorne um `StreamableFile` do NestJS. Isso permite que o NestJS gerencie o streaming, mantendo o código compatível com o ecossistema de interceptadores e pipes.
-      ```typescript
-      import { StreamableFile } from '@nestjs/common';
-      import { Response } from 'express'; // Apenas para tipagem do Header
-      
-      // ...
+
+      // No controller
       @Get('laudo/:filename')
-      async getLaudoPdf(
-        @Param('filename') filename: string,
-        @Res({ passthrough: true }) res: Response, // passthrough: true é crucial
-      ): Promise<StreamableFile> {
-        const sanitizedFilename = path.basename(filename);
+      @Header('Content-Type', 'application/pdf')
+      async getLaudoPdf(@Param('filename') filename: string): Promise<StreamableFile> {
         try {
-          const fileStream = await minioClient.getObject(MINIO_BUCKET, sanitizedFilename);
-          res.set({
-            'Content-Type': 'application/pdf',
-          });
+          const fileStream = await this.storageService.getFileStream(filename);
           return new StreamableFile(fileStream);
         } catch (e) {
-          console.error('laudo/:filename - Erro ao obter arquivo do MinIO:', e);
           throw new NotFoundException('Arquivo não encontrado.');
         }
       }
       ```
-    - Note que o uso de `@Res({ passthrough: true })` ainda é necessário para setar headers customizados, mas o retorno de `StreamableFile` devolve o controle do fluxo para o NestJS. A lógica de tratamento de erro também deve usar as exceções do NestJS (`NotFoundException`) em vez de `res.status()`.
+- **Para o método `login`:**
+    - Considerar o uso do decorador `@Redirect()` do NestJS para lidar com o redirecionamento no lado do servidor.
+    - Alternativamente, e muitas vezes preferível em APIs RESTful, retornar a URL de redirecionamento em um corpo JSON, permitindo que o cliente (frontend) decida como e quando realizar o redirecionamento.
+      ```typescript
+      @Get('login')
+      @HttpCode(200)
+      getLoginUrl(): { redirectUrl: string } {
+        const url = this.govBrService.getAuthorizationUrl();
+        return { redirectUrl: url };
+      }
+      ```
 
 #FIM_ANALISE_CRITERIO#
 
 ## Critério 3: Acoplamento a Tecnologias: Detectar o uso de funcionalidades que acoplam o código diretamente a implementações da plataforma ou framework subjacente, o que impede o reuso, a testabilidade e a portabilidade da lógica de negócio.
 **Status:** Não Conforme
-**Confiança:** 100.0%
+**Confiança:** 1.0%
 
-A lógica de negócio da aplicação está fortemente acoplada a implementações de tecnologias específicas, como a biblioteca de cliente HTTP (`axios`), o cliente de armazenamento de objetos (`minio`), o ORM (`typeorm` através de um helper) e o sistema de arquivos do Node.js (`fs`). Essa mistura de responsabilidades ocorre principalmente dentro da camada de controller, o que dificulta enormemente a testabilidade unitária, a reutilização e a evolução da arquitetura.
+O código apresenta um forte acoplamento da lógica de negócio a tecnologias específicas de infraestrutura, principalmente dentro do `LaudoController`. A lógica que deveria ser pura e focada no domínio (o processamento de um laudo) está intrinsecamente misturada com detalhes de implementação de como os dados são armazenados (MinIO), persistidos (TypeORM/Postgres), obtidos de fontes externas (Axios/API de IA) e manipulados no sistema de arquivos local (`fs`).
 
-**Evidências:**
+Este acoplamento direto impede:
+- **Reuso:** A lógica de processamento não pode ser facilmente reutilizada em outros contextos (ex: um job em background, uma CLI) sem arrastar todas as dependências de infraestrutura (HTTP, `fs`, etc.).
+- **Testabilidade:** É extremamente difícil testar a lógica de negócio do `LaudoController` de forma isolada. Testes unitários exigiriam mocks complexos para `fs`, `axios`, `minioClient` e `getRepository`, todos dentro do mesmo escopo de teste.
+- **Portabilidade:** Se a tecnologia de armazenamento mudasse de MinIO para S3, ou o cliente HTTP de `axios` para `fetch`, seria necessário alterar diretamente o controller, que é um componente de alto nível. A lógica de negócio deveria ser agnóstica a essas escolhas.
 
-O arquivo `sistema_teste/olivia-back/src/gateways/http/controllers/domain/laudo/laudo.controller.ts` é o principal exemplo desse problema. A lógica de negócio está entrelaçada com chamadas diretas a várias tecnologias:
+**Evidências de Acoplamento a Tecnologias:**
 
-1.  **Acoplamento ao Sistema de Arquivos (`fs`):** A manipulação de arquivos temporários é feita diretamente no controller.
+O arquivo `laudo.controller.ts` é um exemplo completo deste problema. Ele depende diretamente de:
+1.  **`axios` para chamadas de API:** A lógica de como chamar a API de IA, incluindo a montagem do `FormData` e o tratamento de headers, está no controller.
+
     ```typescript
-    // sistema_teste/olivia-back/src/gateways/http/controllers/domain/laudo/laudo.controller.ts
-    import fs from 'fs';
-    // ...
-    private async removeFile(filePath?: string): Promise<void> {
-      if (!filePath) return;
-      try {
-        await fs.promises.unlink(filePath);
-      } catch {}
-    }
-    ```
-
-2.  **Acoplamento ao Cliente HTTP (`axios`):** A comunicação com a API de IA é feita usando `axios` diretamente, sem qualquer camada de abstração.
-    ```typescript
-    // sistema_teste/olivia-back/src/gateways/http/controllers/domain/laudo/laudo.controller.ts
-    import axios from 'axios';
-    // ...
+    // ARQUIVO: sistema_teste/olivia-back/src/gateways/http/controllers/domain/laudo/laudo.controller.ts
     const apiResponse = await axios.post(`${process.env.IA_API_URL}/extract-pdf-data`, formData, {
       headers: formData.getHeaders(),
     });
     ```
 
-3.  **Acoplamento ao Cliente de Armazenamento (`minio`):** O upload e a busca de arquivos são realizados com chamadas diretas ao cliente MinIO.
+2.  **`minioClient` para Object Storage:** O controller sabe exatamente como fazer upload (`fPutObject`) e download (`getObject`) de arquivos no MinIO.
+
     ```typescript
-    // sistema_teste/olivia-back/src/gateways/http/controllers/domain/laudo/laudo.controller.ts
-    import minioClient, { MINIO_BUCKET } from '@/infrastructure/minio/minio.client';
-    // ...
+    // ARQUIVO: sistema_teste/olivia-back/src/gateways/http/controllers/domain/laudo/laudo.controller.ts
     await minioClient.fPutObject(MINIO_BUCKET, usuarioFileName, laudoFile.path);
+    // ...
+    const fileStream = await minioClient.getObject(MINIO_BUCKET, sanitizedFilename);
     ```
 
-4.  **Acoplamento à Camada de Dados (`getRepository`):** A lógica de negócio acessa o banco de dados através de uma função helper que está diretamente ligada à implementação do `DataSource` do TypeORM.
+3.  **Módulo `fs` para manipulação de arquivos:** O controller gerencia o ciclo de vida de arquivos temporários no disco local.
+
     ```typescript
-    // sistema_teste/olivia-back/src/gateways/http/controllers/domain/laudo/laudo.controller.ts
-    import { getRepository } from '@/infrastructure/databases/typeorm/postgres/database.providers';
+    // ARQUIVO: sistema_teste/olivia-back/src/gateways/http/controllers/domain/laudo/laudo.controller.ts
+    @UseInterceptors(FileInterceptor('laudo', { dest: 'uploads/' }))
     // ...
+    await fs.promises.unlink(filePath);
+    ```
+
+4.  **`getRepository` para acesso ao banco de dados:** Como detalhado no Critério 1, o controller obtém repositórios e executa operações de banco de dados.
+
+    ```typescript
+    // ARQUIVO: sistema_teste/olivia-back/src/gateways/http/controllers/domain/laudo/laudo.controller.ts
     const laudoRepo = getRepository<LaudoOlivia>(LaudoOlivia);
     const laudo = await laudoRepo.findOne({ where: { nrLpco: lpco } });
     ```
 
-Essa abordagem torna a lógica de negócio frágil a mudanças em qualquer uma dessas tecnologias. Por exemplo, trocar o MinIO por AWS S3 ou o `axios` por `fetch` exigiria alterações diretamente no `LaudoController`. Além disso, testar a lógica do método `extractPdfData` de forma isolada (unitária) é praticamente impossível sem mockar múltiplas bibliotecas e o sistema de arquivos.
-
 **Recomendações:**
-- **Introduzir uma Camada de Serviço:** Conforme recomendado no Critério 1, a principal solução é mover toda a lógica de negócio para uma camada de serviço (ex: `LaudoService`).
-- **Abstrair Dependências Externas (Ports and Adapters):**
-    - **Armazenamento de Arquivos:** Criar uma interface (ou classe abstrata) `StoragePort` com métodos como `save(file, name)` e `get(name)`. Em seguida, criar um `MinioAdapter` que implementa essa porta usando o cliente MinIO. O `LaudoService` dependeria da `StoragePort`, não do `MinioAdapter`.
-    - **API de IA:** Criar uma interface `IAPort` com métodos como `extractDataFromPdf(pdf)`. Criar um `HttpAIAdapter` que implementa essa porta usando `axios` (ou o `@nestjs/axios`). O `LaudoService` dependeria da `IAPort`.
-    - **Acesso a Dados:** Utilizar o padrão Repository. Embora o TypeORM já implemente um padrão de repositório, a recomendação é usar a injeção de dependência (`@InjectRepository`) para desacoplar o serviço da forma como o repositório é obtido.
-- **Exemplo de Arquitetura Refatorada:**
-    - `laudo.controller.ts`: Apenas lida com HTTP e delega para `LaudoService`.
-    - `laudo.service.ts`: Contém a lógica de negócio. É injetado com `StoragePort`, `IAPort` e `LaudoRepository`.
-      ```typescript
-      @Injectable()
-      export class LaudoService {
-        constructor(
-          @Inject('StoragePort') private readonly storage: StoragePort,
-          @Inject('IAPort') private readonly iaApi: IAPort,
-          @InjectRepository(LaudoOlivia) private readonly laudoRepo: Repository<LaudoOlivia>,
-        ) {}
+- **Criar uma Camada de Serviço (Service Layer):** Isolar toda a lógica de negócio em serviços (`@Injectable`). O `LaudoController` deve apenas receber a requisição HTTP, validar os dados de entrada (usando DTOs e `ValidationPipe`) e delegar a execução para um `LaudoService`.
+- **Implementar o Padrão de Repositório (Repository Pattern):** Abstrair o acesso aos dados. Em vez de o serviço usar o `getRepository` diretamente, ele deve receber um repositório injetado (`@InjectRepository`). A lógica de acesso a dados deve residir nos serviços ou em repositórios customizados, nunca nos controllers.
+- **Abstrair Serviços de Infraestrutura:** Criar serviços que encapsulem as interações com tecnologias externas.
+    - **`StorageService`:** Deve ter métodos como `upload(file)` e `download(filename)` que internamente usam o `minioClient`, mas expõem uma interface genérica.
+    - **`IaApiClientService`:** Deve ter métodos como `extractDataFromPdf(pdf)` que lidam com a chamada `axios` e o tratamento da resposta.
+- **Fluxo Refatorado:**
+    1. O `LaudoController` recebe o request e os dados.
+    2. Ele chama `this.laudoService.processarLaudo(lpco, file)`.
+    3. O `LaudoService` orquestra o fluxo:
+        - Chama `this.iaApiService.extractDataFromPdf(file)` para obter os dados da IA.
+        - Chama `this.storageService.upload(file)` para salvar o arquivo original.
+        - Usa seu repositório injetado (`this.laudoRepository`) para salvar as informações no banco de dados.
+    4. O `LaudoService` retorna o resultado para o `LaudoController`, que o envia como resposta HTTP.
 
-        async processNewLaudo(...) {
-          // 1. Salva o arquivo usando a porta de armazenamento
-          const fileUrl = await this.storage.save(file, fileName);
-          // 2. Extrai dados usando a porta da API de IA
-          const extractedData = await this.iaApi.extractDataFromPdf(file);
-          // 3. Persiste no banco usando o repositório injetado
-          await this.laudoRepo.save(...);
-          // ...
-        }
-      }
-      ```
-    - `minio.adapter.ts`: Implementa `StoragePort` usando a biblioteca `minio`.
-    - `ia-api.adapter.ts`: Implementa `IAPort` usando `axios`.
-
-Essa estrutura isola a lógica de negócio das tecnologias, permitindo que elas sejam trocadas com impacto mínimo e facilitando testes unitários robustos do `LaudoService` com mocks das portas.
+Com essa abordagem, a lógica de negócio no `LaudoService` se torna testável e independente dos detalhes de implementação da infraestrutura.
 
 #FIM_ANALISE_CRITERIO#
 
 ## Recomendações Gerais
-- **Centralizar a Lógica de Negócio em Serviços:** A recomendação mais impactante é refatorar o `LaudoController` para delegar toda a lógica de negócio a um `LaudoService`. Isso irá naturalmente resolver muitas das violações de SRP e acoplamento.
-- **Adotar Plenamente a Injeção de Dependência:** Abandonar o uso do helper `getRepository` e a importação direta de clientes como `minioClient`. Em vez disso, registrar provedores (serviços, repositórios) nos módulos do NestJS e injetá-los onde forem necessários através de construtores.
-- **Abstrair Dependências de Infraestrutura:** Para tecnologias externas como MinIO e a API de IA, criar serviços de abstração (`StorageService`, `IaApiService`) que exponham uma API de alto nível para a lógica de negócio, escondendo os detalhes de implementação das bibliotecas subjacentes.
-- **Utilizar os Padrões do NestJS para Respostas HTTP:** Substituir o uso de `@Res()` por retornos de `StreamableFile` para arquivos e `@Redirect` para redirecionamentos, a fim de manter a compatibilidade com o ecossistema de interceptadores e pipes do NestJS.
-- **Melhorar a Testabilidade:** A aplicação das recomendações acima tornará o código muito mais testável. Será possível testar unitariamente os serviços com dependências mockadas, garantindo que a lógica de negócio funcione corretamente de forma isolada.
+- **Adotar uma Arquitetura em Camadas:** Implementar uma separação clara entre as camadas de apresentação (Controllers), negócio (Services) e dados (Repositories). Isso é fundamental para a manutenibilidade e testabilidade do projeto.
+- **Utilizar DTOs (Data Transfer Objects):** Definir classes DTO com decoradores do `class-validator` para validar os corpos das requisições (`@Body()`) e parâmetros (`@Param()`, `@Query()`). Isso move a validação para fora dos métodos do controller e a torna declarativa.
+- **Centralizar a Configuração:** O projeto já utiliza `@nestjs/config`, o que é bom. É importante garantir que todas as configurações (como credenciais do MinIO, URLs de API) sejam acessadas através do `ConfigService` / `EnvironmentService` e não diretamente de `process.env` em múltiplos locais.
+- **Melhorar o Tratamento de Erros:** Embora haja um `AllExceptionsFilter`, a lógica nos controllers frequentemente captura exceções e as relança como `BadRequestException`. Seria mais idiomático no NestJS criar exceções customizadas (ex: `LaudoProcessingException`) e deixar que o filtro de exceções global as traduza para respostas HTTP apropriadas.
 
 #FIM#
