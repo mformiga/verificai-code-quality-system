@@ -207,37 +207,57 @@
   font-weight: 600;
 }
 
-/* Results section */
-.results-section {
-  grid-column: span 2;
-}
-
-.results-tabs {
-  display: flex;
-  border-bottom: 2px solid #e9ecef;
+/* Tabs styling - Following DSGov pattern like GeneralAnalysisPage */
+.br-tabs {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   margin-bottom: 24px;
 }
 
-.results-tab {
-  padding: 12px 24px;
+.tab-navigation {
+  display: flex;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.tab-item {
+  flex: 1;
+  padding: 16px 24px;
   border: none;
   background: transparent;
   color: #6c757d;
   cursor: pointer;
   font-weight: 500;
   transition: all 0.2s ease;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.results-tab:hover {
+.tab-item:hover {
   background: #f8f9fa;
   color: #495057;
 }
 
-.results-tab.active {
+.tab-item.is-active {
   color: #1351b4;
   background: transparent;
-  border-bottom: 3px solid #1351b4;
-  margin-bottom: -2px;
+}
+
+.tab-item.is-active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #1351b4;
+}
+
+/* Container styling */
+.br-container {
+  padding: 0;
 }
 
 /* Analysis results */
