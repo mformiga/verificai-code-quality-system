@@ -392,8 +392,11 @@ async def delete_file_path(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Delete a file path"""
+    """Delete a file path and its physical file"""
     try:
+        import os
+        from app.models.uploaded_file import UploadedFile
+
         file_path = db.query(FilePath).filter(
             FilePath.file_id == file_id,
             FilePath.user_id == current_user.id
@@ -402,15 +405,50 @@ async def delete_file_path(
         if not file_path:
             raise HTTPException(status_code=404, detail="File path not found")
 
+        deleted_physical_files = 0
+        errors = []
+
+        # Look for corresponding uploaded files with matching paths
+        uploaded_files = db.query(UploadedFile).filter(
+            UploadedFile.user_id == current_user.id,
+            or_(
+                UploadedFile.relative_path == file_path.full_path,
+                UploadedFile.original_name == file_path.file_name
+            )
+        ).all()
+
+        # Delete physical files
+        for uploaded_file in uploaded_files:
+            if uploaded_file.storage_path and os.path.exists(uploaded_file.storage_path):
+                try:
+                    os.remove(uploaded_file.storage_path)
+                    deleted_physical_files += 1
+                    logger.info(f"Deleted physical file: {uploaded_file.storage_path}")
+                except OSError as e:
+                    error_msg = f"Failed to delete physical file {uploaded_file.storage_path}: {str(e)}"
+                    logger.error(error_msg)
+                    errors.append(error_msg)
+
+            # Delete the uploaded file record from database
+            db.delete(uploaded_file)
+
+        # Delete the file path record from database
         db.delete(file_path)
         db.commit()
 
         logger.info(f"File path deleted: {file_id} by user {current_user.id}")
 
-        return {"message": "File path deleted successfully"}
+        return {
+            "message": f"File path deleted successfully. Deleted {deleted_physical_files} physical file(s).",
+            "deleted_physical_files": deleted_physical_files,
+            "errors": errors
+        }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error deleting file path {file_id}: {str(e)}")
+        db.rollback()
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -420,27 +458,76 @@ async def delete_file_paths_bulk(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Delete multiple file paths"""
+    """Delete multiple file paths and their physical files"""
     try:
         if len(file_ids) == 0:
             raise HTTPException(status_code=400, detail="No file IDs provided. Use /all to delete all.")
 
-        # Delete specific file paths
-        result = db.query(FilePath).filter(
+        import os
+        from app.models.uploaded_file import UploadedFile
+
+        # Get file paths before deletion to know which physical files to delete
+        file_paths_to_delete = db.query(FilePath).filter(
+            FilePath.file_id.in_(file_ids),
+            FilePath.user_id == current_user.id
+        ).all()
+
+        deleted_physical_files = 0
+        deleted_db_records = 0
+        errors = []
+
+        # For each file path, find and delete the corresponding physical file
+        for file_path in file_paths_to_delete:
+            try:
+                # Look for corresponding uploaded files with matching paths
+                uploaded_files = db.query(UploadedFile).filter(
+                    UploadedFile.user_id == current_user.id,
+                    or_(
+                        UploadedFile.relative_path == file_path.full_path,
+                        UploadedFile.original_name == file_path.file_name
+                    )
+                ).all()
+
+                # Delete physical files
+                for uploaded_file in uploaded_files:
+                    if uploaded_file.storage_path and os.path.exists(uploaded_file.storage_path):
+                        try:
+                            os.remove(uploaded_file.storage_path)
+                            deleted_physical_files += 1
+                            logger.info(f"Deleted physical file: {uploaded_file.storage_path}")
+                        except OSError as e:
+                            error_msg = f"Failed to delete physical file {uploaded_file.storage_path}: {str(e)}"
+                            logger.error(error_msg)
+                            errors.append(error_msg)
+
+                    # Delete the uploaded file record from database
+                    db.delete(uploaded_file)
+
+            except Exception as e:
+                error_msg = f"Error processing file path {file_path.file_id}: {str(e)}"
+                logger.error(error_msg)
+                errors.append(error_msg)
+
+        # Delete the file path records from database
+        deleted_db_records = db.query(FilePath).filter(
             FilePath.file_id.in_(file_ids),
             FilePath.user_id == current_user.id
         ).delete()
+
         db.commit()
 
         return {
-            "message": f"Successfully deleted {result} file paths",
-            "deleted_count": result
+            "message": f"Successfully deleted {deleted_db_records} file paths and {deleted_physical_files} physical files",
+            "deleted_db_records": deleted_db_records,
+            "deleted_physical_files": deleted_physical_files,
+            "errors": errors
         }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error in bulk file path deletion: {str(e)}")
+        db.rollback()
         raise HTTPException(status_code=500, detail="Internal server error")
 
 

@@ -1,10 +1,10 @@
 ================================================================================
-LTIMO PROMPT ENVIADO PARA LLM - 2025-10-08T11:26:31.748015
+LTIMO PROMPT ENVIADO PARA LLM - 2025-10-14T15:14:45.908017
 ================================================================================
 
-TAMANHO TOTAL: 135116 caracteres
+TAMANHO TOTAL: 134078 caracteres
 ARQUIVOS PROCESSADOS: 89
-CRITRIOS: 3
+CRITRIOS: 2
 USURIO: admin (ID: 1)
 
 ================================================================================
@@ -32,14 +32,8 @@ Avalie este critério especificamente usando o nome exato: "Acoplamento a Framew
 
 ---
 
-## Critério 3: Acoplamento a Tecnologias: Detectar o uso de funcionalidades que acoplam o código diretamente a implementações da plataforma ou framework subjacente, o que impede o reuso, a testabilidade e a portabilidade da lógica de negócio.
-
-Avalie este critério especificamente usando o nome exato: "Acoplamento a Tecnologias: Detectar o uso de funcionalidades que acoplam o código diretamente a implementações da plataforma ou framework subjacente, o que impede o reuso, a testabilidade e a portabilidade da lógica de negócio."
-
----
-
 #
-CRÍTICO: Esta análise deve conter exatamente 3 critérios de avaliação.
+CRÍTICO: Esta análise deve conter exatamente 2 critérios de avaliação.
 - Use exatamente os nomes dos critérios fornecidos acima
 - NÃO modifique os nomes dos critérios
 - NÃO invente critérios adicionais
@@ -51,7 +45,7 @@ CRÍTICO: Esta análise deve conter exatamente 3 critérios de avaliação.
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/domains/domain/model-entities/laudo-olivia.entity.ts
+ARQUIVO: teste_olivia/olivia-back/src/domains/domain/model-entities/laudo-olivia.entity.ts
 TAMANHO: 1334 caracteres
 TIPO: TS
 ============================================================
@@ -103,7 +97,7 @@ export class LaudoOlivia {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/domains/domain/model-entities/index.ts
+ARQUIVO: teste_olivia/olivia-back/src/domains/domain/model-entities/index.ts
 TAMANHO: 833 caracteres
 TIPO: TS
 ============================================================
@@ -132,7 +126,7 @@ export { Usuario } from './usuario.entity';
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/domains/domain/index.ts
+ARQUIVO: teste_olivia/olivia-back/src/domains/domain/index.ts
 TAMANHO: 62 caracteres
 TIPO: TS
 ============================================================
@@ -142,7 +136,7 @@ export * from './services';
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/framework/logger/index.ts
+ARQUIVO: teste_olivia/olivia-back/src/framework/logger/index.ts
 TAMANHO: 139 caracteres
 TIPO: TS
 ============================================================
@@ -154,7 +148,7 @@ export { AppLogger, LoggerModule };
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/framework/logger/app-logger.service.ts
+ARQUIVO: teste_olivia/olivia-back/src/framework/logger/app-logger.service.ts
 TAMANHO: 569 caracteres
 TIPO: TS
 ============================================================
@@ -186,7 +180,7 @@ export class AppLogger extends ConsoleLogger {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/framework/logger/app-logger.module.ts
+ARQUIVO: teste_olivia/olivia-back/src/framework/logger/app-logger.module.ts
 TAMANHO: 202 caracteres
 TIPO: TS
 ============================================================
@@ -203,7 +197,7 @@ export class LoggerModule {}
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/framework/index.ts
+ARQUIVO: teste_olivia/olivia-back/src/framework/index.ts
 TAMANHO: 117 caracteres
 TIPO: TS
 ============================================================
@@ -215,7 +209,7 @@ export * from './logger';
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/gateways/http/controllers/core/index.ts
+ARQUIVO: teste_olivia/olivia-back/src/gateways/http/controllers/core/index.ts
 TAMANHO: 170 caracteres
 TIPO: TS
 ============================================================
@@ -227,7 +221,7 @@ export { HealthController, GovBrAuthController };
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/gateways/http/controllers/core/health.controller.ts
+ARQUIVO: teste_olivia/olivia-back/src/gateways/http/controllers/core/health.controller.ts
 TAMANHO: 1491 caracteres
 TIPO: TS
 ============================================================
@@ -292,7 +286,7 @@ export class HealthController {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/gateways/http/controllers/core/govbr-auth.controller.ts
+ARQUIVO: teste_olivia/olivia-back/src/gateways/http/controllers/core/govbr-auth.controller.ts
 TAMANHO: 1284 caracteres
 TIPO: TS
 ============================================================
@@ -341,7 +335,7 @@ export class GovBrAuthController {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/gateways/http/controllers/domain/laudo/laudo.controller.ts
+ARQUIVO: teste_olivia/olivia-back/src/gateways/http/controllers/domain/laudo/laudo.controller.ts
 TAMANHO: 8242 caracteres
 TIPO: TS
 ============================================================
@@ -601,7 +595,7 @@ export class LaudoController {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/gateways/http/controllers/domain/laudo/index.ts
+ARQUIVO: teste_olivia/olivia-back/src/gateways/http/controllers/domain/laudo/index.ts
 TAMANHO: 83 caracteres
 TIPO: TS
 ============================================================
@@ -612,7 +606,7 @@ export { LaudoController };
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/gateways/http/controllers/domain/index.ts
+ARQUIVO: teste_olivia/olivia-back/src/gateways/http/controllers/domain/index.ts
 TAMANHO: 50 caracteres
 TIPO: TS
 ============================================================
@@ -622,7 +616,7 @@ export * from './laudo';
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/gateways/http/controllers/index.ts
+ARQUIVO: teste_olivia/olivia-back/src/gateways/http/controllers/index.ts
 TAMANHO: 50 caracteres
 TIPO: TS
 ============================================================
@@ -632,7 +626,7 @@ export * from './domain';
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/gateways/http/index.ts
+ARQUIVO: teste_olivia/olivia-back/src/gateways/http/index.ts
 TAMANHO: 63 caracteres
 TIPO: TS
 ============================================================
@@ -643,7 +637,7 @@ export * from './http.module';
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/gateways/http/http.module.ts
+ARQUIVO: teste_olivia/olivia-back/src/gateways/http/http.module.ts
 TAMANHO: 766 caracteres
 TIPO: TS
 ============================================================
@@ -679,7 +673,7 @@ export class HttpModule {}
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/infrastructure/databases/typeorm/postgres/migrations/1757515541761-migrations.ts
+ARQUIVO: teste_olivia/olivia-back/src/infrastructure/databases/typeorm/postgres/migrations/1757515541761-migrations.ts
 TAMANHO: 2623 caracteres
 TIPO: TS
 ============================================================
@@ -722,7 +716,7 @@ export class Migrations1757515541761 implements MigrationInterface {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/infrastructure/databases/typeorm/postgres/typeorm-database.datasource.ts
+ARQUIVO: teste_olivia/olivia-back/src/infrastructure/databases/typeorm/postgres/typeorm-database.datasource.ts
 TAMANHO: 662 caracteres
 TIPO: TS
 ============================================================
@@ -750,7 +744,7 @@ export const AppDataSource = new DataSource({
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/infrastructure/databases/typeorm/postgres/index.ts
+ARQUIVO: teste_olivia/olivia-back/src/infrastructure/databases/typeorm/postgres/index.ts
 TAMANHO: 159 caracteres
 TIPO: TS
 ============================================================
@@ -762,7 +756,7 @@ export { AppDataSource, databaseProviders };
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/infrastructure/databases/typeorm/postgres/database.providers.ts
+ARQUIVO: teste_olivia/olivia-back/src/infrastructure/databases/typeorm/postgres/database.providers.ts
 TAMANHO: 4712 caracteres
 TIPO: TS
 ============================================================
@@ -910,7 +904,7 @@ export const getRepository = <T extends { id?: any }>(target: any): RepositoryLi
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/infrastructure/databases/typeorm/postgres/database.module.ts
+ARQUIVO: teste_olivia/olivia-back/src/infrastructure/databases/typeorm/postgres/database.module.ts
 TAMANHO: 325 caracteres
 TIPO: TS
 ============================================================
@@ -929,7 +923,7 @@ export class DatabaseModule {}
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/infrastructure/databases/typeorm/postgres/database.datasource.ts
+ARQUIVO: teste_olivia/olivia-back/src/infrastructure/databases/typeorm/postgres/database.datasource.ts
 TAMANHO: 578 caracteres
 TIPO: TS
 ============================================================
@@ -955,7 +949,7 @@ export const AppDataSource = new DataSource({
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/infrastructure/minio/minio.client.ts
+ARQUIVO: teste_olivia/olivia-back/src/infrastructure/minio/minio.client.ts
 TAMANHO: 528 caracteres
 TIPO: TS
 ============================================================
@@ -978,7 +972,7 @@ export default minioClient;
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/shared/contracts/errors/service-error.ts
+ARQUIVO: teste_olivia/olivia-back/src/shared/contracts/errors/service-error.ts
 TAMANHO: 53 caracteres
 TIPO: TS
 ============================================================
@@ -989,7 +983,7 @@ export interface ServiceError {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/shared/contracts/errors/index.ts
+ARQUIVO: teste_olivia/olivia-back/src/shared/contracts/errors/index.ts
 TAMANHO: 74 caracteres
 TIPO: TS
 ============================================================
@@ -1000,7 +994,7 @@ export { ServiceError };
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/shared/enums/index.ts
+ARQUIVO: teste_olivia/olivia-back/src/shared/enums/index.ts
 TAMANHO: 23 caracteres
 TIPO: TS
 ============================================================
@@ -1009,7 +1003,7 @@ export * from './api';
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/shared/enums/api.ts
+ARQUIVO: teste_olivia/olivia-back/src/shared/enums/api.ts
 TAMANHO: 116 caracteres
 TIPO: TS
 ============================================================
@@ -1023,7 +1017,7 @@ export enum EnvironmentEnum {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/shared/environments/index.ts
+ARQUIVO: teste_olivia/olivia-back/src/shared/environments/index.ts
 TAMANHO: 309 caracteres
 TIPO: TS
 ============================================================
@@ -1037,7 +1031,7 @@ export { ambienteMigracoes, Environment, EnvironmentModule, EnvironmentService }
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/shared/environments/environment.ts
+ARQUIVO: teste_olivia/olivia-back/src/shared/environments/environment.ts
 TAMANHO: 1551 caracteres
 TIPO: TS
 ============================================================
@@ -1092,7 +1086,7 @@ export type Environment = z.infer<typeof environmentSchema>;
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/shared/environments/environment.service.ts
+ARQUIVO: teste_olivia/olivia-back/src/shared/environments/environment.service.ts
 TAMANHO: 375 caracteres
 TIPO: TS
 ============================================================
@@ -1112,7 +1106,7 @@ export class EnvironmentService {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/shared/environments/environment.module.ts
+ARQUIVO: teste_olivia/olivia-back/src/shared/environments/environment.module.ts
 TAMANHO: 217 caracteres
 TIPO: TS
 ============================================================
@@ -1128,7 +1122,7 @@ export class EnvironmentModule {}
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/shared/environments/ambiente-migracoes.ts
+ARQUIVO: teste_olivia/olivia-back/src/shared/environments/ambiente-migracoes.ts
 TAMANHO: 74 caracteres
 TIPO: TS
 ============================================================
@@ -1137,7 +1131,7 @@ export const ambienteMigracoes = { schema: process.env.POSTGRES_SCHEMA };
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/shared/errors/types/framework/invalid-formatation.ts
+ARQUIVO: teste_olivia/olivia-back/src/shared/errors/types/framework/invalid-formatation.ts
 TAMANHO: 308 caracteres
 TIPO: TS
 ============================================================
@@ -1158,7 +1152,7 @@ export class InvalidFormatationException extends HttpException {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/shared/errors/types/user/user-not-found.ts
+ARQUIVO: teste_olivia/olivia-back/src/shared/errors/types/user/user-not-found.ts
 TAMANHO: 316 caracteres
 TIPO: TS
 ============================================================
@@ -1179,7 +1173,7 @@ export class UserNotFoundException extends HttpException {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/shared/errors/types/user/user-not-found.exception.spec.ts
+ARQUIVO: teste_olivia/olivia-back/src/shared/errors/types/user/user-not-found.exception.spec.ts
 TAMANHO: 833 caracteres
 TIPO: TS
 ============================================================
@@ -1212,7 +1206,7 @@ describe('UserNotFoundException', () => {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/shared/errors/types/user/user-forbidden.exception.spec.ts
+ARQUIVO: teste_olivia/olivia-back/src/shared/errors/types/user/user-forbidden.exception.spec.ts
 TAMANHO: 828 caracteres
 TIPO: TS
 ============================================================
@@ -1245,7 +1239,7 @@ describe('UserForbiddenException', () => {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/shared/errors/types/user/forbidden-user.ts
+ARQUIVO: teste_olivia/olivia-back/src/shared/errors/types/user/forbidden-user.ts
 TAMANHO: 315 caracteres
 TIPO: TS
 ============================================================
@@ -1266,7 +1260,7 @@ export class UserForbiddenException extends HttpException {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/shared/errors/types/user/credentials-must-be-provided.ts
+ARQUIVO: teste_olivia/olivia-back/src/shared/errors/types/user/credentials-must-be-provided.ts
 TAMANHO: 342 caracteres
 TIPO: TS
 ============================================================
@@ -1287,7 +1281,7 @@ export class CredentialsMustBeProvidedException extends HttpException {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/shared/errors/types/user/credentials-must-be-provided.exception.spec.ts
+ARQUIVO: teste_olivia/olivia-back/src/shared/errors/types/user/credentials-must-be-provided.exception.spec.ts
 TAMANHO: 905 caracteres
 TIPO: TS
 ============================================================
@@ -1320,7 +1314,7 @@ describe('CredentialsMustBeProvidedException', () => {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/shared/errors/types/index.ts
+ARQUIVO: teste_olivia/olivia-back/src/shared/errors/types/index.ts
 TAMANHO: 0 caracteres
 TIPO: TS
 ============================================================
@@ -1328,7 +1322,7 @@ TIPO: TS
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/shared/errors/index.ts
+ARQUIVO: teste_olivia/olivia-back/src/shared/errors/index.ts
 TAMANHO: 0 caracteres
 TIPO: TS
 ============================================================
@@ -1336,7 +1330,7 @@ TIPO: TS
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/utils/regex-validation-id.ts
+ARQUIVO: teste_olivia/olivia-back/src/utils/regex-validation-id.ts
 TAMANHO: 53 caracteres
 TIPO: TS
 ============================================================
@@ -1345,7 +1339,7 @@ export const regexValidationId = /^[A-Za-z0-9\-]+$/;
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/utils/pkce.util.ts
+ARQUIVO: teste_olivia/olivia-back/src/utils/pkce.util.ts
 TAMANHO: 547 caracteres
 TIPO: TS
 ============================================================
@@ -1368,7 +1362,7 @@ export function deriveCodeChallengeS256(codeVerifier: string): string {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/utils/pkce.store.ts
+ARQUIVO: teste_olivia/olivia-back/src/utils/pkce.store.ts
 TAMANHO: 318 caracteres
 TIPO: TS
 ============================================================
@@ -1391,7 +1385,7 @@ export class PkceStore {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/utils/index.ts
+ARQUIVO: teste_olivia/olivia-back/src/utils/index.ts
 TAMANHO: 76 caracteres
 TIPO: TS
 ============================================================
@@ -1402,7 +1396,7 @@ export { generateCPF };
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/utils/auth-session.store.ts
+ARQUIVO: teste_olivia/olivia-back/src/utils/auth-session.store.ts
 TAMANHO: 1270 caracteres
 TIPO: TS
 ============================================================
@@ -1448,7 +1442,7 @@ export class AuthSessionStore {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/__test__/jest-e2e.json
+ARQUIVO: teste_olivia/olivia-back/src/__test__/jest-e2e.json
 TAMANHO: 306 caracteres
 TIPO: JSON
 ============================================================
@@ -1469,7 +1463,7 @@ TIPO: JSON
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/__test__/app.e2e-spec.ts
+ARQUIVO: teste_olivia/olivia-back/src/__test__/app.e2e-spec.ts
 TAMANHO: 620 caracteres
 TIPO: TS
 ============================================================
@@ -1498,7 +1492,7 @@ describe('AppController (e2e)', () => {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/test.job.ts
+ARQUIVO: teste_olivia/olivia-back/src/test.job.ts
 TAMANHO: 397 caracteres
 TIPO: TS
 ============================================================
@@ -1520,7 +1514,7 @@ bootstrap();
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/main.ts
+ARQUIVO: teste_olivia/olivia-back/src/main.ts
 TAMANHO: 1274 caracteres
 TIPO: TS
 ============================================================
@@ -1563,7 +1557,7 @@ bootstrap();
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/src/app.module.ts
+ARQUIVO: teste_olivia/olivia-back/src/app.module.ts
 TAMANHO: 849 caracteres
 TIPO: TS
 ============================================================
@@ -1596,7 +1590,7 @@ export class AppModule {}
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/package.json
+ARQUIVO: teste_olivia/olivia-back/package.json
 TAMANHO: 3978 caracteres
 TIPO: JSON
 ============================================================
@@ -1714,7 +1708,7 @@ TIPO: JSON
 }
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/nest-cli.json
+ARQUIVO: teste_olivia/olivia-back/nest-cli.json
 TAMANHO: 196 caracteres
 TIPO: JSON
 ============================================================
@@ -1731,7 +1725,7 @@ TIPO: JSON
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/modelo.sql
+ARQUIVO: teste_olivia/olivia-back/modelo.sql
 TAMANHO: 5272 caracteres
 TIPO: SQL
 ============================================================
@@ -1839,7 +1833,7 @@ COMMIT;
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-back/.eslintrc.js
+ARQUIVO: teste_olivia/olivia-back/.eslintrc.js
 TAMANHO: 650 caracteres
 TIPO: JS
 ============================================================
@@ -1869,7 +1863,7 @@ module.exports = {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/components/DSGOV/BRHeader.tsx
+ARQUIVO: teste_olivia/olivia-front/src/components/DSGOV/BRHeader.tsx
 TAMANHO: 4688 caracteres
 TIPO: TSX
 ============================================================
@@ -2052,7 +2046,7 @@ export function BRHeader({
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/components/TableRows.jsx
+ARQUIVO: teste_olivia/olivia-front/src/components/TableRows.jsx
 TAMANHO: 908 caracteres
 TIPO: JSX
 ============================================================
@@ -2093,7 +2087,7 @@ export default TableRows;
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/components/PrivateRoute.js
+ARQUIVO: teste_olivia/olivia-front/src/components/PrivateRoute.js
 TAMANHO: 537 caracteres
 TIPO: JS
 ============================================================
@@ -2122,7 +2116,7 @@ export default PrivateRoute;
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/components/MaskedInput.jsx
+ARQUIVO: teste_olivia/olivia-front/src/components/MaskedInput.jsx
 TAMANHO: 455 caracteres
 TIPO: JSX
 ============================================================
@@ -2149,7 +2143,7 @@ export default MaskedInput;
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/components/LoadingSpinner.jsx
+ARQUIVO: teste_olivia/olivia-front/src/components/LoadingSpinner.jsx
 TAMANHO: 522 caracteres
 TIPO: JSX
 ============================================================
@@ -2179,7 +2173,7 @@ export default LoadingSpinner;
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/components/ChemicalRows.jsx
+ARQUIVO: teste_olivia/olivia-front/src/components/ChemicalRows.jsx
 TAMANHO: 2160 caracteres
 TIPO: JSX
 ============================================================
@@ -2263,7 +2257,7 @@ export default ChemicalRows;
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/components/BasePage.jsx
+ARQUIVO: teste_olivia/olivia-front/src/components/BasePage.jsx
 TAMANHO: 634 caracteres
 TIPO: JSX
 ============================================================
@@ -2296,7 +2290,7 @@ export default BasePage;
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/components/AppHeader.jsx
+ARQUIVO: teste_olivia/olivia-front/src/components/AppHeader.jsx
 TAMANHO: 1277 caracteres
 TIPO: JSX
 ============================================================
@@ -2354,7 +2348,7 @@ export default AppHeader;
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/context/AuthContext.js
+ARQUIVO: teste_olivia/olivia-front/src/context/AuthContext.js
 TAMANHO: 4179 caracteres
 TIPO: JS
 ============================================================
@@ -2511,7 +2505,7 @@ export const useAuth = () => useContext(AuthContext);
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/pages/auth/govbr/sair.jsx
+ARQUIVO: teste_olivia/olivia-front/src/pages/auth/govbr/sair.jsx
 TAMANHO: 336 caracteres
 TIPO: JSX
 ============================================================
@@ -2535,7 +2529,7 @@ export default function GovbrSair() {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/pages/auth/govbr/callback.jsx
+ARQUIVO: teste_olivia/olivia-front/src/pages/auth/govbr/callback.jsx
 TAMANHO: 956 caracteres
 TIPO: JSX
 ============================================================
@@ -2576,7 +2570,7 @@ export default function GovBrCallback() {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/pages/_document.jsx
+ARQUIVO: teste_olivia/olivia-front/src/pages/_document.jsx
 TAMANHO: 781 caracteres
 TIPO: JSX
 ============================================================
@@ -2612,7 +2606,7 @@ export default function Document() {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/pages/_app.jsx
+ARQUIVO: teste_olivia/olivia-front/src/pages/_app.jsx
 TAMANHO: 683 caracteres
 TIPO: JSX
 ============================================================
@@ -2641,7 +2635,7 @@ export default function App({ Component, pageProps }) {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/pages/resultado.jsx
+ARQUIVO: teste_olivia/olivia-front/src/pages/resultado.jsx
 TAMANHO: 2072 caracteres
 TIPO: JSX
 ============================================================
@@ -2722,7 +2716,7 @@ export default Resultado;
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/pages/PromptsEditor.jsx
+ARQUIVO: teste_olivia/olivia-front/src/pages/PromptsEditor.jsx
 TAMANHO: 13112 caracteres
 TIPO: JSX
 ============================================================
@@ -3080,7 +3074,7 @@ export default PromptsEditor;
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/pages/processamento.jsx
+ARQUIVO: teste_olivia/olivia-front/src/pages/processamento.jsx
 TAMANHO: 5772 caracteres
 TIPO: JSX
 ============================================================
@@ -3258,7 +3252,7 @@ export default Processamento;
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/pages/index.jsx
+ARQUIVO: teste_olivia/olivia-front/src/pages/index.jsx
 TAMANHO: 2357 caracteres
 TIPO: JSX
 ============================================================
@@ -3358,7 +3352,7 @@ export default Login;
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/pages/historico.jsx
+ARQUIVO: teste_olivia/olivia-front/src/pages/historico.jsx
 TAMANHO: 5432 caracteres
 TIPO: JSX
 ============================================================
@@ -3533,7 +3527,7 @@ export default Historico;
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/pages/arquivos.jsx
+ARQUIVO: teste_olivia/olivia-front/src/pages/arquivos.jsx
 TAMANHO: 3721 caracteres
 TIPO: JSX
 ============================================================
@@ -3664,7 +3658,7 @@ export default Arquivos;
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/services/auth.js
+ARQUIVO: teste_olivia/olivia-front/src/services/auth.js
 TAMANHO: 677 caracteres
 TIPO: JS
 ============================================================
@@ -3696,7 +3690,7 @@ export function scheduleAutoLogout(expUnix, onLogout, skewSec = 60) {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/services/apiClient.js
+ARQUIVO: teste_olivia/olivia-front/src/services/apiClient.js
 TAMANHO: 535 caracteres
 TIPO: JS
 ============================================================
@@ -3728,7 +3722,7 @@ export default apiClient;
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/styles/tokens/typography.ts
+ARQUIVO: teste_olivia/olivia-front/src/styles/tokens/typography.ts
 TAMANHO: 275 caracteres
 TIPO: TS
 ============================================================
@@ -3751,7 +3745,7 @@ export const typography = {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/styles/tokens/spacing.ts
+ARQUIVO: teste_olivia/olivia-front/src/styles/tokens/spacing.ts
 TAMANHO: 76 caracteres
 TIPO: TS
 ============================================================
@@ -3766,7 +3760,7 @@ export const spacing = {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/styles/tokens/index.ts
+ARQUIVO: teste_olivia/olivia-front/src/styles/tokens/index.ts
 TAMANHO: 118 caracteres
 TIPO: TS
 ============================================================
@@ -3777,7 +3771,7 @@ export * as typography from './typography';
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/styles/tokens/colors.ts
+ARQUIVO: teste_olivia/olivia-front/src/styles/tokens/colors.ts
 TAMANHO: 343 caracteres
 TIPO: TS
 ============================================================
@@ -3804,7 +3798,7 @@ export const colors = {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/styles/Home.module.css
+ARQUIVO: teste_olivia/olivia-front/src/styles/Home.module.css
 TAMANHO: 2702 caracteres
 TIPO: CSS
 ============================================================
@@ -3979,7 +3973,7 @@ a.secondary {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/styles/globals.css
+ARQUIVO: teste_olivia/olivia-front/src/styles/globals.css
 TAMANHO: 1266 caracteres
 TIPO: CSS
 ============================================================
@@ -4056,7 +4050,7 @@ a {
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/src/theme/dsgovTheme.ts
+ARQUIVO: teste_olivia/olivia-front/src/theme/dsgovTheme.ts
 TAMANHO: 1294 caracteres
 TIPO: TS
 ============================================================
@@ -4101,7 +4095,7 @@ export const dsgovTheme = createTheme({
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/tsconfig.json
+ARQUIVO: teste_olivia/olivia-front/tsconfig.json
 TAMANHO: 704 caracteres
 TIPO: JSON
 ============================================================
@@ -4144,7 +4138,7 @@ TIPO: JSON
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/package.json
+ARQUIVO: teste_olivia/olivia-front/package.json
 TAMANHO: 1589 caracteres
 TIPO: JSON
 ============================================================
@@ -4207,7 +4201,7 @@ TIPO: JSON
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/next.config.js
+ARQUIVO: teste_olivia/olivia-front/next.config.js
 TAMANHO: 335 caracteres
 TIPO: JS
 ============================================================
@@ -4232,7 +4226,7 @@ module.exports = nextConfig;
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/next-env.d.ts
+ARQUIVO: teste_olivia/olivia-front/next-env.d.ts
 TAMANHO: 264 caracteres
 TIPO: TS
 ============================================================
@@ -4246,7 +4240,7 @@ TIPO: TS
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/jest.setup.js
+ARQUIVO: teste_olivia/olivia-front/jest.setup.js
 TAMANHO: 300 caracteres
 TIPO: JS
 ============================================================
@@ -4260,7 +4254,7 @@ import "@testing-library/jest-dom/extend-expect";
 
 
 ============================================================
-ARQUIVO: sistema_teste/olivia-front/jest.config.js
+ARQUIVO: teste_olivia/olivia-front/jest.config.js
 TAMANHO: 873 caracteres
 TIPO: JS
 ============================================================
@@ -4340,21 +4334,6 @@ Esta tag marca o fim completo da análise do critério acima.
 
 
 ## Critério 2: [Nome do critério]
-**Status:** [Conforme/Parcialmente Conforme/Não Conforme]
-**Confiança:** [X.X]%
-
-[Avaliação detalhada com evidências do código]
-
-**Recomendações:**
-- [Lista de recomendações específicas]
-
-**IMPORTANTE: Ao finalizar a análise deste critério, inclua EXATAMENTE a tag: #FIM_ANALISE_CRITERIO#**
-Esta tag marca o fim completo da análise do critério acima.
-
-#FIM_ANALISE_CRITERIO#
-
-
-## Critério 3: [Nome do critério]
 **Status:** [Conforme/Parcialmente Conforme/Não Conforme]
 **Confiança:** [X.X]%
 

@@ -449,6 +449,12 @@ const PathList: React.FC<PathListProps> = ({
   const handleRemoveSelected = async () => {
     if (selectedFiles.size === 0) return;
 
+    // Confirm before deletion
+    const confirmMessage = `Tem certeza que deseja remover ${selectedFiles.size} arquivo(s) selecionados? Esta ação irá remover os arquivos do banco de dados e também deletar os arquivos físicos da pasta de uploads.`;
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
     try {
       const { getAuthHeaders } = await import('@/utils/auth');
       const authHeaders = getAuthHeaders();
@@ -463,18 +469,36 @@ const PathList: React.FC<PathListProps> = ({
       });
 
       if (response.ok) {
+        const result = await response.json();
+
         // Remove selected files from the local state
         setPaths(prev => prev.filter(path => !selectedFiles.has(path.id)));
         setSelectedFiles(new Set());
-              } else {
-        console.error('Erro ao remover arquivos selecionados');
+
+        // Show success message with details
+        const message = result.errors && result.errors.length > 0
+          ? `Removidos ${result.deleted_db_records} registros do banco de dados e ${result.deleted_physical_files} arquivos físicos. Alguns erros ocorreram: ${result.errors.join(', ')}`
+          : `Removidos ${result.deleted_db_records} registros do banco de dados e ${result.deleted_physical_files} arquivos físicos com sucesso!`;
+
+        alert(message);
+        console.log('Remoção concluída:', result);
+      } else {
+        const errorText = await response.text();
+        console.error('Erro ao remover arquivos selecionados:', errorText);
+        alert('Erro ao remover arquivos selecionados. Por favor, tente novamente.');
       }
     } catch (error) {
       console.error('Erro ao remover arquivos selecionados:', error);
+      alert('Erro ao remover arquivos selecionados. Por favor, tente novamente.');
     }
   };
 
   const handleRemoveFile = async (fileId: string) => {
+    // Confirm before deletion
+    if (!confirm('Tem certeza que deseja remover este arquivo? Esta ação irá remover o arquivo do banco de dados e também deletar o arquivo físico da pasta de uploads.')) {
+      return;
+    }
+
     try {
       const { getAuthHeaders } = await import('@/utils/auth');
       const authHeaders = getAuthHeaders();
@@ -489,6 +513,8 @@ const PathList: React.FC<PathListProps> = ({
       });
 
       if (response.ok) {
+        const result = await response.json();
+
         // Remove file from the local state
         setPaths(prev => prev.filter(path => path.id !== fileId));
         // Also remove from selected files if it was selected
@@ -497,11 +523,22 @@ const PathList: React.FC<PathListProps> = ({
           newSet.delete(fileId);
           return newSet;
         });
+
+        // Show success message with details
+        const message = result.errors && result.errors.length > 0
+          ? `Removido 1 registro do banco de dados e ${result.deleted_physical_files} arquivo(s) físico(s). Alguns erros ocorreram: ${result.errors.join(', ')}`
+          : `Removido 1 registro do banco de dados e ${result.deleted_physical_files} arquivo(s) físico(s) com sucesso!`;
+
+        alert(message);
+        console.log('Remoção individual concluída:', result);
       } else {
-        console.error('Erro ao remover arquivo');
+        const errorText = await response.text();
+        console.error('Erro ao remover arquivo:', errorText);
+        alert('Erro ao remover arquivo. Por favor, tente novamente.');
       }
     } catch (error) {
       console.error('Erro ao remover arquivo:', error);
+      alert('Erro ao remover arquivo. Por favor, tente novamente.');
     }
   };
 
