@@ -16,6 +16,11 @@ type LoginFormData = z.infer<typeof loginSchema>;
 const LoginPage: React.FC = () => {
   const { login, isLoading } = useAuth();
 
+  // Definir título da página
+  React.useEffect(() => {
+    document.title = 'AVALIA Code Quality System - Login';
+  }, []);
+
   const {
     register,
     handleSubmit,
@@ -43,9 +48,9 @@ const LoginPage: React.FC = () => {
       {/* Logo and App Title */}
       <div className="logo-container">
         <div className="logo">
-          <span className="logo-text">V</span>
+          <span className="logo-text">A</span>
         </div>
-        <h1 className="app-title">VerificAI</h1>
+        <h1 className="app-title">AVAL<span style={{ color: '#EAB308' }}>IA</span></h1>
         <p className="app-subtitle">Sistema de Qualidade de Código com IA</p>
       </div>
 

@@ -1,6 +1,6 @@
 {
-  "name": "VerificAI Code Quality System",
-  "short_name": "VerificAI",
+  "name": "AVALIA Code Quality System",
+  "short_name": "AVALIA",
   "description": "Sistema de análise de código baseado em IA para equipes de QA",
   "start_url": "/",
   "display": "standalone",

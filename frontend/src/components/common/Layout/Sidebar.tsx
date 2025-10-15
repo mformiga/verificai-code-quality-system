@@ -33,9 +33,11 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose, navigation, currentPat
           <div className="flex h-16 items-center justify-between px-4">
             <div className="flex items-center">
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">V</span>
+                <span className="text-white font-bold text-sm">A</span>
               </div>
-              <h1 className="ml-2 text-lg font-bold text-gray-900">VerificAI</h1>
+              <h1 className="ml-2 text-lg font-bold text-gray-900">
+                AVAL<span style={{ color: '#EAB308' }}>IA</span>
+              </h1>
             </div>
             <button
               onClick={onClose}
@@ -76,9 +78,11 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose, navigation, currentPat
         <div className="flex h-16 items-center px-4 border-b border-gray-200">
           <div className="flex items-center">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">V</span>
+              <span className="text-white font-bold text-sm">A</span>
             </div>
-            <h1 className="ml-2 text-lg font-bold text-gray-900">VerificAI</h1>
+            <h1 className="ml-2 text-lg font-bold text-gray-900">
+              AVAL<span style={{ color: '#EAB308' }}>IA</span>
+            </h1>
           </div>
         </div>
         <nav className="flex-1 px-3 py-4">

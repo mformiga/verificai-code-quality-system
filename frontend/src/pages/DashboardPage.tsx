@@ -161,7 +161,7 @@ const DashboardPage: React.FC = () => {
         <Card className="mt-8">
           <CardHeader
             title="Primeiros Passos"
-            subtitle="Siga este guia para começar a usar o VerificAI"
+            subtitle="Siga este guia para começar a usar o AVALIA"
           />
           <CardContent>
             <div className="space-y-4">

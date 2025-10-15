@@ -35,7 +35,7 @@ const DashboardPage: React.FC = () => {
       <div className="dashboard-header">
         <div className="br-card">
           <div className="card-header text-center">
-            <h1 className="text-h3">Bem-vindo ao VerificAI!</h1>
+            <h1 className="text-h3">Bem-vindo ao AVAL<span style={{ color: '#EAB308' }}>IA</span>!</h1>
             <p className="text-regular">
               Sistema de Qualidade de Código com IA
             </p>
@@ -144,6 +144,11 @@ const DashboardPage: React.FC = () => {
 };
 
 function App() {
+  // Efeito para definir o título da página
+  React.useEffect(() => {
+    document.title = 'AVALIA Code Quality System';
+  }, []);
+
   // Efeito para inicialização do aplicativo
   React.useEffect(() => {
     // Criar usuário de desenvolvimento para testes

@@ -8,9 +8,9 @@ const Footer: React.FC = () => {
           <div className="flex items-center space-x-4">
             <div className="flex items-center">
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">V</span>
+                <span className="text-white font-bold text-sm">A</span>
               </div>
-              <span className="ml-2 text-lg font-semibold text-gray-900">VerificAI</span>
+              <span className="ml-2 text-lg font-semibold text-gray-900">AVAL<span style={{ color: '#EAB308' }}>IA</span></span>
             </div>
             <span className="text-sm text-gray-500">
               Code Quality System
@@ -44,7 +44,7 @@ const Footer: React.FC = () => {
             </div>
 
             <div className="text-sm text-gray-500">
-              © 2024 VerificAI. Todos os direitos reservados.
+              © 2024 AVALIA. Todos os direitos reservados.
             </div>
           </div>
         </div>

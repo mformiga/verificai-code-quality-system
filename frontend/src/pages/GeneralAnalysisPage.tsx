@@ -44,6 +44,11 @@ interface Criterion {
 const GeneralAnalysisPage: React.FC = () => {
   const uploadStore = useUploadStore();
 
+  // Definir título da página
+  React.useEffect(() => {
+    document.title = 'AVALIA Code Quality System - Análise Geral';
+  }, []);
+
   // Clear upload store on component mount to ensure sync with database
   React.useEffect(() => {
     if (uploadStore.files.length > 0) {
@@ -1394,7 +1399,7 @@ const GeneralAnalysisPage: React.FC = () => {
         <div class="Section1">
           <div class="header">
             <h1>Relatório de Análise de Código</h1>
-            <h2>VerificAI Code Quality System</h2>
+            <h2>AVALIA Code Quality System</h2>
             <p>Gerado em: ${currentDate} às ${currentTime}</p>
           </div>
 
@@ -1463,7 +1468,7 @@ const GeneralAnalysisPage: React.FC = () => {
 
     content += `
           <div class="footer">
-            <p>Relatório gerado automaticamente pelo VerificAI Code Quality System</p>
+            <p>Relatório gerado automaticamente pelo AVALIA Code Quality System</p>
             <p>Este relatório é confidencial e deve ser tratado de acordo com as políticas da organização.</p>
           </div>
         </div>

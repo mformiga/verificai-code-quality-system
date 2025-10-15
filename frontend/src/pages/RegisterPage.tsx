@@ -28,6 +28,11 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 const RegisterPage: React.FC = () => {
   const { register: registerUser, isLoading } = useAuth();
 
+  // Definir título da página
+  React.useEffect(() => {
+    document.title = 'AVALIA Code Quality System - Registro';
+  }, []);
+
   const {
     register,
     handleSubmit,
@@ -56,10 +61,10 @@ const RegisterPage: React.FC = () => {
       {/* Logo and Page Title */}
       <div className="logo-container">
         <div className="logo">
-          <span className="logo-text">V</span>
+          <span className="logo-text">A</span>
         </div>
         <h1 className="page-title">Criar conta</h1>
-        <p className="page-subtitle">Junte-se ao VerificAI para analisar seu código com IA</p>
+        <p className="page-subtitle">Junte-se ao AVAL<span style={{ color: '#EAB308' }}>IA</span> para analisar seu código com IA</p>
       </div>
 
       {/* Register Form */}
