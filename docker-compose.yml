@@ -1,0 +1,121 @@
+version: '3.8'
+
+services:
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=verificai
+      - POSTGRES_USER=verificai
+      - POSTGRES_PASSWORD=verificai123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - verificai-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - verificai-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      cache_from:
+        - verificai-backend:latest
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://verificai:verificai123@postgres:5432/verificai
+      - REDIS_URL=redis://redis:6379
+      - ENVIRONMENT=development
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - ANTHROPIC_BASE_URL
+      - ANTHROPIC_AUTH_TOKEN
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./backend:/app
+      - backend-cache:/tmp/cache
+    networks:
+      - verificai-network
+    restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --log-level debug --reload-delay 1
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      cache_from:
+        - verificai-frontend:latest
+    ports:
+      - "3011:3011"
+    environment:
+      - REACT_APP_API_URL=http://backend:8000
+      - CHOKIDAR_USEPOLLING=true
+      - NODE_ENV=development
+      - VITE_API_PROXY_TARGET=http://backend:8000
+      - VITE_WS_PROXY_TARGET=ws://backend:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.vite
+    depends_on:
+      - backend
+    networks:
+      - verificai-network
+    restart: unless-stopped
+    
+
+  # Celery Worker (for async tasks)
+  celery:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://verificai:verificai123@postgres:5432/verificai
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./backend:/app
+    networks:
+      - verificai-network
+    command: celery -A celery_app worker --loglevel=info
+
+  # Celery Beat (for scheduled tasks)
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://verificai:verificai123@postgres:5432/verificai
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./backend:/app
+    networks:
+      - verificai-network
+    command: python -m celery -A celery_app beat --loglevel=info
+
+volumes:
+  postgres_data:
+  backend-cache:
+
+networks:
+  verificai-network:
+    driver: bridge

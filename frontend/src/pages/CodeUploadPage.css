@@ -1,0 +1,61 @@
+/* DSGov-based styles for CodeUploadPage */
+
+.code-upload-page {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.folder-selector-section {
+  margin-bottom: 24px;
+}
+
+.folder-selector-section .br-card {
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.folder-selector-section .card-content {
+  padding: 24px;
+}
+
+.actions-section {
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.actions-section .br-button.danger {
+  background-color: #dc3545;
+  border-color: #dc3545;
+  color: white;
+}
+
+.actions-section .br-button.danger:hover {
+  background-color: #c82333;
+  border-color: #bd2130;
+}
+
+.path-list-section {
+  margin-top: 24px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .code-upload-page {
+    padding: 16px;
+  }
+
+  .page-header .text-h1 {
+    font-size: 1.5rem;
+  }
+
+  .actions-section {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actions-section .br-button {
+    width: 100%;
+  }
+}

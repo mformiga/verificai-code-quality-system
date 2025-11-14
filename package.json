@@ -1,0 +1,62 @@
+{
+  "name": "verificai-code-quality-system",
+  "version": "1.0.0",
+  "description": "Sistema de análise de código baseado em IA para equipes de QA",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+    "dev:quick": "npm run install:all && npm run dev",
+    "dev:postgres": "python setup-postgres.py && npm run dev",
+    "setup": "npm run install:all && echo \"Environment setup complete! Use 'npm run dev' to start.\"",
+    "setup:postgres": "python setup-postgres.py && npm run install:all",
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "test": "npm run test:frontend && npm run test:backend",
+    "test:frontend": "cd frontend && npm test",
+    "test:backend": "cd backend && npm test",
+    "lint": "npm run lint:frontend && npm run lint:backend",
+    "lint:frontend": "cd frontend && npm run lint",
+    "lint:backend": "cd backend && npm run lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && pip install -r requirements.txt",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "reset:frontend": "cd frontend && rm -rf node_modules package-lock.json && npm install",
+    "reset:backend": "cd backend && rm -rf __pycache__ && pip install -r requirements.txt",
+    "reset:db": "cd backend && rm -f verificai.db",
+    "status": "echo \"Backend: http://localhost:8000\" && echo \"Frontend: Check console for port (starts at 3011)\" && echo \"API Docs: http://localhost:8000/api/v1/docs\""
+  },
+  "keywords": [
+    "code-quality",
+    "ai",
+    "llm",
+    "analysis",
+    "typescript",
+    "python",
+    "fastapi",
+    "react"
+  ],
+  "author": "mformiga",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.0",
+    "prettier": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  }
+}

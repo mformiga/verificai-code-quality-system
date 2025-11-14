@@ -1,0 +1,125 @@
+/* DSGov-based styles for NotFoundPage component */
+.not-found-page {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.not-found-content {
+  text-align: center;
+  max-width: 600px;
+}
+
+.not-found-content .br-card {
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.not-found-content .card-content {
+  padding: 48px 32px;
+}
+
+.error-code {
+  font-size: 120px;
+  font-weight: 700;
+  color: #1351b4;
+  line-height: 1;
+  margin-bottom: 24px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.error-title {
+  font-size: 32px;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 16px;
+}
+
+.error-description {
+  font-size: 18px;
+  color: #6c757d;
+  line-height: 1.6;
+  margin-bottom: 32px;
+}
+
+.home-button {
+  background: linear-gradient(135deg, #1351b4 0%, #1a5fc4 100%);
+  color: white;
+  border: none;
+  padding: 14px 32px;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.home-button:hover {
+  background: linear-gradient(135deg, #0d4d9f 0%, #1655b3 100%);
+  transform: translateY(-1px);
+  text-decoration: none;
+  color: white;
+}
+
+.error-icon {
+  font-size: 64px;
+  color: #1351b4;
+  margin-bottom: 24px;
+  opacity: 0.8;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .not-found-page {
+    padding: 16px;
+  }
+
+  .not-found-content .card-content {
+    padding: 32px 24px;
+  }
+
+  .error-code {
+    font-size: 80px;
+    margin-bottom: 16px;
+  }
+
+  .error-title {
+    font-size: 24px;
+  }
+
+  .error-description {
+    font-size: 16px;
+  }
+
+  .error-icon {
+    font-size: 48px;
+  }
+}
+
+@media (max-width: 480px) {
+  .not-found-content .card-content {
+    padding: 24px 16px;
+  }
+
+  .error-code {
+    font-size: 60px;
+  }
+
+  .error-title {
+    font-size: 20px;
+  }
+
+  .home-button {
+    padding: 12px 24px;
+    font-size: 14px;
+  }
+}

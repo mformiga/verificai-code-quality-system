@@ -1,0 +1,85 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: '0 2 * * 1' # Every Monday at 2 AM
+
+jobs:
+  quality-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Run ESLint
+      working-directory: ./frontend
+      run: npm run lint
+
+    - name: Run Prettier check
+      working-directory: ./frontend
+      run: npm run format:check
+
+    - name: Check TypeScript types
+      working-directory: ./frontend
+      run: npm run type-check
+
+    - name: Run tests with coverage
+      working-directory: ./frontend
+      run: npm run test:coverage
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./frontend/coverage/lcov.info
+        flags: frontend
+        name: code-quality-coverage
+
+  dependency-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Check for outdated dependencies
+      working-directory: ./frontend
+      run: npm outdated
+
+    - name: Run security audit
+      working-directory: ./frontend
+      run: npm audit --audit-level=moderate
+
+    - name: Generate dependency graph
+      working-directory: ./frontend
+      run: npx depcruise --include-only "^src" --output-type dot src | dot -T svg > dependency-graph.svg
+
+    - name: Upload dependency graph
+      uses: actions/upload-artifact@v3
+      with:
+        name: dependency-graph
+        path: frontend/dependency-graph.svg
