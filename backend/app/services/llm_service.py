@@ -1,25 +1,43 @@
 """
-LLM service for VerificAI Backend - Direct LLM API integration
+LLM service for VerificAI Backend - Direct LLM API integration with global locking
 """
 
 import os
 import json
 import re
 import httpx
+import asyncio
+import time
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 from fastapi import HTTPException, status
 
 class LLMService:
-    """Service for direct LLM API integration using Google Gemini"""
+    """Service for direct LLM API integration using Google Gemini with global request serialization"""
 
     def __init__(self):
         self.base_url = "https://generativelanguage.googleapis.com/v1beta/models"
         self.api_key = "AIzaSyDmhnKGqN5FnF5BSIYMdTvYlswednA3wL0"
-        self.model = "gemini-2.5-pro"
+        self.primary_model = "gemini-2.5-pro"
+        self.fallback_model = "gemini-2.5-flash"
+        # Lock global para serializar completamente todas as solicitações LLM
+        self._global_lock = asyncio.Lock()
+        print("=== LLMService: Lock global inicializado para prevenir 429 rate limiting ===")
 
     async def send_prompt(self, prompt: str, **kwargs) -> Dict[str, Any]:
-        """Send prompt directly to LLM API"""
+        """Send prompt directly to LLM API with fallback logic and global serialization"""
+
+        # BLOQUEO GLOBAL - Solo una solicitud LLM puede procesarse a la vez para evitar 429
+        print("=== ESPERANDO LOCK GLOBAL DE LLM ===")
+        async with self._global_lock:
+            print("=== LOCK GLOBAL OBTENIDO - Iniciando solicitud LLM ===")
+            try:
+                return await self._execute_llm_request(prompt, **kwargs)
+            finally:
+                print("=== LIBERANDO LOCK GLOBAL DE LLM ===")
+
+    async def _execute_llm_request(self, prompt: str, **kwargs) -> Dict[str, Any]:
+        """Execute the actual LLM request with fallback logic"""
         headers = {
             "Content-Type": "application/json"
         }
@@ -45,89 +63,249 @@ class LLMService:
             }
         }
 
-        try:
-            async with httpx.AsyncClient(timeout=1800.0) as client:
-                response = await client.post(
-                    f"{self.base_url}/{self.model}:generateContent?key={self.api_key}",
-                    headers=headers,
-                    json=payload
+        max_retries = 1  # Reducido para evitar múltiples reintentos rápidos
+        base_delay = 15  # Aumentado significativamente para prevenir 429
+
+        print(f"=== INICIANDO SOLICITUD LLM SERIALIZADA ===")
+        print(f"Modelo primario: {self.primary_model}")
+        print(f"Modelo fallback: {self.fallback_model}")
+        print(f"Max reintentos por modelo: {max_retries}")
+        print(f"Delay base: {base_delay} segundos (aumentado para prevenir 429)")
+
+        # Esperar inicial antes de la primera solicitud para asegurar espacio entre solicitudes
+        print(f"Esperando {base_delay} segundos antes de la primera solicitud...")
+        await asyncio.sleep(base_delay)
+
+        # Try primary model first
+        primary_result = await self._try_model(prompt, self.primary_model, headers, payload, max_retries, base_delay)
+
+        if primary_result:
+            print(f"=== MODELO PRIMARIO EXITOSO: {primary_result['model']} ===")
+            return self._process_successful_response(primary_result["result"], primary_result["model"])
+        else:
+            print(f"=== MODELO PRIMARIO FALLÓ: {self.primary_model} - INTENTANDO FALLBACK ===")
+
+            # Espera prolongada antes de cambiar de modelo para evitar cualquier posibilidad de 429
+            model_switch_delay = base_delay * 6  # 90 segundos de espera entre cambios de modelo
+            print(f"ESPERA LARGA: Aguardando {model_switch_delay} segundos antes de intentar modelo fallback...")
+            await asyncio.sleep(model_switch_delay)
+
+            # Try fallback model
+            fallback_result = await self._try_model(prompt, self.fallback_model, headers, payload, max_retries, base_delay)
+
+            if fallback_result:
+                print(f"=== MODELO FALLBACK EXITOSO: {fallback_result['model']} ===")
+                return self._process_successful_response(fallback_result["result"], fallback_result["model"])
+            else:
+                print(f"=== AMBOS MODELOS FALLARON ===")
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="El servicio de IA está temporalmente no disponible. Todos los modelos están sobrecargados. Por favor, espere varios minutos antes de intentar nuevamente."
                 )
 
-                if response.status_code != 200:
-                    raise HTTPException(
-                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        detail=f"LLM API error: {response.text}"
+    async def _try_model(
+        self,
+        prompt: str,
+        model: str,
+        headers: Dict[str, str],
+        payload: Dict[str, Any],
+        max_retries: int,
+        base_delay: int
+    ) -> Dict[str, Any]:
+        """
+        Tenta gerar análise usando um modelo específico com retry logic e espaçamento adequado.
+
+        Args:
+            prompt: Texto de entrada para análise
+            model: Nome do modelo a ser usado
+            headers: Headers da requisição HTTP
+            payload: Payload da requisição
+            max_retries: Número máximo de tentativas
+            base_delay: Tempo base de espera em segundos
+
+        Returns:
+            Dicionário com a resposta da API
+
+        Raises:
+            Exception: Se todas as tentativas falharem
+        """
+        last_exception = None
+
+        print(f"=== TENTANDO MODELO: {model} ===")
+        print(f"Máximo de tentativas: {max_retries + 1}")
+
+        for attempt in range(max_retries + 1):
+            try:
+                print(f"Tentativa {attempt + 1}/{max_retries + 1} para {model}")
+
+                # SIEMPRE esperar antes de CADA intento (incluyendo el primero)
+                # para garantizar espaciado máximo entre solicitudes y prevenir 429
+                if attempt >= 0:  # Cambiado de > 0 a >= 0 para esperar también antes del primer intento
+                    # Usar backoff exponencial muy conservador para evitar CUALQUIER posibilidad de 429
+                    delay = base_delay * (2 ** attempt)  # Backoff exponencial conservador
+                    print(f"ESPERA MÍNIMA OBLIGATORIA: Aguardando {delay} segundos antes del intento {attempt + 1}...")
+                    await asyncio.sleep(delay)
+
+                # Faz a requisição com timeout maior para evitar bloqueios
+                async with httpx.AsyncClient(timeout=300.0) as client:
+                    print(f"Enviando requisição para {model}...")
+                    start_time = time.time()
+
+                    response = await client.post(
+                        f"{self.base_url}/{model}:generateContent?key={self.api_key}",
+                        headers=headers,
+                        json=payload
                     )
 
-                result = response.json()
+                    end_time = time.time()
+                    print(f"Resposta recebida de {model} em {end_time - start_time:.2f}s: {response.status_code}")
 
-                print(f"=== DEBUG GEMINI API RESPONSE ===")
-                print(f"Response keys: {result.keys()}")
-                try:
-                    print(f"Response: {json.dumps(result, indent=2, ensure_ascii=False)}")
-                except UnicodeEncodeError:
-                    print(f"Response: {json.dumps(result, indent=2, ensure_ascii=False).encode('ascii', 'ignore').decode('ascii')[:500]}...")
-                print(f"=== END DEBUG GEMINI API RESPONSE ===")
+                    if response.status_code == 200:
+                        print(f"SUCESSO: {model} respondeu com sucesso na tentativa {attempt + 1}!")
+                        result = response.json()
+                        return {
+                            "result": result,
+                            "model": model
+                        }
 
-                # Extract response text from Gemini format
-                response_text = ""
+                    elif response.status_code == 429:
+                        # Rate limit error - esperar MUCHO más tiempo antes de prosseguir
+                        error_info = response.text
+                        print(f"=== ERROR 429 RATE LIMIT DETECTADO en {model} ===")
+                        print(f"Detalles del error: {error_info}")
 
-                # Gemini response format: candidates[0].content.parts[0].text
-                if "candidates" in result and len(result["candidates"]) > 0:
-                    candidate = result["candidates"][0]
-                    if "content" in candidate and "parts" in candidate["content"] and len(candidate["content"]["parts"]) > 0:
-                        response_text = candidate["content"]["parts"][0].get("text", "")
+                        if attempt == max_retries:
+                            print(f"=== FALHA TOTAL: {model} atingiu rate limit após {max_retries + 1} tentativas ===")
+                            print("=== ADVERTENCIA: Gemini API está saturada ===")
+                            return None
+                        else:
+                            # Para rate limit 429, esperar TIEMPO EXTREMADAMENTE LARGO para asegurar que se resetee
+                            rate_limit_delay = base_delay * 10  # 150 segundos de espera para errores 429
+                            print(f"=== 429 DETECTADO: ESPERA EXTREMA de {rate_limit_delay} segundos para resetear rate limit ===")
+                            print("=== Esto es necesario para evitar más errores 429 ===")
+                            await asyncio.sleep(rate_limit_delay)
+                            continue
 
-                if not response_text:
-                    print("WARNING: Could not extract response text from Gemini response")
-                    print(f"Available keys: {list(result.keys())}")
-                    for key, value in result.items():
-                        print(f"  {key}: {type(value)} - {str(value)[:100] if value else 'None'}")
+                    elif response.status_code == 503:
+                        # Service unavailable - servidor sobrecarregado
+                        error_info = response.text
+                        print(f"SERVIÇO INDISPONÍVEL (503) em {model}: {error_info}")
+
+                        if attempt == max_retries:
+                            print(f"FALHA: {model} sobrecarregado após {max_retries + 1} tentativas")
+                            return None
+                        else:
+                            continue
+
+                    elif response.status_code == 400:
+                        error_data = response.json()
+                        print(f"ERRO DE REQUISIÇÃO INVÁLIDA para {model}: {error_data}")
+                        print(f"FALHA: Erro na requisição para {model} - não é recuperável")
+                        return None
+
+                    else:
+                        error_info = response.text
+                        print(f"ERRO INESPERADO {response.status_code} em {model}: {error_info}")
+                        if attempt == max_retries:
+                            print(f"FALHA: {model} falhou após todas as tentativas: {response.status_code}")
+                            return None
+
+            except httpx.TimeoutException as timeout_error:
+                print(f"TIMEOUT em {model} (tentativa {attempt + 1}): {timeout_error}")
+                last_exception = timeout_error
+                if attempt < max_retries:
+                    # Aguardar antes de tentar novamente em caso de timeout
+                    timeout_delay = base_delay * 3
+                    print(f"Aguardando {timeout_delay}s após timeout...")
+                    await asyncio.sleep(timeout_delay)
+                    continue
                 else:
-                    print(f"SUCCESS: Extracted response text of length {len(response_text)}")
-                    print(f"=== RESPONSE ANALYSIS ===")
-                    print(f"Response length: {len(response_text)} characters")
-                    print(f"Response preview (first 500 chars): {response_text[:500]}")
-                    print(f"Response preview (last 500 chars): {response_text[-500:] if len(response_text) > 500 else response_text}")
-                    print(f"Contains #FIM_ANALISE_CRITERIO#: {'#FIM_ANALISE_CRITERIO#' in response_text}")
-                    print(f"Contains #FIM#: {'#FIM#' in response_text}")
-                    print(f"=== END RESPONSE ANALYSIS ===")
+                    print(f"FALHA: {model} deu timeout após múltiplas tentativas")
+                    return None
 
-                    # Save raw response for debugging
-                    try:
-                        from pathlib import Path
-                        prompts_dir = Path(__file__).parent.parent.parent / "prompts"
-                        debug_response_path = prompts_dir / "debug_raw_response.txt"
-                        with open(debug_response_path, "w", encoding="utf-8") as f:
-                            f.write(response_text)
-                        print(f"Raw response saved to: {debug_response_path}")
-                    except Exception as e:
-                        print(f"Failed to save debug response: {e}")
+            except httpx.RequestError as e:
+                print(f"ERRO DE REQUISIÇÃO em {model} (tentativa {attempt + 1}): {e}")
+                last_exception = e
+                if attempt < max_retries:
+                    # Aguardar antes de tentar novamente em caso de erro de rede
+                    network_delay = base_delay * 3
+                    print(f"Aguardando {network_delay}s após erro de rede...")
+                    await asyncio.sleep(network_delay)
+                    continue
+                else:
+                    print(f"FALHA: {model} falhou após erros de rede múltiplos")
+                    return None
 
-                    # Save latest response to file
-                    self._save_latest_response(response_text)
+            except Exception as e:
+                print(f"ERRO em {model} (tentativa {attempt + 1}): {str(e)}")
+                last_exception = e
+                if attempt < max_retries:
+                    continue
+                else:
+                    print(f"FALHA: {model} falhou após todas as tentativas: {str(e)}")
+                    return None
 
-                    # Save raw response (without any processing)
-                    self._save_raw_response(response_text)
+        print(f"FALHA FINAL: Modelo {model} falhou após todas as tentativas")
+        return None
 
-                return {
-                    "success": True,
-                    "response": response_text,
-                    "model": self.model,
-                    "usage": result.get("usageMetadata", {}),
-                    "timestamp": datetime.utcnow().isoformat()
-                }
+    def _process_successful_response(self, result: Dict, model: str) -> Dict[str, Any]:
+        """Process successful response from either primary or fallback model"""
+        print(f"=== PROCESSING SUCCESSFUL RESPONSE FROM {model} ===")
+        print(f"Response keys: {result.keys()}")
+        try:
+            print(f"Response: {json.dumps(result, indent=2, ensure_ascii=False)}")
+        except UnicodeEncodeError:
+            print(f"Response: {json.dumps(result, indent=2, ensure_ascii=False).encode('ascii', 'ignore').decode('ascii')[:500]}...")
+        print(f"=== END DEBUG GEMINI API RESPONSE ===")
 
-        except httpx.TimeoutException:
-            raise HTTPException(
-                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-                detail="LLM API request timed out"
-            )
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Error calling LLM API: {str(e)}"
-            )
+        # Extract response text from Gemini format
+        response_text = ""
+
+        # Gemini response format: candidates[0].content.parts[0].text
+        if "candidates" in result and len(result["candidates"]) > 0:
+            candidate = result["candidates"][0]
+            if "content" in candidate and "parts" in candidate["content"] and len(candidate["content"]["parts"]) > 0:
+                response_text = candidate["content"]["parts"][0].get("text", "")
+
+        if not response_text:
+            print("WARNING: Could not extract response text from Gemini response")
+            print(f"Available keys: {list(result.keys())}")
+            for key, value in result.items():
+                print(f"  {key}: {type(value)} - {str(value)[:100] if value else 'None'}")
+        else:
+            print(f"SUCCESS: Extracted response text of length {len(response_text)}")
+            print(f"=== RESPONSE ANALYSIS ===")
+            print(f"Response length: {len(response_text)} characters")
+            print(f"Response preview (first 500 chars): {response_text[:500]}")
+            print(f"Response preview (last 500 chars): {response_text[-500:] if len(response_text) > 500 else response_text}")
+            print(f"Contains #FIM_ANALISE_CRITERIO#: {'#FIM_ANALISE_CRITERIO#' in response_text}")
+            print(f"Contains #FIM#: {'#FIM#' in response_text}")
+            print(f"=== END RESPONSE ANALYSIS ===")
+
+            # Save raw response for debugging
+            try:
+                from pathlib import Path
+                prompts_dir = Path(__file__).parent.parent.parent / "prompts"
+                debug_response_path = prompts_dir / "debug_raw_response.txt"
+                with open(debug_response_path, "w", encoding="utf-8") as f:
+                    f.write(response_text)
+                print(f"Raw response saved to: {debug_response_path}")
+            except Exception as e:
+                print(f"Failed to save debug response: {e}")
+
+            # Save latest response to file
+            self._save_latest_response(response_text)
+
+            # Save raw response (without any processing)
+            self._save_raw_response(response_text)
+
+        return {
+            "success": True,
+            "response": response_text,
+            "model": model,
+            "usage": result.get("usageMetadata", {}),
+            "timestamp": datetime.utcnow().isoformat()
+        }
 
     def _filter_prompt_instructions(self, response: str) -> str:
         """Filter out prompt instruction messages from LLM responses"""
