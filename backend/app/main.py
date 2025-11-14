@@ -23,7 +23,19 @@ class CustomCORSMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if request.method == "OPTIONS":
             response = Response()
-            response.headers["Access-Control-Allow-Origin"] = "http://localhost:3011"
+            origin = request.headers.get("origin", "")
+            # Allow multiple frontend ports
+            allowed_origins = [
+                "http://localhost:3011",
+                "http://localhost:3012",
+                "http://localhost:3013",
+                "http://localhost:3014",
+                "http://localhost:3015"
+            ]
+            if origin in allowed_origins:
+                response.headers["Access-Control-Allow-Origin"] = origin
+            else:
+                response.headers["Access-Control-Allow-Origin"] = "http://localhost:3011"
             response.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS, PUT, DELETE"
             response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
             response.headers["Access-Control-Allow-Credentials"] = "true"
@@ -31,7 +43,7 @@ class CustomCORSMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         return response
 
-# Initialize logging
+# Initialize logging - Updated for CORS fix
 setup_logging()
 
 # Create FastAPI application
@@ -47,7 +59,13 @@ app = FastAPI(
 # Configure CORS middleware first (before other middlewares)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3011"],  # Especificar a origem do frontend
+    allow_origins=[
+        "http://localhost:3011",
+        "http://localhost:3012",
+        "http://localhost:3013",
+        "http://localhost:3014",
+        "http://localhost:3015"
+    ],  # Allow multiple frontend ports
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
