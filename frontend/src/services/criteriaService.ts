@@ -60,16 +60,45 @@ export const criteriaService = {
         }
       }
 
-      console.log('🔍 SERVICE DEBUG: No stored criteria found, using default criteria');
-      // Return default criteria as fallback
-      const defaultCriteria = [
-        {"id": 64, "text": "Violação de Camadas: Identificar se a lógica de negócio está incorretamente localizada em camadas de interface (como controladores de API), em vez de residir em camadas de serviço ou domínio dedicadas.", "active": true, "order": 6},
-        {"id": 66, "text": "Princípios SOLID: Analisar violações do Princípio da Responsabilidade Única (SRP), como controllers com múltiplos endpoints, e do Princípio da Inversão de Dependência (DI), como a instanciação manual de dependências em vez de usar a injeção padrão do NestJS.", "active": true, "order": 7},
-        {"id": 67, "text": "Acoplamento a Frameworks: Detectar o uso de funcionalidades que acoplam o código a implementações específicas do framework (ex: uso de @Res() do Express no NestJS), o que dificulta a manutenção e a aplicação de interceptors e pipes globais.", "active": true, "order": 8}
+      console.log('🔍 SERVICE DEBUG: No stored criteria found, calling API directly');
+      // Force API call instead of using limited default criteria
+      try {
+        console.log('🔍 SERVICE DEBUG: Making forced API call to public endpoint...');
+        const forceResponse = await fetch(`${API_BASE_URL}/general-analysis/criteria-working`, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (forceResponse.ok) {
+          const forceCriteria = await forceResponse.json();
+          console.log('🔍 SERVICE DEBUG: Got criteria from forced API call:', forceCriteria.length);
+          localStorage.setItem('criteria-storage', JSON.stringify(forceCriteria));
+          return forceCriteria;
+        }
+      } catch (forceError) {
+        console.error('🔍 SERVICE DEBUG: Forced API call failed:', forceError);
+      }
+
+      console.log('🔍 SERVICE DEBUG: API failed completely, using emergency fallback criteria');
+      // Emergency fallback with all known criteria from API response
+      const emergencyCriteria = [
+        {"id":"criteria_66","text":"Princípios SOLID: Analisar a aplicação de princípios de design consolidados, como a Responsabilidade Única - SRP (evitando componentes que acumulam funções díspares) como controllers com múltiplos endpoints e a Inversão de Dependência (favorecendo o uso de mecanismos de injeção de dependência em vez da instanciação manual de componentes) como a instanciação manual de dependências em vez de usar a injeção padrão do NestJS","active":true,"order":1},
+        {"id":"criteria_67","text":"Acoplamento a Frameworks: Detectar o uso de funcionalidades que acoplam o código a implementações específicas do framework (ex: uso de @Res() do Express no NestJS), o que dificulta a manutenção e a aplicação de interceptors e pipes globais.","active":true,"order":2},
+        {"id":"criteria_68","text":"Violação de Camadas: Identificar se a lógica de negócio está incorretamente localizada em camadas de interface (como controladores de API), em vez de residir em camadas de serviço ou domínio dedicadas.","active":true,"order":3},
+        {"id":"criteria_69","text":"Pressão sobre a Memória: Analisar rotinas e laços que criam um volume excessivo de objetos de curta duração, pressionando o coletor de lixo (Garbage Collector) e causando pausas desnecessárias na aplicação. Avaliar se objetos poderiam ser reutilizados para otimizar o uso da memória.","active":true,"order":4},
+        {"id":"criteria_70","text":"Ciclo de Vida de Recursos Externos: Verificar se recursos externos, como arquivos temporários ou conexões de rede, são liberados de forma determinística em todos os fluxos de execução (sucesso, erro e finalização), evitando vazamentos de recursos.","active":true,"order":5},
+        {"id":"criteria_71","text":"Operações de I/O Bloqueantes ou Inseguras: Inspecionar chamadas de rede e outras operações de entrada/saída para garantir a configuração de tempos limite (timeouts) e limites de tamanho de payload, prevenindo que a aplicação fique bloqueada ou vulnerável a sobrecargas.","active":true,"order":6},
+        {"id":"criteria_72","text":"Manuseio de Dados em Larga Escala: Detectar o carregamento de grandes volumes de dados (como arquivos ou resultados de consultas) diretamente para a memória. Recomendar a utilização de padrões como streaming para processamento de dados em partes (chunks).","active":true,"order":7},
+        {"id":"criteria_73","text":"Condições de Corrida em Persistência: Identificar padrões de \"leitura-seguida-de-escrita\" em operações de banco de dados que podem introduzir inconsistências de dados devido à concorrência, sugerindo o uso de transações ou operações atômicas.","active":true,"order":8},
+        {"id":"criteria_74","text":"Validação de Entradas: Verificar se os pontos de entrada da aplicação que recebem dados, especialmente arquivos, possuem validações, filtros de tipo e limites de tamanho para mitigar riscos de segurança. Analisar se objetos de transferência de dados (DTOs) são utilizados com bibliotecas de validação para garantir a integridade e o formato dos dados.","active":true,"order":9},
+        {"id":"criteria_75","text":"Acesso a Recursos do Sistema: Inspecionar o código que interage com o sistema de arquivos para identificar o uso de entradas do usuário na construção de caminhos, o que pode levar a vulnerabilidades de acesso indevido a arquivos (Path Traversal).","active":true,"order":10},
+        {"id":"criteria_76","text":"Tratamento de Erros: Sinalizar blocos de captura de exceção vazios ou que apenas registram o erro sem um tratamento adequado, pois eles podem ocultar falhas críticas de segurança ou de lógica de negócio.","active":true,"order":11},
+        {"id":"criteria_77","text":"Consistência de Contratos de API: Analisar as saídas da aplicação para detectar rotas que retornam tipos de dados inconsistentes dependendo do fluxo de execução, o que viola o contrato da API e pode causar falhas em sistemas clientes.","active":true,"order":12}
       ];
-      localStorage.setItem('criteria-storage', JSON.stringify(defaultCriteria));
-      console.log('🔍 SERVICE DEBUG: Saved default criteria to localStorage');
-      return defaultCriteria;
+      localStorage.setItem('criteria-storage', JSON.stringify(emergencyCriteria));
+      console.log('🔍 SERVICE DEBUG: Saved emergency criteria with all 12 items');
+      return emergencyCriteria;
     }
 
     try {
