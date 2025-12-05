@@ -1,0 +1,12 @@
+{
+  "name": "AVALIA Code Quality System",
+  "short_name": "AVALIA",
+  "description": "Sistema de análise de código baseado em IA para equipes de QA",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1351b4",
+  "orientation": "portrait-primary",
+  "categories": ["developer", "productivity", "utilities"],
+  "lang": "pt-BR"
+}
