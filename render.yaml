@@ -1,0 +1,20 @@
+services:
+  # Backend API Service
+  - type: web
+    name: avali-backend
+    runtime: python
+    plan: free
+    buildCommand: "cd backend && pip install -r requirements.txt"
+    startCommand: "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: DATABASE_URL
+        value: postgresql://postgres:postgres@localhost:5432/verificai
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: SECRET_KEY
+        value: your-secret-key-change-this-in-production
+      - key: ENVIRONMENT
+        value: production
+    healthCheckPath: /health
+    domains:
+      - avalia-backend.onrender.com

@@ -19,7 +19,7 @@ st.set_page_config(
 )
 
 # Constantes
-API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api/v1")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://avalia-backend.onrender.com/api/v1")
 
 # Configuração de CSS para cores AVALIA
 st.markdown("""
