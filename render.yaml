@@ -1,5 +1,30 @@
 services:
-  # Backend API Service
+  # Streamlit Frontend App
+  - type: web
+    name: avalia-app
+    runtime: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "streamlit run app.py --server.port=$PORT --server.address=0.0.0.0"
+    envVars:
+      - key: API_BASE_URL
+        value: https://avalia-backend.onrender.com/api/v1
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ENVIRONMENT
+        value: production
+    healthCheckPath: /
+    domains:
+      - avalia-app.onrender.com
+
+  # PostgreSQL Database
+  - type: pserv
+    name: avalia-db
+    plan: free
+    databaseName: verificai
+    user: postgres
+
+  # Backend API Service (Optional - remove if using demo mode)
   - type: web
     name: avali-backend
     runtime: python
@@ -8,13 +33,13 @@ services:
     startCommand: "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: DATABASE_URL
-        value: postgresql://postgres:postgres@localhost:5432/verificai
+        fromDatabase:
+          name: avalia-db
+          property: connectionString
       - key: OPENAI_API_KEY
         sync: false
       - key: SECRET_KEY
-        value: your-secret-key-change-this-in-production
+        value: your-secret-key-change-this-in-production-123456
       - key: ENVIRONMENT
         value: production
     healthCheckPath: /health
-    domains:
-      - avalia-backend.onrender.com
