@@ -54,31 +54,45 @@ st.markdown("""
 
 def load_criteria():
     """Carrega critérios de análise da API"""
-    try:
-        response = requests.get(f"{API_BASE_URL}/general-analysis/criteria-working")
-        if response.status_code == 200:
-            return response.json()
-    except Exception as e:
-        st.error(f"Erro ao carregar critérios: {e}")
+    # Verifica se está rodando no Streamlit Cloud (sem API backend)
+    is_streamlit_cloud = "localhost" not in API_BASE_URL or API_BASE_URL.startswith("http://localhost")
 
-    # Critérios de fallback
+    if is_streamlit_cloud:
+        st.info("🚀 Rodando em modo demo - usando critérios pré-configurados")
+
+    if not is_streamlit_cloud:
+        try:
+            response = requests.get(f"{API_BASE_URL}/general-analysis/criteria-working", timeout=5)
+            if response.status_code == 200:
+                return response.json()
+        except Exception as e:
+            st.warning(f"⚠️ API não disponível, usando modo demo: {e}")
+
+    # Critérios completos para modo demo
     return [
-        {"id": "criteria_66", "text": "Princípios SOLID: Analisar violações do SRP e DI", "active": True},
-        {"id": "criteria_67", "text": "Acoplamento a Frameworks: Detectar dependências específicas", "active": True},
-        {"id": "criteria_68", "text": "Violação de Camadas: Verificar organização arquitetural", "active": True},
-        {"id": "criteria_69", "text": "Pressão sobre Memória: Analisar uso de recursos", "active": True},
-        {"id": "criteria_70", "text": "Ciclo de Recursos: Gerenciamento de conexões e arquivos", "active": True},
-        {"id": "criteria_71", "text": "I/O Bloqueantes: Configurar timeouts e limites", "active": True},
-        {"id": "criteria_72", "text": "Dados em Larga Escala: Usar streaming quando necessário", "active": True},
-        {"id": "criteria_73", "text": "Condições de Corrida: Transações em operações concorrentes", "active": True},
-        {"id": "criteria_74", "text": "Validação de Entradas: DTOs e filtros de segurança", "active": True},
-        {"id": "criteria_75", "text": "Acesso a Recursos: Prevenir Path Traversal", "active": True},
-        {"id": "criteria_76", "text": "Tratamento de Erros: Evitar catches vazios", "active": True},
-        {"id": "criteria_77", "text": "Consistência de API: Contratos de retorno padronizados", "active": True}
+        {"id": "criteria_66", "text": "Princípios SOLID: Analisar violações do SRP e DI, como controllers com múltiplos endpoints e instanciação manual de dependências", "active": True},
+        {"id": "criteria_67", "text": "Acoplamento a Frameworks: Detectar o uso de funcionalidades que acoplam o código a implementações específicas do framework", "active": True},
+        {"id": "criteria_68", "text": "Violação de Camadas: Identificar se a lógica de negócio está incorretamente localizada em camadas de interface", "active": True},
+        {"id": "criteria_69", "text": "Pressão sobre Memória: Analisar rotinas e laços que criam volume excessivo de objetos de curta duração", "active": True},
+        {"id": "criteria_70", "text": "Ciclo de Vida de Recursos Externos: Verificar se recursos externos são liberados de forma determinística em todos os fluxos", "active": True},
+        {"id": "criteria_71", "text": "Operações de I/O Bloqueantes ou Inseguras: Inspecionar chamadas de rede para garantir configuração de tempos limite", "active": True},
+        {"id": "criteria_72", "text": "Manuseio de Dados em Larga Escala: Detectar o carregamento de grandes volumes de dados diretamente para a memória", "active": True},
+        {"id": "criteria_73", "text": "Condições de Corrida em Persistência: Identificar padrões de leitura-seguida-de-escrita que podem introduzir inconsistências", "active": True},
+        {"id": "criteria_74", "text": "Validação de Entradas: Verificar se os pontos de entrada possuem validações, filtros de tipo e limites de tamanho", "active": True},
+        {"id": "criteria_75", "text": "Acesso a Recursos do Sistema: Inspecionar o código que interage com o sistema de arquivos para identificar Path Traversal", "active": True},
+        {"id": "criteria_76", "text": "Tratamento de Erros: Sinalizar blocos de captura de exceção vazios ou que apenas registram o erro sem tratamento adequado", "active": True},
+        {"id": "criteria_77", "text": "Consistência de Contratos de API: Analisar as saídas da aplicação para detectar rotas com tipos de dados inconsistentes", "active": True}
     ]
 
 def analyze_code(code_content, file_path, selected_criteria):
     """Analisa código usando a API"""
+    # Verifica se está rodando no Streamlit Cloud
+    is_streamlit_cloud = "localhost" not in API_BASE_URL or API_BASE_URL.startswith("http://localhost")
+
+    if is_streamlit_cloud:
+        # Modo demo - retorna análise simulada
+        return generate_demo_analysis(file_path, selected_criteria)
+
     try:
         payload = {
             "code_content": code_content,
@@ -96,11 +110,51 @@ def analyze_code(code_content, file_path, selected_criteria):
             return response.json()
         else:
             st.error(f"Erro na API: {response.status_code} - {response.text}")
-            return None
+            return generate_demo_analysis(file_path, selected_criteria)
 
     except Exception as e:
-        st.error(f"Erro ao analisar código: {e}")
-        return None
+        st.warning(f"⚠️ API não disponível, usando modo demo: {e}")
+        return generate_demo_analysis(file_path, selected_criteria)
+
+def generate_demo_analysis(file_path, selected_criteria):
+    """Gera análise simulada para modo demo"""
+    st.info("🎭 **Modo Demo**: Esta é uma análise simulada para demonstração")
+
+    # Simula alguns problemas com base no nome do arquivo e conteúdo
+    demo_issues = []
+
+    if "password" in file_path.lower() or "senha" in file_path.lower():
+        demo_issues.append("Senha em texto plano detectada no arquivo")
+
+    # Gera resultados para os critérios selecionados
+    criteria_results = []
+    for criterion_id in selected_criteria:
+        # Simula aleatoriamente se há violações
+        import random
+        has_violation = random.choice([True, False])
+
+        if has_violation:
+            violations = [
+                f"Violação simulada para {criterion_id} - detectado padrão que precisa atenção",
+                f"Considerar refatorar este trecho de código para melhor aderência ao critério"
+            ]
+            analysis_text = f"Análise simulada detectou potenciais violações do critério {criterion_id}. Recomendações incluem refatoração e adoção de melhores práticas."
+        else:
+            violations = []
+            analysis_text = f"Nenhuma violação detectada para o critério {criterion_id}. Código está em conformidade com as boas práticas."
+
+        criteria_results.append({
+            "criterion_id": criterion_id,
+            "analysis_text": analysis_text,
+            "violations": violations
+        })
+
+    return {
+        "file_path": file_path,
+        "criteria_results": criteria_results,
+        "timestamp": datetime.now().isoformat(),
+        "demo_mode": True
+    }
 
 def display_criteria_selection(criteria_list):
     """Mostra seleção de critérios"""
