@@ -12,16 +12,21 @@ from datetime import datetime
 from typing import Optional, Dict, List, Any
 
 # Load environment variables
-load_dotenv('.env.supabase')
+# Try to load from .env.supabase first (local development), then use Streamlit secrets
+try:
+    load_dotenv('.env.supabase')
+except:
+    pass  # dotenv not available, will use Streamlit secrets
 
 class SupabaseClient:
     """Supabase client wrapper for Streamlit integration"""
 
     def __init__(self):
         """Initialize Supabase client"""
-        self.url = os.getenv("SUPABASE_URL", "")
-        self.anon_key = os.getenv("SUPABASE_ANON_KEY", "")
-        self.service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+        # Try environment variables first, then Streamlit secrets
+        self.url = os.getenv("SUPABASE_URL") or st.secrets.get("supabase", {}).get("SUPABASE_URL", "")
+        self.anon_key = os.getenv("SUPABASE_ANON_KEY") or st.secrets.get("supabase", {}).get("SUPABASE_ANON_KEY", "")
+        self.service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or st.secrets.get("supabase", {}).get("SUPABASE_SERVICE_ROLE_KEY", "")
 
         if not self.url or not self.anon_key:
             st.error("⚠️ Configuração do Supabase não encontrada. Configure as variáveis SUPABASE_URL e SUPABASE_ANON_KEY.")
