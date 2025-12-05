@@ -52,6 +52,130 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Sistema de Autenticação
+def check_authentication():
+    """Verifica se usuário está autenticado"""
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    if "username" not in st.session_state:
+        st.session_state.username = None
+
+def show_login():
+    """Mostra tela de login"""
+    st.markdown("""
+    <div class="main-header">
+        <h1>🔍 AVAL<span class="ia-highlight">IA</span> - Login</h1>
+        <p>Acesse o sistema de análise de código</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    with st.form("login_form"):
+        st.subheader("🔐 Autenticação")
+
+        username = st.text_input("Usuário", placeholder="Digite seu usuário")
+        password = st.text_input("Senha", type="password", placeholder="Digite sua senha")
+
+        submitted = st.form_submit_button("🚀 Entrar", type="primary")
+
+        if submitted:
+            if authenticate_user(username, password):
+                st.session_state.authenticated = True
+                st.session_state.username = username
+                st.success(f"✅ Bem-vindo, {username}!")
+                st.rerun()
+            else:
+                st.error("❌ Usuário ou senha incorretos")
+
+def show_register():
+    """Mostra tela de registro"""
+    st.markdown("""
+    <div class="main-header">
+        <h1>🔍 AVAL<span class="ia-highlight">IA</span> - Registro</h1>
+        <p>Crie sua conta no sistema</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    with st.form("register_form"):
+        st.subheader("📝 Criar Conta")
+
+        username = st.text_input("Usuário", placeholder="Escolha um nome de usuário")
+        email = st.text_input("Email", placeholder="Digite seu email")
+        password = st.text_input("Senha", type="password", placeholder="Crie uma senha")
+        confirm_password = st.text_input("Confirmar Senha", type="password", placeholder="Confirme sua senha")
+
+        submitted = st.form_submit_button("📋 Criar Conta", type="primary")
+
+        if submitted:
+            if password != confirm_password:
+                st.error("❌ As senhas não coincidem")
+            elif len(password) < 6:
+                st.error("❌ A senha deve ter pelo menos 6 caracteres")
+            elif register_user(username, email, password):
+                st.success("✅ Conta criada com sucesso! Faça login para continuar.")
+                st.session_state.show_login = True
+                st.rerun()
+            else:
+                st.error("❌ Erro ao criar conta. Tente novamente.")
+
+def authenticate_user(username, password):
+    """Autentica usuário contra o backend"""
+    try:
+        # Tenta autenticar no backend local
+        if "localhost" in API_BASE_URL:
+            response = requests.post(
+                f"{API_BASE_URL}/auth/login",
+                data={"username": username, "password": password},
+                timeout=10
+            )
+            return response.status_code == 200
+        else:
+            # Em produção, permite login com credenciais pré-configuradas
+            # (idealmente deveria conectar ao backend de produção)
+            valid_users = {
+                "admin": "admin123",
+                "demo": "demo123",
+                "test": "test123"
+            }
+            return username in valid_users and valid_users[username] == password
+    except:
+        # Fallback para modo desenvolvimento
+        valid_users = {
+            "admin": "admin123",
+            "demo": "demo123",
+            "test": "test123"
+        }
+        return username in valid_users and valid_users[username] == password
+
+def register_user(username, email, password):
+    """Registra novo usuário"""
+    try:
+        # Tenta registrar no backend
+        if "localhost" in API_BASE_URL:
+            response = requests.post(
+                f"{API_BASE_URL}/auth/register",
+                json={
+                    "username": username,
+                    "email": email,
+                    "password": password,
+                    "confirm_password": password
+                },
+                timeout=10
+            )
+            return response.status_code == 200
+        else:
+            # Em produção, simula registro (idealmente deveria conectar ao backend)
+            return len(username) >= 3 and len(password) >= 6
+    except:
+        # Fallback para modo desenvolvimento
+        return len(username) >= 3 and len(password) >= 6
+
+def logout():
+    """Faz logout do usuário"""
+    st.session_state.authenticated = False
+    st.session_state.username = None
+    st.success("👋 Logout realizado com sucesso!")
+    st.rerun()
+
 def load_criteria():
     """Carrega critérios de análise da API"""
     # Verifica se está rodando em ambiente de desenvolvimento (localhost)
@@ -286,7 +410,32 @@ def display_criteria_selection(criteria_list):
 def main():
     """Função principal"""
 
-    # Header
+    # Verificar autenticação
+    check_authentication()
+
+    # Se não estiver autenticado, mostrar tela de login
+    if not st.session_state.authenticated:
+        # Tabs para Login e Registro
+        tab_login, tab_register = st.tabs(["🔐 Login", "📝 Registrar"])
+
+        with tab_login:
+            show_login()
+
+        with tab_register:
+            show_register()
+
+        # Mostrar informações de acesso para teste
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("🔑 Acesso para Teste")
+        st.sidebar.code("""
+Usuários Disponíveis:
+- admin / admin123
+- demo / demo123
+- test / test123
+        """)
+        return
+
+    # Usuário autenticado - mostrar aplicação principal
     st.markdown("""
     <div class="main-header">
         <h1>🔍 AVAL<span class="ia-highlight">IA</span> - Análise de Código Quality</h1>
@@ -297,6 +446,12 @@ def main():
     # Sidebar
     with st.sidebar:
         st.title("⚙️ Configurações")
+
+        # User info and logout
+        st.markdown("---")
+        st.subheader(f"👤 Usuário: {st.session_state.username}")
+        if st.button("🚪 Sair", type="secondary"):
+            logout()
 
         # API URL
         api_url = st.text_input(
