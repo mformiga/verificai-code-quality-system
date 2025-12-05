@@ -1,6 +1,6 @@
 """
 AVALIA - Sistema de Análise de Código Quality
-Interface Streamlit para análise automatizada de código
+Interface Streamlit para análise automatizada de código com Supabase integration
 """
 
 import streamlit as st
@@ -9,6 +9,7 @@ import json
 import pandas as pd
 from datetime import datetime
 import os
+from supabase_client import get_supabase_client, require_auth, get_current_user_display
 
 # Configuração da página
 st.set_page_config(
@@ -52,16 +53,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Sistema de Autenticação
-def check_authentication():
-    """Verifica se usuário está autenticado"""
-    if "authenticated" not in st.session_state:
-        st.session_state.authenticated = False
-    if "username" not in st.session_state:
-        st.session_state.username = None
-
+# Sistema de Autenticação com Supabase
 def show_login():
-    """Mostra tela de login"""
+    """Mostra tela de login com Supabase"""
     st.markdown("""
     <div class="main-header">
         <h1>🔍 AVAL<span class="ia-highlight">IA</span> - Login</h1>
@@ -69,25 +63,26 @@ def show_login():
     </div>
     """, unsafe_allow_html=True)
 
+    supabase = get_supabase_client()
+
     with st.form("login_form"):
         st.subheader("🔐 Autenticação")
 
-        username = st.text_input("Usuário", placeholder="Digite seu usuário")
+        email = st.text_input("Email", placeholder="Digite seu email")
         password = st.text_input("Senha", type="password", placeholder="Digite sua senha")
 
         submitted = st.form_submit_button("🚀 Entrar", type="primary")
 
         if submitted:
-            if authenticate_user(username, password):
-                st.session_state.authenticated = True
-                st.session_state.username = username
-                st.success(f"✅ Bem-vindo, {username}!")
+            result = supabase.sign_in(email, password)
+            if "success" in result:
+                st.success(f"✅ Bem-vindo, {get_current_user_display()}!")
                 st.rerun()
             else:
-                st.error("❌ Usuário ou senha incorretos")
+                st.error(f"❌ {result.get('error', 'Erro no login')}")
 
 def show_register():
-    """Mostra tela de registro"""
+    """Mostra tela de registro com Supabase"""
     st.markdown("""
     <div class="main-header">
         <h1>🔍 AVAL<span class="ia-highlight">IA</span> - Registro</h1>
@@ -95,10 +90,12 @@ def show_register():
     </div>
     """, unsafe_allow_html=True)
 
+    supabase = get_supabase_client()
+
     with st.form("register_form"):
         st.subheader("📝 Criar Conta")
 
-        username = st.text_input("Usuário", placeholder="Escolha um nome de usuário")
+        username = st.text_input("Nome de Usuário", placeholder="Escolha um nome de usuário")
         email = st.text_input("Email", placeholder="Digite seu email")
         password = st.text_input("Senha", type="password", placeholder="Crie uma senha")
         confirm_password = st.text_input("Confirmar Senha", type="password", placeholder="Confirme sua senha")
@@ -110,71 +107,24 @@ def show_register():
                 st.error("❌ As senhas não coincidem")
             elif len(password) < 6:
                 st.error("❌ A senha deve ter pelo menos 6 caracteres")
-            elif register_user(username, email, password):
-                st.success("✅ Conta criada com sucesso! Faça login para continuar.")
-                st.session_state.show_login = True
-                st.rerun()
+            elif "@" not in email:
+                st.error("❌ Email inválido")
             else:
-                st.error("❌ Erro ao criar conta. Tente novamente.")
-
-def authenticate_user(username, password):
-    """Autentica usuário contra o backend"""
-    try:
-        # Tenta autenticar no backend local
-        if "localhost" in API_BASE_URL:
-            response = requests.post(
-                f"{API_BASE_URL}/auth/login",
-                data={"username": username, "password": password},
-                timeout=10
-            )
-            return response.status_code == 200
-        else:
-            # Em produção, permite login com credenciais pré-configuradas
-            # (idealmente deveria conectar ao backend de produção)
-            valid_users = {
-                "admin": "admin123",
-                "demo": "demo123",
-                "test": "test123"
-            }
-            return username in valid_users and valid_users[username] == password
-    except:
-        # Fallback para modo desenvolvimento
-        valid_users = {
-            "admin": "admin123",
-            "demo": "demo123",
-            "test": "test123"
-        }
-        return username in valid_users and valid_users[username] == password
-
-def register_user(username, email, password):
-    """Registra novo usuário"""
-    try:
-        # Tenta registrar no backend
-        if "localhost" in API_BASE_URL:
-            response = requests.post(
-                f"{API_BASE_URL}/auth/register",
-                json={
-                    "username": username,
-                    "email": email,
-                    "password": password,
-                    "confirm_password": password
-                },
-                timeout=10
-            )
-            return response.status_code == 200
-        else:
-            # Em produção, simula registro (idealmente deveria conectar ao backend)
-            return len(username) >= 3 and len(password) >= 6
-    except:
-        # Fallback para modo desenvolvimento
-        return len(username) >= 3 and len(password) >= 6
+                result = supabase.sign_up(email, password, username)
+                if "success" in result:
+                    st.success("✅ Conta criada com sucesso! Verifique seu email e faça login para continuar.")
+                else:
+                    st.error(f"❌ {result.get('error', 'Erro ao criar conta')}")
 
 def logout():
     """Faz logout do usuário"""
-    st.session_state.authenticated = False
-    st.session_state.username = None
-    st.success("👋 Logout realizado com sucesso!")
-    st.rerun()
+    supabase = get_supabase_client()
+    result = supabase.sign_out()
+    if "success" in result:
+        st.success("👋 Logout realizado com sucesso!")
+        st.rerun()
+    else:
+        st.error(f"❌ {result.get('error', 'Erro no logout')}")
 
 def load_criteria():
     """Carrega critérios de análise da API"""
@@ -410,11 +360,11 @@ def display_criteria_selection(criteria_list):
 def main():
     """Função principal"""
 
-    # Verificar autenticação
-    check_authentication()
+    # Inicializar Supabase client
+    supabase = get_supabase_client()
 
     # Se não estiver autenticado, mostrar tela de login
-    if not st.session_state.authenticated:
+    if not supabase.is_authenticated():
         # Tabs para Login e Registro
         tab_login, tab_register = st.tabs(["🔐 Login", "📝 Registrar"])
 
@@ -424,15 +374,12 @@ def main():
         with tab_register:
             show_register()
 
-        # Mostrar informações de acesso para teste
+        # Mostrar informações de configuração
         st.sidebar.markdown("---")
-        st.sidebar.subheader("🔑 Acesso para Teste")
-        st.sidebar.code("""
-Usuários Disponíveis:
-- admin / admin123
-- demo / demo123
-- test / test123
-        """)
+        st.sidebar.subheader("ℹ️ Configuração Supabase")
+        if not supabase.client:
+            st.sidebar.error("⚠️ Cliente Supabase não configurado")
+            st.sidebar.info("Configure as variáveis em .env.supabase")
         return
 
     # Usuário autenticado - mostrar aplicação principal
@@ -449,7 +396,7 @@ Usuários Disponíveis:
 
         # User info and logout
         st.markdown("---")
-        st.subheader(f"👤 Usuário: {st.session_state.username}")
+        st.subheader(f"👤 Usuário: {get_current_user_display()}")
         if st.button("🚪 Sair", type="secondary"):
             logout()
 
@@ -553,9 +500,17 @@ class User:
                     result = analyze_code(code_content, file_path, selected_criteria)
 
                     if result:
+                        # Salvar análise no Supabase
+                        supabase = get_supabase_client()
+                        save_result = supabase.save_analysis_result(result)
+
+                        if "success" in save_result:
+                            st.success("✅ Análise concluída e salva com sucesso!")
+                        else:
+                            st.warning(f"⚠️ Análise concluída, mas erro ao salvar: {save_result.get('error', 'Erro desconhecido')}")
+
                         st.session_state.last_analysis = result
                         st.session_state.analysis_timestamp = datetime.now()
-                        st.success("✅ Análise concluída!")
                         st.rerun()
 
     with tab2:
@@ -608,9 +563,36 @@ class User:
             st.info("📝 Nenhuma análise realizada ainda. Vá para a aba 'Análise' para começar.")
 
     with tab3:
-        # History (simplified for now)
+        # History from Supabase
         st.subheader("📚 Histórico de Análises")
-        st.info("🚧 Funcionalidade de histórico em desenvolvimento. As análises ficam disponíveis durante a sessão atual.")
+
+        supabase = get_supabase_client()
+        analyses = supabase.get_user_analyses()
+
+        if analyses:
+            st.info(f"📊 Encontradas {len(analyses)} análises no seu histórico")
+
+            for analysis in analyses:
+                with st.expander(f"📋 {analysis['file_path']} - {analysis['created_at'][:10]}"):
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Arquivo", analysis['file_path'])
+                    with col2:
+                        st.metric("Critérios", analysis['criteria_count'])
+                    with col3:
+                        st.metric("Violações", analysis['violation_count'])
+
+                    # View details button
+                    if st.button(f"🔍 Ver Detalhes", key=f"view_{analysis['id']}"):
+                        details = supabase.get_analysis_details(analysis['id'])
+                        if details:
+                            st.session_state.last_analysis = details['analysis_data']
+                            st.session_state.analysis_timestamp = analysis['created_at']
+                            st.success("✅ Análise carregada! Vá para a aba 'Resultados'.")
+                        else:
+                            st.error("❌ Erro ao carregar detalhes da análise.")
+        else:
+            st.info("📝 Nenhuma análise encontrada. Realize uma análise na aba 'Análise' para começar.")
 
 def language_from_extension(filename):
     """Get language from file extension"""
