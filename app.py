@@ -10,7 +10,16 @@ import json
 import pandas as pd
 from datetime import datetime
 import os
-import psycopg2
+
+# Tenta importar psycopg2, mas não falha se não estiver disponível
+try:
+    import psycopg2
+    POSTGRES_AVAILABLE = True
+except ImportError:
+    psycopg2 = None
+    POSTGRES_AVAILABLE = False
+    st.warning("⚠️ psycopg2 não está disponível. Funcionalidades de banco de dados local estarão limitadas.")
+
 from supabase_client import get_supabase_client, get_current_user_display
 import base64
 from io import BytesIO
@@ -399,6 +408,10 @@ def show_dashboard():
 
 def get_prompts_from_postgres():
     """Obtém prompts do banco PostgreSQL local da tabela prompt_configurations"""
+    if not POSTGRES_AVAILABLE:
+        st.warning("⚠️ PostgreSQL não disponível. Usando prompts padrão.")
+        return None
+
     try:
         # Conecta ao banco PostgreSQL local
         conn = psycopg2.connect(**POSTGRES_CONFIG)
@@ -479,6 +492,10 @@ def get_prompts_from_supabase():
 
 def save_prompt_to_postgres(prompt_type, content):
     """Salva/atualiza um prompt no banco PostgreSQL local na tabela prompt_configurations"""
+    if not POSTGRES_AVAILABLE:
+        st.error("❌ PostgreSQL não disponível. Não foi possível salvar o prompt.")
+        return False
+
     try:
         # Conecta ao banco PostgreSQL local
         conn = psycopg2.connect(**POSTGRES_CONFIG)
@@ -653,14 +670,13 @@ Para cada regra de negócio:
         # Usa prompt do banco se existir, senão usa padrão
         if saved_prompts and saved_prompts.get('general'):
             general_prompt_value = saved_prompts.get('general', {}).get('content', default_prompts["general"])
-            st.success("✅ Prompt carregado do banco PostgreSQL local")
         else:
             general_prompt_value = default_prompts["general"]
 
         general_prompt = st.text_area(
             "Configure o prompt para análise de critérios gerais:",
             value=general_prompt_value,
-            height=300,
+            height=600,
             key="general_prompt",
             help="Este prompt será usado para análises gerais de qualidade de código"
         )
@@ -687,14 +703,13 @@ Para cada regra de negócio:
 
         if saved_prompts and saved_prompts.get('architectural'):
             architectural_prompt_value = saved_prompts.get('architectural', {}).get('content', default_prompts["architectural"])
-            st.success("✅ Prompt carregado do banco PostgreSQL local")
         else:
             architectural_prompt_value = default_prompts["architectural"]
 
         architectural_prompt = st.text_area(
             "Configure o prompt para análise arquitetural:",
             value=architectural_prompt_value,
-            height=300,
+            height=600,
             key="architectural_prompt",
             help="Este prompt será usado para análises de conformidade arquitetural"
         )
@@ -721,14 +736,13 @@ Para cada regra de negócio:
 
         if saved_prompts and saved_prompts.get('business'):
             business_prompt_value = saved_prompts.get('business', {}).get('content', default_prompts["business"])
-            st.success("✅ Prompt carregado do banco PostgreSQL local")
         else:
             business_prompt_value = default_prompts["business"]
 
         business_prompt = st.text_area(
             "Configure o prompt para análise negocial:",
             value=business_prompt_value,
-            height=300,
+            height=600,
             key="business_prompt",
             help="Este prompt será usado para análises de regras de negócio"
         )
