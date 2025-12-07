@@ -25,33 +25,51 @@ def is_production():
     return (
         'STREAMLIT_SHARING' in os.environ or  # Streamlit Cloud
         os.getenv('ENVIRONMENT') == 'production' or
-        os.getenv('IS_STREAMLIT_CLOUD') == 'true'
+        os.getenv('IS_STREAMLIT_CLOUD') == 'true' or
+        not os.path.exists('.env.local') or  # Se não tem arquivo local, é produção
+        os.getenv('FORCE_PRODUCTION') == 'true'  # Forçar produção
     )
 
 # Carregar configuração do Supabase para produção
 SUPABASE_AVAILABLE = False
 supabase = None
 
+# Debug: Mostrar ambiente detectado
+environment_debug = f"Local: {os.getcwd()}, Production: {is_production()}"
+print(f"AMBIENTE DETECTADO: {environment_debug}")
+
 if is_production():
     try:
         from supabase import create_client
         from dotenv import load_dotenv
+
+        # Tentar carregar de múltiplas fontes
         load_dotenv('.env.supabase')
+        load_dotenv('.env.production')
+        load_dotenv('.env')  # Fallback
 
         SUPABASE_URL = os.getenv('SUPABASE_URL')
         SUPABASE_SERVICE_ROLE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
 
+        print(f"Supabase URL encontrado: {bool(SUPABASE_URL)}")
+        print(f"Supabase Key encontrado: {bool(SUPABASE_SERVICE_ROLE_KEY)}")
+
         if SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY:
             supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
             SUPABASE_AVAILABLE = True
+            print("Supabase configurado com sucesso")
             st.info("🌐 Ambiente de Produção detectado - Usando Supabase")
         else:
-            st.warning("⚠️ Configuração do Supabase incompleta")
-    except ImportError:
-        st.warning("⚠️ Biblioteca Supabase não disponível")
+            print("Configuração Supabase incompleta")
+            st.error("❌ Configuração do Supabase incompleta - Verifique variáveis de ambiente")
+    except ImportError as e:
+        print(f"Erro import Supabase: {e}")
+        st.error("❌ Biblioteca Supabase não disponível")
     except Exception as e:
-        st.warning(f"⚠️ Erro ao configurar Supabase: {e}")
+        print(f"Erro configuração Supabase: {e}")
+        st.error(f"❌ Erro ao configurar Supabase: {e}")
 else:
+    print("Usando ambiente local (PostgreSQL)")
     if not POSTGRES_AVAILABLE:
         st.warning("⚠️ psycopg2 não está disponível. Funcionalidades de banco de dados local estarão limitadas.")
 
