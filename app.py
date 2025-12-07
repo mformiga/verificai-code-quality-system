@@ -18,7 +18,42 @@ try:
 except ImportError:
     psycopg2 = None
     POSTGRES_AVAILABLE = False
-    st.warning("⚠️ psycopg2 não está disponível. Funcionalidades de banco de dados local estarão limitadas.")
+
+# Detectar ambiente (produção vs local)
+def is_production():
+    """Detecta se a aplicação está rodando em produção (Streamlit Cloud)"""
+    return (
+        'STREAMLIT_SHARING' in os.environ or  # Streamlit Cloud
+        os.getenv('ENVIRONMENT') == 'production' or
+        os.getenv('IS_STREAMLIT_CLOUD') == 'true'
+    )
+
+# Carregar configuração do Supabase para produção
+SUPABASE_AVAILABLE = False
+supabase = None
+
+if is_production():
+    try:
+        from supabase import create_client
+        from dotenv import load_dotenv
+        load_dotenv('.env.supabase')
+
+        SUPABASE_URL = os.getenv('SUPABASE_URL')
+        SUPABASE_SERVICE_ROLE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+
+        if SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY:
+            supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+            SUPABASE_AVAILABLE = True
+            st.info("🌐 Ambiente de Produção detectado - Usando Supabase")
+        else:
+            st.warning("⚠️ Configuração do Supabase incompleta")
+    except ImportError:
+        st.warning("⚠️ Biblioteca Supabase não disponível")
+    except Exception as e:
+        st.warning(f"⚠️ Erro ao configurar Supabase: {e}")
+else:
+    if not POSTGRES_AVAILABLE:
+        st.warning("⚠️ psycopg2 não está disponível. Funcionalidades de banco de dados local estarão limitadas.")
 
 from supabase_client import get_supabase_client, get_current_user_display
 import base64
@@ -466,29 +501,92 @@ def get_prompts_from_postgres():
             conn.close()
 
 def get_prompts_from_supabase():
-    """Obtém prompts do banco de dados Supabase (mantido para sincronização remota)"""
-    try:
-        supabase = get_supabase_client()
-
-        # Tenta obter prompts existentes
-        response = supabase.client.table('prompts').select('*').execute()
-
-        if response.data:
-            prompts = {}
-            for prompt_data in response.data:
-                prompt_type = prompt_data.get('type', 'general')
-                prompts[prompt_type] = {
-                    'content': prompt_data.get('content', ''),
-                    'version': prompt_data.get('version', 1),
-                    'last_modified': prompt_data.get('updated_at', ''),
-                    'id': prompt_data.get('id', '')
-                }
-            return prompts
-        else:
-            return None
-    except Exception as e:
-        st.error(f"❌ Erro ao carregar prompts do Supabase: {str(e)}")
+    """Obtém prompts do Supabase da tabela prompt_configurations"""
+    if not SUPABASE_AVAILABLE or not supabase:
         return None
+
+    try:
+        # Tentar obter todos os prompts ativos
+        response = supabase.table('prompt_configurations').select('*').eq('is_active', True).execute()
+
+        if response.data and len(response.data) > 0:
+            # Verificar se os dados são válidos (têm conteúdo)
+            valid_prompts = [p for p in response.data if p.get('content') and p.get('prompt_type')]
+
+            if valid_prompts:
+                # Simular a mesma lógica de ranking do PostgreSQL
+                prompts_by_type = {}
+                for prompt in valid_prompts:
+                    prompt_type = prompt.get('prompt_type', '').lower()
+                    if prompt_type not in prompts_by_type:
+                        prompts_by_type[prompt_type] = []
+                    prompts_by_type[prompt_type].append(prompt)
+
+                # Para cada tipo, selecionar o melhor prompt
+                prompts = {}
+                for prompt_type, type_prompts in prompts_by_type.items():
+                    if type_prompts:
+                        # Aplicar critérios de seleção
+                        best_prompt = None
+                        best_score = 0
+
+                        for prompt in type_prompts:
+                            score = 0
+                            prompt_id = prompt.get('id', 0)
+                            name = prompt.get('name', '')
+                            content = prompt.get('content', '')
+
+                            # Critério 1: ID 7 tem prioridade
+                            if prompt_id == 7:
+                                score += 1000
+
+                            # Critério 2: Nome com 'Template' tem prioridade
+                            if 'Template' in name:
+                                score += 500
+
+                            # Critério 3: Conteúdo mais longo
+                            score += len(content)
+
+                            if score > best_score:
+                                best_score = score
+                                best_prompt = prompt
+
+                        if best_prompt:
+                            prompts[prompt_type] = {
+                                'content': best_prompt.get('content', ''),
+                                'version': 1,
+                                'last_modified': best_prompt.get('updated_at', ''),
+                                'id': best_prompt.get('id', ''),
+                                'name': best_prompt.get('name', '')
+                            }
+
+                return prompts if prompts else None
+            else:
+                # Dados existem mas são inválidos
+                return None
+        else:
+            # Nenhum dado encontrado
+            return None
+
+    except Exception as e:
+        # Silenciar erro em produção para não quebrar a interface
+        if is_production():
+            # Em produção, apenas logar o erro e retornar None para usar fallback
+            print(f"Erro ao carregar prompts do Supabase (usando fallback): {str(e)}")
+            return None
+        else:
+            # Em desenvolvimento, mostrar o erro
+            st.error(f"❌ Erro ao carregar prompts do Supabase: {str(e)}")
+            return None
+
+def get_prompts():
+    """Função principal que obtém prompts da fonte correta baseada no ambiente"""
+    if is_production():
+        # Em produção, usa Supabase
+        return get_prompts_from_supabase()
+    else:
+        # Em desenvolvimento, usa PostgreSQL local
+        return get_prompts_from_postgres()
 
 def save_prompt_to_postgres(prompt_type, content):
     """Salva/atualiza um prompt no banco PostgreSQL local na tabela prompt_configurations"""
@@ -615,9 +713,10 @@ def show_prompt_config():
         st.session_state.current_page = "dashboard"
         st.rerun()
 
-    # Carregar prompts do banco PostgreSQL local
-    with st.spinner("Carregando prompts do banco PostgreSQL local..."):
-        saved_prompts = get_prompts_from_postgres()
+    # Carregar prompts da fonte correta (PostgreSQL local ou Supabase)
+    db_source = "Supabase" if is_production() else "PostgreSQL local"
+    with st.spinner(f"Carregando prompts do {db_source}..."):
+        saved_prompts = get_prompts()
 
     # Tabs para diferentes tipos de prompts
     tab1, tab2, tab3 = st.tabs(["📋 Critérios Gerais", "🏗️ Conformidade Arquitetural", "💼 Conformidade Negocial"])
