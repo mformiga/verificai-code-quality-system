@@ -1360,7 +1360,7 @@ def save_source_code_to_postgres(title, description, content, file_extension):
 
 
 def show_code_upload():
-    """Interface para upload de arquivos e código em texto via API"""
+    """Interface para upload de arquivos e código em texto via API ou Supabase"""
 
     st.markdown("""
     <div class="main-header">
@@ -1373,15 +1373,19 @@ def show_code_upload():
         st.session_state.current_page = "dashboard"
         st.rerun()
 
-    # Verificar autenticação na API
-    auth_token = get_auth_token()
-    if not auth_token:
-        st.warning("⚠️ É necessário fazer login na API para fazer upload de arquivos.")
-        login_success = login_streamlit_user()
-        if not login_success:
-            return  # Usuário não está autenticado, mostrar login
-
-    st.success(f" Autenticado na API backend")
+    # Em produção, usa apenas Supabase - não precisa de autenticação via API
+    if is_production():
+        st.info("💾 **Modo Produção**: Salvando diretamente no Supabase (não depende do backend API)")
+    else:
+        # Em desenvolvimento, verifica autenticação na API
+        auth_token = get_auth_token()
+        if not auth_token:
+            st.warning("⚠️ É necessário fazer login na API para fazer upload de arquivos.")
+            login_success = login_streamlit_user()
+            if not login_success:
+                return  # Usuário não está autenticado, mostrar login
+        else:
+            st.success(f" Autenticado na API backend")
 
     # Informações suportadas
     supported_extensions = ['js', 'jsx', 'ts', 'tsx', 'py', 'java', 'c', 'cpp', 'h', 'hpp', 'cs', 'go', 'rs', 'rb', 'php', 'swift', 'kt', 'scala', 'm', 'sh', 'bash', 'zsh', 'sql', 'html', 'css', 'scss', 'sass', 'less', 'json', 'xml', 'yaml', 'yml', 'toml', 'ini', 'conf', 'config', 'md', 'txt']
@@ -1466,17 +1470,26 @@ def show_code_upload():
     # Tab 2: File upload
     with tab2:
         st.subheader("📤 Upload de Arquivos de Código")
-        st.info(f"📋 **Formatos suportados**: {', '.join(supported_extensions[:10])}... (máx 50MB por arquivo)")
+
+        if is_production():
+            st.info(f"📋 **Modo Produção**: Use a aba 'Inserir Código Texto' para adicionar código diretamente ao Supabase")
+            st.info("📋 **Formatos suportados**: {', '.join(supported_extensions[:10])}... (máx 1GB por arquivo)")
+        else:
+            st.info(f"📋 **Formatos suportados**: {', '.join(supported_extensions[:10])}... (máx 50MB por arquivo)")
 
         # Upload de arquivos
-        st.info("ℹ️ **Importante**: Para upload de diretórios inteiros com subpastas, use a versão React em http://localhost:3012/code-upload")
+        if not is_production():
+            st.info("ℹ️ **Importante**: Para upload de diretórios inteiros com subpastas, use a versão React em http://localhost:3012/code-upload")
 
-        uploaded_files = st.file_uploader(
-            "Selecione arquivos para upload (limitado a arquivos individuais):",
-            accept_multiple_files=True,
-            type=None,  # Permite qualquer tipo, validaremos depois
-            help="⚠️ **Limitação do Streamlit**: Upload de diretórios inteiros com subpastas não é suportado. Use a versão React (porta 3012) para essa funcionalidade. Aqui você só pode selecionar arquivos individuais."
-        )
+            uploaded_files = st.file_uploader(
+                "Selecione arquivos para upload (limitado a arquivos individuais):",
+                accept_multiple_files=True,
+                type=None,  # Permite qualquer tipo, validaremos depois
+                help="⚠️ **Limitação do Streamlit**: Upload de diretórios inteiros com subpastas não é suportado. Use a versão React (porta 3012) para essa funcionalidade. Aqui você só pode selecionar arquivos individuais."
+            )
+        else:
+            st.info("🚫 **Upload de arquivos desabilitado em produção**: Use a aba 'Inserir Código Texto' para salvar código diretamente no Supabase")
+            uploaded_files = []
 
     if uploaded_files:
         st.subheader(f"📋 {len(uploaded_files)} arquivo(s) selecionado(s)")
@@ -1561,33 +1574,37 @@ def show_code_upload():
                     for failed in failed_uploads:
                         st.error(f"• {failed['name']}: {failed['error']}")
 
-    # Seção de arquivos já carregados
-    st.markdown("---")
-    st.subheader("📊 Status dos Arquivos Carregados")
+    # Seção de arquivos já carregados (apenas em desenvolvimento)
+    if not is_production():
+        st.markdown("---")
+        st.subheader("📊 Status dos Arquivos Carregados")
 
-    # Verificar status da API
-    try:
-        response = requests.get(f"{API_BASE_URL}/upload", headers={'Authorization': f'Bearer {get_auth_token()}'}, timeout=10)
-        if response.status_code == 200:
-            files_data = response.json()
-            if files_data.get('files'):
-                files_df = pd.DataFrame(files_data['files'])
-                st.dataframe(files_df[['original_name', 'file_size', 'status', 'upload_date']].rename(columns={
-                    'original_name': 'Arquivo',
-                    'file_size': 'Tamanho',
-                    'status': 'Status',
-                    'upload_date': 'Data Upload'
-                }), use_container_width=True)
+        # Verificar status da API
+        try:
+            response = requests.get(f"{API_BASE_URL}/upload", headers={'Authorization': f'Bearer {get_auth_token()}'}, timeout=10)
+            if response.status_code == 200:
+                files_data = response.json()
+                if files_data.get('files'):
+                    files_df = pd.DataFrame(files_data['files'])
+                    st.dataframe(files_df[['original_name', 'file_size', 'status', 'upload_date']].rename(columns={
+                        'original_name': 'Arquivo',
+                        'file_size': 'Tamanho',
+                        'status': 'Status',
+                        'upload_date': 'Data Upload'
+                    }), use_container_width=True)
+                else:
+                    st.info("Nenhum arquivo encontrado na API")
             else:
-                st.info("Nenhum arquivo encontrado na API")
-        else:
-            st.warning(f"API não respondeu (status: {response.status_code})")
-    except Exception as e:
-        st.warning(f"Não foi possível conectar à API: {str(e)}")
+                st.warning(f"API não respondeu (status: {response.status_code})")
+        except Exception as e:
+            st.warning(f"Não foi possível conectar à API: {str(e)}")
 
-    # Seção de códigos salvos no PostgreSQL
+    # Seção de códigos salvos no banco
     st.markdown("---")
-    st.subheader("📋 Códigos Salvos no PostgreSQL Local")
+    if is_production():
+        st.subheader("📋 Códigos Salvos no Supabase")
+    else:
+        st.subheader("📋 Códigos Salvos no PostgreSQL Local")
 
     try:
         if POSTGRES_AVAILABLE:
@@ -1819,21 +1836,33 @@ def show_code_upload():
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        if POSTGRES_AVAILABLE:
-            st.metric("PostgreSQL", " Conectado")
+        if is_production():
+            if SUPABASE_AVAILABLE:
+                st.metric("Banco de Dados", " Supabase Conectado")
+            else:
+                st.metric("Banco de Dados", " Supabase Não disponível")
         else:
-            st.metric("PostgreSQL", " Não disponível")
+            if POSTGRES_AVAILABLE:
+                st.metric("PostgreSQL", " Conectado")
+            else:
+                st.metric("PostgreSQL", " Não disponível")
 
     with col2:
-        try:
-            response = requests.get(f"{API_BASE_URL}/health", timeout=5)
-            api_status = " Online" if response.status_code == 200 else " Erro"
-            st.metric("API Backend", api_status)
-        except:
-            st.metric("API Backend", " Offline")
+        if is_production():
+            st.metric("API Backend", " Não necessário (modo Supabase)")
+        else:
+            try:
+                response = requests.get(f"{API_BASE_URL}/health", timeout=5)
+                api_status = " Online" if response.status_code == 200 else " Erro"
+                st.metric("API Backend", api_status)
+            except:
+                st.metric("API Backend", " Offline")
 
     with col3:
-        st.metric("Upload Max", "50MB")
+        if is_production():
+            st.metric("Upload Max", "1GB (texto)")
+        else:
+            st.metric("Upload Max", "50MB")
 
 def show_general_analysis():
     """Interface para análise geral"""
