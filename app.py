@@ -69,7 +69,9 @@ if is_production():
         try:
             SUPABASE_URL = st.secrets["supabase"]["url"]
             SUPABASE_SERVICE_ROLE_KEY = st.secrets["supabase"]["service_role_key"]
-        except:
+            print("[DEBUG] Supabase config obtido dos secrets do Streamlit")
+        except Exception as e:
+            print(f"[DEBUG] Erro ao obter secrets: {e}")
             # Fallback para variáveis de ambiente
             from dotenv import load_dotenv
             load_dotenv('.env.supabase')
@@ -78,9 +80,12 @@ if is_production():
 
             SUPABASE_URL = os.getenv('SUPABASE_URL')
             SUPABASE_SERVICE_ROLE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+            print("[DEBUG] Supabase config obtido das variaveis de ambiente")
 
-        print(f"Supabase URL encontrado: {bool(SUPABASE_URL)}")
-        print(f"Supabase Key encontrado: {bool(SUPABASE_SERVICE_ROLE_KEY)}")
+        print(f"[DEBUG] Supabase URL encontrado: {bool(SUPABASE_URL)}")
+        print(f"[DEBUG] Supabase Key encontrado: {bool(SUPABASE_SERVICE_ROLE_KEY)}")
+        if SUPABASE_SERVICE_ROLE_KEY:
+            print(f"[DEBUG] Key comeca com: {SUPABASE_SERVICE_ROLE_KEY[:20]}...")
 
         if SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY:
             supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
@@ -584,11 +589,14 @@ def get_prompts_from_postgres():
 def get_prompts_from_supabase():
     """Obtém prompts do Supabase da tabela prompt_configurations"""
     if not SUPABASE_AVAILABLE or not supabase:
+        print("[DEBUG] Supabase nao disponivel ou nao configurado")
         return None
 
     try:
+        print("[DEBUG] Tentando buscar prompts na tabela prompt_configurations...")
         # Tentar obter todos os prompts ativos
         response = supabase.table('prompt_configurations').select('*').eq('is_active', True).execute()
+        print(f"[DEBUG] Response status: {response.data if hasattr(response, 'data') else 'No data attr'}")
 
         if response.data and len(response.data) > 0:
             # Verificar se os dados são válidos (têm conteúdo)
