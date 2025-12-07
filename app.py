@@ -606,10 +606,26 @@ def get_prompts():
     """Função principal que obtém prompts da fonte correta baseada no ambiente"""
     if is_production():
         # Em produção, usa Supabase
-        return get_prompts_from_supabase()
+        print("Tentando carregar prompts do Supabase...")
+        prompts = get_prompts_from_supabase()
+        if prompts:
+            print(f"Prompts carregados do Supabase: {list(prompts.keys())}")
+            for prompt_type, prompt_data in prompts.items():
+                print(f"  - {prompt_type}: {prompt_data['name']} ({len(prompt_data['content'])} chars)")
+        else:
+            print("Nenhum prompt carregado do Supabase")
+        return prompts
     else:
         # Em desenvolvimento, usa PostgreSQL local
-        return get_prompts_from_postgres()
+        print("Tentando carregar prompts do PostgreSQL local...")
+        prompts = get_prompts_from_postgres()
+        if prompts:
+            print(f"Prompts carregados do PostgreSQL: {list(prompts.keys())}")
+            for prompt_type, prompt_data in prompts.items():
+                print(f"  - {prompt_type}: {prompt_data['name']} ({len(prompt_data['content'])} chars)")
+        else:
+            print("Nenhum prompt carregado do PostgreSQL")
+        return prompts
 
 def save_prompt_to_postgres(prompt_type, content):
     """Salva/atualiza um prompt no banco PostgreSQL local na tabela prompt_configurations"""
