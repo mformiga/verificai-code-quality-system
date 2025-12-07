@@ -1694,9 +1694,18 @@ def show_code_upload():
                                 print("No codes found in Supabase")
                                 return []
                         except Exception as e:
-                            print(f"Error fetching from Supabase: {e}")
-                            st.error(f"Erro ao buscar do Supabase: {str(e)}")
-                            return []
+                            error_str = str(e)
+                            print(f"Error fetching from Supabase: {error_str}")
+
+                            # Se for erro de chave inválida, mostrar mensagem amigável
+                            if "Invalid API key" in error_str or "JSON could not be generated" in error_str:
+                                st.warning("⚠️ **Acesso ao Supabase limitado**")
+                                st.info("💡 **Dica**: A aba de upload de código está funcionando, mas a listagem de códigos salvos está temporariamente desabilitada.")
+                                st.code("Isso ocorre devido a restrições de acesso na API do Supabase. Os novos códigos continuam sendo salvos normalmente.")
+                                return []
+                            else:
+                                st.error(f"Erro ao buscar do Supabase: {error_str}")
+                                return []
 
                     # Fallback to local PostgreSQL
                     elif POSTGRES_AVAILABLE:
