@@ -826,6 +826,38 @@ def show_prompt_config():
         st.session_state.current_page = "dashboard"
         st.rerun()
 
+    # Status da conexão
+    production_env = is_production()
+    st.markdown("---")
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Ambiente", "Produção" if production_env else "Desenvolvimento")
+    with col2:
+        if production_env:
+            if SUPABASE_AVAILABLE and supabase:
+                st.metric("Supabase", "Conectado")
+            else:
+                st.metric("Supabase", "Erro")
+        else:
+            if POSTGRES_AVAILABLE:
+                st.metric("PostgreSQL", "Disponível")
+            else:
+                st.metric("PostgreSQL", "Indisponível")
+    with col3:
+        db_source = "Supabase" if production_env else "PostgreSQL"
+        st.metric("Banco de Dados", db_source)
+
+    if production_env and (not SUPABASE_AVAILABLE or not supabase):
+        st.error("❌ **ERRO**: Supabase não está configurado!")
+        st.code("""
+Verifique os secrets do Streamlit Cloud:
+[supabase]
+url = "https://jjxmfidggofuaxcdtkrd.supabase.co"
+service_role_key = "sua_chave_aqui"
+        """)
+        return
+
     # Carregar prompts da fonte correta (PostgreSQL local ou Supabase)
     db_source = "Supabase" if is_production() else "PostgreSQL local"
     with st.spinner(f"Carregando prompts do {db_source}..."):
