@@ -631,10 +631,11 @@ Para cada regra de negócio:
         st.subheader("📋 Prompt de Critérios Gerais")
 
         # Usa prompt do banco se existir, senão usa padrão
-        general_prompt_value = saved_prompts.get('general', {}).get('content', default_prompts["general"])
-
         if saved_prompts and saved_prompts.get('general'):
+            general_prompt_value = saved_prompts.get('general', {}).get('content', default_prompts["general"])
             st.success("✅ Prompt carregado do banco PostgreSQL local")
+        else:
+            general_prompt_value = default_prompts["general"]
 
         general_prompt = st.text_area(
             "Configure o prompt para análise de critérios gerais:",
@@ -664,10 +665,11 @@ Para cada regra de negócio:
     with tab2:
         st.subheader("🏗️ Prompt de Conformidade Arquitetural")
 
-        architectural_prompt_value = saved_prompts.get('architectural', {}).get('content', default_prompts["architectural"])
-
         if saved_prompts and saved_prompts.get('architectural'):
+            architectural_prompt_value = saved_prompts.get('architectural', {}).get('content', default_prompts["architectural"])
             st.success("✅ Prompt carregado do banco PostgreSQL local")
+        else:
+            architectural_prompt_value = default_prompts["architectural"]
 
         architectural_prompt = st.text_area(
             "Configure o prompt para análise arquitetural:",
@@ -697,10 +699,11 @@ Para cada regra de negócio:
     with tab3:
         st.subheader("💼 Prompt de Conformidade Negocial")
 
-        business_prompt_value = saved_prompts.get('business', {}).get('content', default_prompts["business"])
-
         if saved_prompts and saved_prompts.get('business'):
+            business_prompt_value = saved_prompts.get('business', {}).get('content', default_prompts["business"])
             st.success("✅ Prompt carregado do banco PostgreSQL local")
+        else:
+            business_prompt_value = default_prompts["business"]
 
         business_prompt = st.text_area(
             "Configure o prompt para análise negocial:",
