@@ -1413,9 +1413,18 @@ def show_code_upload():
         st.session_state.current_page = "dashboard"
         st.rerun()
 
-    # Em produção, usa apenas Supabase - não precisa de autenticação via API
+    # Status da conexão
     if is_production():
-        st.info("💾 **Modo Produção**: Salvando diretamente no Supabase (não depende do backend API)")
+        st.markdown("---")
+        col1, col2 = st.columns(2)
+        with col1:
+            if SUPABASE_AVAILABLE and supabase:
+                st.success("✅ Supabase conectado")
+            else:
+                st.error("❌ Supabase não conectado")
+        with col2:
+            st.info("💾 Modo Produção: Salvando no Supabase")
+        st.markdown("---")
     else:
         # Em desenvolvimento, verifica autenticação na API
         auth_token = get_auth_token()
@@ -1655,10 +1664,12 @@ def show_code_upload():
                     # Try Supabase first if in production and available
                     if SUPABASE_AVAILABLE and is_production():
                         try:
+                            print("[DEBUG] Tentando buscar códigos da tabela source_codes...")
                             response = supabase.table('source_codes').select(
                                 "id, code_id, title, description, file_name, file_extension, "
                                 "programming_language, line_count, size_bytes, created_at, updated_at"
                             ).eq('status', 'active').order('created_at', desc=True).limit(20).execute()
+                            print(f"[DEBUG] Response source_codes: {response.data if hasattr(response, 'data') else 'No data'}")
 
                             if response.data:
                                 # Convert Supabase data to tuple format for compatibility
