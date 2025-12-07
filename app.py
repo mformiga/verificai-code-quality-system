@@ -418,7 +418,9 @@ def get_prompts_from_postgres():
             prompts = {}
             for row in rows:
                 prompt_type, content, version, updated_at, prompt_id = row
-                prompts[prompt_type] = {
+                # Convert enum values (GENERAL, ARCHITECTURAL, BUSINESS) to lowercase for UI
+                prompt_type_lower = prompt_type.lower() if prompt_type else 'general'
+                prompts[prompt_type_lower] = {
                     'content': content,
                     'version': version,
                     'last_modified': str(updated_at) if updated_at else '',
@@ -467,9 +469,12 @@ def save_prompt_to_postgres(prompt_type, content):
         conn = psycopg2.connect(**POSTGRES_CONFIG)
         cursor = conn.cursor()
 
+        # Converte para maiúsculas para o enum PostgreSQL
+        prompt_type_upper = prompt_type.upper()
+
         # Verifica se já existe um prompt deste tipo para o usuário
         check_query = "SELECT id, version FROM prompts WHERE type = %s AND user_id = 1"
-        cursor.execute(check_query, (prompt_type,))
+        cursor.execute(check_query, (prompt_type_upper,))
         existing = cursor.fetchone()
 
         if existing:
@@ -487,7 +492,7 @@ def save_prompt_to_postgres(prompt_type, content):
             INSERT INTO prompts (type, content, version, user_id, created_at, updated_at)
             VALUES (%s, %s, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             """
-            cursor.execute(insert_query, (prompt_type, content))
+            cursor.execute(insert_query, (prompt_type_upper, content))
 
         # Commit da transação
         conn.commit()
