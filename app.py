@@ -41,15 +41,20 @@ print(f"AMBIENTE DETECTADO: {environment_debug}")
 if is_production():
     try:
         from supabase import create_client
-        from dotenv import load_dotenv
 
-        # Tentar carregar de múltiplas fontes
-        load_dotenv('.env.supabase')
-        load_dotenv('.env.production')
-        load_dotenv('.env')  # Fallback
+        # Tentar obter dos secrets do Streamlit primeiro
+        try:
+            SUPABASE_URL = st.secrets["supabase"]["url"]
+            SUPABASE_SERVICE_ROLE_KEY = st.secrets["supabase"]["service_role_key"]
+        except:
+            # Fallback para variáveis de ambiente
+            from dotenv import load_dotenv
+            load_dotenv('.env.supabase')
+            load_dotenv('.env.production')
+            load_dotenv('.env')
 
-        SUPABASE_URL = os.getenv('SUPABASE_URL')
-        SUPABASE_SERVICE_ROLE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+            SUPABASE_URL = os.getenv('SUPABASE_URL')
+            SUPABASE_SERVICE_ROLE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
 
         print(f"Supabase URL encontrado: {bool(SUPABASE_URL)}")
         print(f"Supabase Key encontrado: {bool(SUPABASE_SERVICE_ROLE_KEY)}")
