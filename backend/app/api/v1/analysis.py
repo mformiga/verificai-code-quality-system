@@ -381,21 +381,8 @@ def get_analysis_stats(
     )
 
 
-@router.post("/upload", response_model=AnalysisResponse)
-def upload_analysis_file(
-    file: UploadFile = File(...),
-    prompt_id: int = None,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-    background_tasks: BackgroundTasks = None
-) -> Any:
-    """Upload file for analysis"""
-    # TODO: Implement actual file upload and analysis
-    # This is a placeholder response
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="File upload functionality not yet implemented"
-    )
+# Endpoint de upload eliminado - ya está implementado en upload.py
+# Esto evita conflictos de rutas entre los routers
 
 
 # Background task for processing analysis

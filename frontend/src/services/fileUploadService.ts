@@ -1,4 +1,5 @@
 import axios from 'axios';
+import apiClient from './apiClient';
 import {
   UploadedFile,
   ValidationResult,
@@ -67,7 +68,7 @@ class FileUploadService {
       formData.append('originalName', file.name);
       formData.append('relativePath', (file as any).webkitRelativePath || file.name);
 
-      const response = await axios.post<UploadApiResponse>('/api/v1/upload', formData, {
+      const response = await apiClient.post<any>('/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -78,13 +79,13 @@ class FileUploadService {
           }
         },
         signal: controller.signal,
-        timeout: 300000, // 5 minutes timeout
       });
 
-      if (response.data.success && response.data.data) {
-        return response.data.data;
+      // Backend returns FileUploadResponse directly, not wrapped in {success, data}
+      if (response.data) {
+        return response.data;
       } else {
-        throw new Error(response.data.error || 'Upload failed');
+        throw new Error('Upload failed - no data returned');
       }
     } catch (error) {
       if (axios.isCancel(error)) {
@@ -144,7 +145,7 @@ class FileUploadService {
    */
   async getFileStatus(fileId: string): Promise<UploadedFile | null> {
     try {
-      const response = await axios.get<UploadApiResponse>(`/api/v1/upload/${fileId}/status`);
+      const response = await apiClient.get<UploadApiResponse>(`/upload/${fileId}`);
       return response.data.data || null;
     } catch (error) {
       console.error('Failed to get file status:', error);
@@ -157,7 +158,7 @@ class FileUploadService {
    */
   async deleteFile(fileId: string): Promise<boolean> {
     try {
-      const response = await axios.delete(`/api/v1/upload/${fileId}`);
+      const response = await apiClient.delete(`/upload/${fileId}`);
       return response.data.success;
     } catch (error) {
       console.error('Failed to delete file:', error);

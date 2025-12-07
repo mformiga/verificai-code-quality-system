@@ -7,6 +7,7 @@ from .prompt import Prompt, PromptType, PromptConfiguration, PromptCategory, Pro
 from .analysis import Analysis, AnalysisStatus, AnalysisResult
 from .uploaded_file import UploadedFile
 from .file_path import FilePath
+from .source_code import SourceCode, SourceCodeStatus
 from .base import BaseModel, TimestampMixin
 
 __all__ = [
@@ -22,6 +23,8 @@ __all__ = [
     "AnalysisResult",
     "UploadedFile",
     "FilePath",
+    "SourceCode",
+    "SourceCodeStatus",
     "BaseModel",
     "TimestampMixin"
 ]

@@ -15,33 +15,9 @@ from app.core.middleware import (
     ErrorHandlerMiddleware,
     RateLimitMiddleware
 )
-from app.api.v1 import auth, users, prompts, analysis, upload, file_paths, general_analysis, simple_analysis
+from app.api.v1 import auth, users, prompts, analysis, upload, file_paths, general_analysis, simple_analysis, source_code
 import uvicorn
 
-# Custom CORS middleware to handle OPTIONS requests
-class CustomCORSMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        if request.method == "OPTIONS":
-            response = Response()
-            origin = request.headers.get("origin", "")
-            # Allow multiple frontend ports
-            allowed_origins = [
-                "http://localhost:3011",
-                "http://localhost:3012",
-                "http://localhost:3013",
-                "http://localhost:3014",
-                "http://localhost:3015"
-            ]
-            if origin in allowed_origins:
-                response.headers["Access-Control-Allow-Origin"] = origin
-            else:
-                response.headers["Access-Control-Allow-Origin"] = "http://localhost:3011"
-            response.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS, PUT, DELETE"
-            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-            return response
-        response = await call_next(request)
-        return response
 
 # Initialize logging - Updated for CORS fix
 setup_logging()
@@ -74,7 +50,6 @@ app.add_middleware(
 )
 
 # Add middleware stack - Order matters!
-app.add_middleware(CustomCORSMiddleware)  # Adicionar middleware CORS personalizado
 app.add_middleware(ErrorHandlerMiddleware)
 app.add_middleware(RateLimitMiddleware, requests_per_minute=settings.RATE_LIMIT_REQUESTS_PER_MINUTE)
 app.add_middleware(RequestLoggingMiddleware)
@@ -84,13 +59,16 @@ app.add_middleware(SecurityHeadersMiddleware)
 # Include API routers
 app.include_router(auth.router, prefix=settings.API_V1_STR, tags=["authentication"])
 app.include_router(users.router, prefix=settings.API_V1_STR, tags=["users"])
+app.include_router(upload.router, prefix=settings.API_V1_STR, tags=["upload"])  # Put upload BEFORE analysis to avoid conflicts
 app.include_router(file_paths.router, prefix=settings.API_V1_STR + "/file-paths", tags=["file_paths"])
 app.include_router(prompts.router, prefix=settings.API_V1_STR, tags=["prompts"])
 app.include_router(analysis.router, prefix=settings.API_V1_STR, tags=["analysis"])
-app.include_router(upload.router, prefix=settings.API_V1_STR, tags=["upload"])
+
+app.include_router(source_code.router, prefix=settings.API_V1_STR + "/source-code", tags=["source_code"])
+
 app.include_router(general_analysis.router, prefix=settings.API_V1_STR + "/general-analysis", tags=["general_analysis"])
 app.include_router(simple_analysis.router, prefix=settings.API_V1_STR + "/simple-analysis", tags=["simple_analysis"])
-# Reload trigger - touched at 2025-09-18 19:32 - FORCE RELOAD
+# Reload trigger - touched at 2025-12-07 15:04 - FORCE RELOAD
 
 @app.on_event("startup")
 async def startup_event():

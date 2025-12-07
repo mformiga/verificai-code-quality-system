@@ -1,181 +1,183 @@
-# AVALIA - Deploy para Produção
+# Deploy para Produção - Streamlit Cloud + Render PostgreSQL
 
-## ✅ Status: Pronto para Deploy!
+## 📋 Status Atual
 
-Sua aplicação está funcionando localmente. Hora de ir para produção!
+- ✅ **PostgreSQL Local**: Configurado e funcionando
+- ✅ **Prompts**: 3 prompts prontos para sincronização
+- ✅ **Render PostgreSQL**: Instance `avalia-db` criada e disponível
+- ✅ **Streamlit App**: Funcionalidade de detecção de ambiente implementada
 
----
+## 🚀 Próximos Passos
 
-## 🚀 Opção 1: Streamlit Cloud (Recomendado)
+### 1. Sincronizar Prompts para PostgreSQL Remoto
 
-### 1. Preparar GitHub
-```bash
-git add .
-git commit -m "feat: complete Supabase integration ready for production"
-git push origin main
+**Acesse o Dashboard Render**:
+1. Vá para: https://dashboard.render.com/d/dpg-d4p4s5re5dus7381mdug-a
+2. Clique em "Query Editor" ou conecte via psql
+3. Execute os seguintes comandos SQL:
+
+```sql
+-- Criar tabela prompt_configurations se não existir
+CREATE TABLE IF NOT EXISTS prompt_configurations (
+    id SERIAL PRIMARY KEY,
+    prompt_type VARCHAR(50) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    user_id INTEGER REFERENCES users(id),
+    is_active BOOLEAN DEFAULT true,
+    is_default BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by INTEGER,
+    updated_by INTEGER,
+    UNIQUE(prompt_type, name)
+);
+
+-- Inserir prompts do desenvolvimento para produção
+INSERT INTO prompt_configurations (prompt_type, name, content, user_id, is_active, is_default, created_at, updated_at, created_by, updated_by)
+VALUES
+('GENERAL', 'Template com Código Fonte no Início', 'Você é um especialista em análise de código.
+
+**INSTRUÇÃO CRÍTICA - OBRIGATÓRIO:**
+Para cada critério de avaliação, você DEVE incluir EXATAMENTE a tag #FIM_ANALISE_CRITERIO# ao final da análise completa do critério.
+Esta tag é ESSENCIAL para garantir que a análise completa seja capturada pelo sistema.
+
+[RESTANTE DO CONTEÚDO DO PROMPT GENERAL...]
+#FIM_ANALISE_CRITERIO#
+
+#FIM#', 1, true, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1),
+
+('ARCHITECTURAL', 'architectural_config', 'Analyze the following code from an architectural perspective:
+
+```{language}
+{code}
 ```
 
-### 2. Streamlit Cloud Setup
-1. Vá para: https://cloud.streamlit.io
-2. **New app** → **From GitHub**
-3. **Repository**: verificai-code-quality-system
-4. **Branch**: main (ou streamlit-version)
-5. **Main file path**: `app.py`
-6. **Python version**: 3.11
+Focus on:
+1. Design patterns usage
+2. Architectural principles compliance
+3. Scalability considerations
+4. Maintainability aspects
+5. System design recommendations', 1, true, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1),
 
-### 3. Configurar Secrets
-Em **Settings → Secrets**, adicione:
+('BUSINESS', 'business_config', 'Analyze the following code focusing on business logic:
+
+```{language}
+{code}
+```
+
+Evaluate:
+1. Business rule implementation
+2. Domain-specific patterns
+3. Business requirement compliance
+4. Process flow efficiency
+5. Business value optimization', 1, true, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1)
+
+ON CONFLICT (prompt_type, name) DO UPDATE SET
+  content = EXCLUDED.content,
+  updated_at = CURRENT_TIMESTAMP;
+```
+
+### 2. Configurar Secrets no Streamlit Cloud
+
+**Acesse seu app no Streamlit Cloud**:
+1. Vá para: https://share.streamlit.io/
+2. Selecione seu workspace
+3. Clique no app ou crie um novo
+4. Vá para "Settings" → "Secrets"
+
+**Adicione os seguintes secrets**:
 
 ```toml
-[supabase]
-SUPABASE_URL = "https://jjxmfidggofuaxcdtkrd.supabase.co"
-SUPABASE_ANON_KEY = "SUA_ANON_KEY_REAL"
-SUPABASE_SERVICE_ROLE_KEY = "SUA_SERVICE_ROLE_KEY_REAL"
-SUPABASE_PROJECT_REF = "jjxmfidggofuaxcdtkrd"
+# Configuração PostgreSQL Render
+POSTGRES_HOST = "dpg-d4p4s5re5dus7381mdug-a.virginia-postgres.render.com"
+POSTGRES_PORT = "5432"
+POSTGRES_DB = "verificai"
+POSTGRES_USER = "verificai_user"
+POSTGRES_PASSWORD = "SUA_SENHA_AQUI"  # Obter do dashboard Render
+
+# Forçar ambiente de produção
+ENVIRONMENT = "production"
+
+# API Backend (se necessário)
+API_BASE_URL = "http://localhost:8000/api/v1"
 ```
 
-### 4. Deploy!
-Clique em **Deploy!** 🚀
+### 3. Deploy Automático
 
----
+**Faça push das alterações**:
 
-## 🌐 Opção 2: Outras Plataformas
-
-### Railway
-1. Conectar GitHub
-2. Configurar variáveis de ambiente
-3. Deploy automático
-
-### Heroku
-1. Criar app
-2. Setar buildpack para Python
-3. Configurar secrets
-4. Push para deploy
-
-### VPS (DigitalOcean, AWS, etc.)
 ```bash
-# Instalar dependências
-pip install -r requirements.txt
-
-# Iniciar com systemd ou forever
-streamlit run app.py --server.port 80
+git add .
+git commit -m "feat: implement production environment detection and prompts sync"
+git push origin streamlit-version
 ```
 
----
+**O Streamlit Cloud fará deploy automaticamente** após o push!
 
-## 🔧 Configurações de Produção
+## 📊 Verificação Pós-Deploy
 
-### Environment Variables
+### 1. Verificar Ambiente de Produção
+
+Acesse seu app no Streamlit Cloud e verifique os logs para confirmar:
+
 ```bash
-# Production
-STREAMLIT_SERVER_HEADLESS=true
-STREAMLIT_SERVER_PORT=8501
-STREAMLIT_SERVER_ADDRESS=0.0.0.0
-STREAMLIT_SERVER_ENABLECORS=true
+# Logs esperados:
+AMBIENTE PRODUCAO DETECTADO - Tentando carregar prompts do PostgreSQL local...
+[OK] Prompts carregados do PostgreSQL: ['general', 'architectural', 'business']
 ```
 
-### Requirements Adicionais
-```txt
-# Para produção
-gunicorn>=21.0.0
-psycopg2-binary>=2.9.0
-```
+### 2. Testar Funcionalidades
+
+1. **Login**: Faça login com credenciais de teste
+2. **Config Prompts**: Verifique se os prompts carregam corretamente
+3. **Upload de Código**: Teste upload e salvamento
+4. **Análises**: Verifique se as análises funcionam
+
+## 🛠️ Troubleshooting
+
+### Erro: "Nenhum prompt carregado"
+
+**Causa**: PostgreSQL remoto não configurado ou prompts não sincronizados
+**Solução**: Verifique credenciais e execute os inserts SQL
+
+### Erro: "PostgreSQL não disponível"
+
+**Causa**: Credenciais incorretas no secrets
+**Solução**: Verifique POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD
+
+### Erro: "Ambiente detectado como desenvolvimento"
+
+**Causa**: ENVIRONMENT não configurado como "production"
+**Solução**: Adicione `ENVIRONMENT = "production"` nos secrets
+
+## 🎯 Features Implementadas
+
+### ✅ Detecção de Ambiente
+- Desenvolvimento: PostgreSQL local
+- Produção: PostgreSQL remoto (Render)
+
+### ✅ Sistema de Prompts
+- Carregamento baseado no ambiente
+- Salvar/atualizar prompts
+- Fallback para prompts padrão
+
+### ✅ Upload de Código
+- Text input direto para PostgreSQL
+- File upload via API backend
+- Suporte para múltiplos formatos
+
+### ✅ Autenticação
+- Login simplificado para desenvolvimento
+- Integração com API backend
+
+## 📝 URLs Importantes
+
+- **Streamlit Cloud**: https://share.streamlit.io/
+- **Render Dashboard**: https://dashboard.render.com/
+- **PostgreSQL Instance**: https://dashboard.render.com/d/dpg-d4p4s5re5dus7381mdug-a
+- **Frontend React**: https://avalia-frontend.onrender.com
 
 ---
 
-## 📊 Monitoramento
-
-### Logs
-```bash
-# Streamlit Cloud: Dashboard → Logs
-# VPS: journalctl -u streamlit
-```
-
-### Health Check
-```bash
-curl https://seu-app.streamlit.app/_stcore/health
-```
-
----
-
-## 🎯 Domínio Personalizado (Opcional)
-
-### Streamlit Cloud
-1. Settings → Advanced → Custom domain
-2. Adicionar DNS CNAME: `seu-dominio.com → cname.streamlit.app`
-
-### Cloudflare (Recomendado)
-1. Adicionar site ao Cloudflare
-2. Configurar SSL/TLS
-3. Page Rules para redirecionamento
-
----
-
-## 🔒 Segurança Produção
-
-### Supabase
-- ✅ RLS já ativo
-- ✅ Buckets privados
-- ✅ Autenticação ativa
-
-### Streamlit
-- ✅ Variáveis em secrets
-- ✅ Não expor credenciais
-- ✅ HTTPS automático
-
----
-
-## 📈 Analytics (Opcional)
-
-```python
-# Adicionar ao app.py
-import streamlit as st
-
-# Google Analytics
-st.markdown("""
-<!-- Global site tag (gtag.js) - Google Analytics -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=GA_TRACKING_ID"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'GA_TRACKING_ID');
-</script>
-""", unsafe_allow_html=True)
-```
-
----
-
-## ✅ Checklist Final
-
-Antes de ir para produção:
-
-- [x] App funciona localmente
-- [x] Todos os testes manuais passaram
-- [x] Credenciais Supabase ok
-- [x] Storage buckets criados
-- [x] Push para GitHub
-- [ ] Configurar secrets na plataforma
-- [ ] Testar em staging (se possível)
-- [ ] Deploy para produção
-- [ ] Testar produção completa
-- [ ] Configurar domínio (opcional)
-- [ ] Adicionar analytics (opcional)
-
----
-
-## 🎉 Parabéns!
-
-Seu sistema AVALIA está pronto para produção!
-
-**Features disponíveis:**
-- 🎯 Análise de código automatizada
-- 👥 Sistema de usuários
-- 📁 Upload e storage
-- 📊 Histórico e relatórios
-- 🔒 Segurança com RLS
-- 🚀 Deploy com 1 clique
-
-**URL esperada**: https://seu-app.streamlit.app
-
-**Sucesso total!** 🚀🎊
+**Status**: Pronto para deploy! Siga os passos acima para colocar em produção.

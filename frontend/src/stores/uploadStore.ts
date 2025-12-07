@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { UploadFile } from '@/types/file';
+import { fileUploadService } from '@/services/fileUploadService';
 
 interface UploadState {
   files: UploadFile[];
@@ -21,13 +22,16 @@ export const useUploadStore = create<UploadState>((set) => ({
     set({ uploading: true, error: null });
 
     try {
-      for (const file of files) {
+      // Process files to handle directory structure (webkitRelativePath)
+      const processedFiles = fileUploadService.processDirectoryFiles(files);
+
+      for (const file of processedFiles) {
         const fileData: UploadFile = {
           id: Date.now().toString() + Math.random(),
           name: file.name,
           size: file.size,
           type: file.type,
-          path: file.name,
+          path: (file as any).webkitRelativePath || file.name,
           status: 'uploading',
           progress: 0,
         };
@@ -36,38 +40,60 @@ export const useUploadStore = create<UploadState>((set) => ({
           files: [...state.files, fileData],
         }));
 
-        // Simulate upload progress
-        const progressInterval = setInterval(() => {
-          set((state) => {
-            const currentProgress = state.uploadProgress[fileData.id] || 0;
-            if (currentProgress < 100) {
-              return {
+        try {
+          // Real API call to upload file
+          const uploadedFile = await fileUploadService.uploadFile(
+            file,
+            (progress) => {
+              // Update progress based on real upload progress
+              set((state) => ({
                 uploadProgress: {
                   ...state.uploadProgress,
-                  [fileData.id]: Math.min(currentProgress + 10, 100),
+                  [fileData.id]: progress,
                 },
-              };
+              }));
             }
-            clearInterval(progressInterval);
-            return state;
-          });
-        }, 200);
+          );
 
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+          // Update file with successful upload data
+          set((state) => ({
+            files: state.files.map((f) =>
+              f.id === fileData.id
+                ? {
+                    ...f,
+                    status: 'completed',
+                    uploadedAt: new Date(),
+                    // Use backend response data if available
+                    id: uploadedFile.id || f.id,
+                    name: uploadedFile.original_name || f.name,
+                    path: uploadedFile.file_path || f.path
+                  }
+                : f
+            ),
+            uploadProgress: {
+              ...state.uploadProgress,
+              [fileData.id]: 100,
+            },
+          }));
 
-        clearInterval(progressInterval);
-        set((state) => ({
-          files: state.files.map((f) =>
-            f.id === fileData.id
-              ? { ...f, status: 'completed', uploadedAt: new Date() }
-              : f
-          ),
-          uploadProgress: {
-            ...state.uploadProgress,
-            [fileData.id]: 100,
-          },
-        }));
+        } catch (uploadError) {
+          console.error(`Failed to upload ${file.name}:`, uploadError);
+
+          // Update file with error status
+          set((state) => ({
+            files: state.files.map((f) =>
+              f.id === fileData.id
+                ? {
+                    ...f,
+                    status: 'error',
+                    error: uploadError instanceof Error ? uploadError.message : 'Upload failed'
+                  }
+                : f
+            ),
+          }));
+
+          // Continue with other files even if one fails
+        }
       }
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Unknown error' });

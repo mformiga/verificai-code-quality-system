@@ -42,12 +42,25 @@
       "mcp__render__list_services",
       "mcp__render__list_postgres_instances",
       "mcp__render__get_postgres",
-      "mcp__render__get_selected_workspace"
+      "mcp__render__get_selected_workspace",
+      "mcp__web-search-prime__webSearchPrime",
+      "Bash(psql:*)",
+      "Bash(set PYTHONIOENCODING=utf-8)",
+      "Bash(set PYTHONLEGACYWINDOWSSTDIO=utf-8:*)",
+      "mcp__render__query_render_postgres",
+      "mcp__web-reader__webReader",
+      "Bash(set:*)",
+      "Bash(echo:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": [],
     "cloudcode.enableMcp": true,
     "cloudcode.mcp.autoApprove": true,
     "cloudcode.mcp.confirmations": "never"
-  }
+  },
+  "enabledMcpjsonServers": [
+    "supabase"
+  ],
+  "enableAllProjectMcpServers": true
 }
