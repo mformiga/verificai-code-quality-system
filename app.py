@@ -1832,8 +1832,19 @@ def show_code_upload():
 
                         with col2:
                             st.write("**Tamanho:**", f"{code[8]:,} bytes" if code[8] else "N/A")
-                            st.write("**Criado em:**", code[9].strftime("%d/%m/%Y %H:%M") if code[9] else "N/A")
-                            st.write("**Atualizado em:**", code[10].strftime("%d/%m/%Y %H:%M") if code[10] else "N/A")
+                            # Corrigir formatação de data - verificar se é string antes de formatar
+                            created_at = code[9]
+                            if created_at and not isinstance(created_at, str):
+                                st.write("**Criado em:**", created_at.strftime("%d/%m/%Y %H:%M"))
+                            else:
+                                st.write("**Criado em:**", str(created_at) if created_at else "N/A")
+
+                            updated_at = code[10]
+                            if updated_at and not isinstance(updated_at, str):
+                                st.write("**Atualizado em:**", updated_at.strftime("%d/%m/%Y %H:%M"))
+                            else:
+                                st.write("**Atualizado em:**", str(updated_at) if updated_at else "N/A")
+
                             st.write("**Status:**", code[11] if len(code) > 11 else "active")
 
                         if code[3]:  # Descrição
