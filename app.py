@@ -10,6 +10,7 @@ import json
 import pandas as pd
 from datetime import datetime
 import os
+import psycopg2
 from supabase_client import get_supabase_client, get_current_user_display
 import base64
 from io import BytesIO
@@ -24,6 +25,15 @@ st.set_page_config(
 
 # Constantes
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api/v1")
+
+# Configuração do banco PostgreSQL local
+POSTGRES_CONFIG = {
+    'host': os.getenv('POSTGRES_HOST', 'localhost'),
+    'port': os.getenv('POSTGRES_PORT', '5432'),
+    'database': os.getenv('POSTGRES_DB', 'verificai'),
+    'user': os.getenv('POSTGRES_USER', 'verificai'),
+    'password': os.getenv('POSTGRES_PASSWORD', 'verificai123')
+}
 
 # CSS que replica o design DSGov do frontend React
 st.markdown("""
@@ -146,11 +156,18 @@ st.markdown("""
         background: linear-gradient(135deg, #1351b4 0%, #1a5fc4 100%) !important;
         color: white !important;
         border: none !important;
-        padding: 12px 24px !important;
+        padding: 8px 12px !important;
         border-radius: 4px !important;
-        font-size: 16px !important;
+        font-size: 13px !important;
         font-weight: 500 !important;
         transition: all 0.2s ease !important;
+        text-align: center !important;
+        white-space: pre-line !important;
+        line-height: 1.2 !important;
+        min-height: 60px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
     }
 
     .stButton > button:hover {
@@ -284,20 +301,6 @@ def show_login():
 
             st.subheader("🔐 Autenticação")
 
-            supabase = get_supabase_client()
-
-            # Informações sobre usuários existentes
-            with st.expander("ℹ️ Informações de Acesso"):
-                st.info("""
-                **Para testar o sistema:**
-                - Use as credenciais de desenvolvimento abaixo
-                - Sistema criará acesso automático para demonstração
-
-                **Credenciais de Teste:**
-                - Email: `dev@verificai.com`
-                - Senha: `dev123`
-                """)
-
             with st.form("login_form"):
                 email = st.text_input(
                     "Email",
@@ -314,37 +317,21 @@ def show_login():
                 submitted = st.form_submit_button("🚀 Entrar", type="primary")
 
                 if submitted:
-                    # Tenta autenticar com Supabase
-                    result = supabase.sign_in(email, password)
-                    if "success" in result or result.get("user"):
-                        st.session_state['authenticated'] = True
-                        st.session_state['user_email'] = email
-                        st.success(f"✅ Bem-vindo ao sistema!")
-                        st.rerun()
-                    else:
-                        # Se falhar, cria usuário de desenvolvimento
-                        st.session_state['authenticated'] = True
-                        st.session_state['user_email'] = email
-                        st.session_state['user_name'] = 'Developer User'
-                        st.success("✅ Acesso de desenvolvimento concedido!")
-                        st.rerun()
+                    # Cria usuário de desenvolvimento diretamente
+                    st.session_state['authenticated'] = True
+                    st.session_state['user_email'] = email
+                    st.session_state['user_name'] = 'Developer User'
+                    st.rerun()
 
             st.markdown('</div></div>', unsafe_allow_html=True)
 
 def logout():
     """Faz logout do usuário"""
-    if 'authenticated' in st.session_state:
-        del st.session_state['authenticated']
-    if 'user_email' in st.session_state:
-        del st.session_state['user_email']
-    if 'user_name' in st.session_state:
-        del st.session_state['user_name']
+    # Limpa sessão
+    for key in ['authenticated', 'user_email', 'user_name']:
+        if key in st.session_state:
+            del st.session_state[key]
 
-    supabase = get_supabase_client()
-    result = supabase.sign_out()
-
-    st.session_state['authenticated'] = False
-    st.success("👋 Logout realizado com sucesso!")
     st.rerun()
 
 def check_authentication():
@@ -365,107 +352,36 @@ def show_dashboard():
     """, unsafe_allow_html=True)
 
     # Main content card
-    st.markdown('<div class="br-card"><div class="card-content">', unsafe_allow_html=True)
+    st.markdown('<div class="br-card"><div class="card-content" style="padding: 24px;">', unsafe_allow_html=True)
 
-    # Welcome section
-    st.markdown("""
-    <div class="welcome-section">
-        <h2>🎉 Bem-vindo ao AVALIA!</h2>
-        <p>Sistema de análise de código com inteligência artificial</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Features grid
-    st.markdown('<div class="feature-grid">', unsafe_allow_html=True)
-
-    col1, col2 = st.columns(2)
+    # Feature descriptions in compact layout - 3 columns
+    col1, col2, col3 = st.columns(3)
 
     with col1:
-        if st.button("⚙️", key="prompt-config-icon", help="Configuração de Prompts"):
+        if st.button("⚙️\nConfigurar Prompts", type="primary", use_container_width=True, key="btn_prompts"):
             st.session_state.current_page = "prompt_config"
             st.rerun()
 
-        if st.button("📁", key="code-upload-icon", help="Upload de Código"):
+    with col2:
+        if st.button("📁\nUpload de Código", type="primary", use_container_width=True, key="btn_upload"):
             st.session_state.current_page = "code_upload"
             st.rerun()
 
-    with col2:
-        if st.button("📊", key="general-analysis-icon", help="Análise Geral"):
+    with col3:
+        if st.button("📊\nAnálise Geral", type="primary", use_container_width=True, key="btn_general"):
             st.session_state.current_page = "general_analysis"
             st.rerun()
 
-        if st.button("🏗️", key="architectural-analysis-icon", help="Análise Arquitetural"):
-            st.session_state.current_page = "architectural_analysis"
-            st.rerun()
-
-        if st.button("💼", key="business-analysis-icon", help="Análise de Negócio"):
-            st.session_state.current_page = "business_analysis"
-            st.rerun()
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # Feature descriptions in a more readable format
-    col1, col2 = st.columns(2)
+    # Second row
+    col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.markdown("""
-        <div class="feature-card" onclick="document.querySelector('[data-testid=\"stButton\"]:contains(\"Configurar Prompts\")').click()">
-            <span class="feature-icon">⚙️</span>
-            <h3 class="feature-title">Configuração de Prompts</h3>
-            <p class="feature-description">Configure e gerencie os prompts de análise de código</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if st.button("⚙️ Configurar Prompts", type="primary", use_container_width=True):
-            st.session_state.current_page = "prompt_config"
-            st.rerun()
-
-        st.markdown("""
-        <div class="feature-card">
-            <span class="feature-icon">📁</span>
-            <h3 class="feature-title">Upload de Código</h3>
-            <p class="feature-description">Faça upload dos arquivos de código para análise</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if st.button("📁 Upload de Código", type="primary", use_container_width=True):
-            st.session_state.current_page = "code_upload"
-            st.rerun()
-
-    with col2:
-        st.markdown("""
-        <div class="feature-card">
-            <span class="feature-icon">📊</span>
-            <h3 class="feature-title">Análise Geral</h3>
-            <p class="feature-description">Análise de código baseada em critérios gerais de qualidade</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if st.button("📊 Análise Geral", type="primary", use_container_width=True):
-            st.session_state.current_page = "general_analysis"
-            st.rerun()
-
-        st.markdown("""
-        <div class="feature-card">
-            <span class="feature-icon">🏗️</span>
-            <h3 class="feature-title">Análise Arquitetural</h3>
-            <p class="feature-description">Avaliação da arquitetura e estrutura do projeto</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if st.button("🏗️ Análise Arquitetural", type="primary", use_container_width=True):
+        if st.button("🏗️\nAnálise Arquitetural", type="primary", use_container_width=True, key="btn_architectural"):
             st.session_state.current_page = "architectural_analysis"
             st.rerun()
 
-        st.markdown("""
-        <div class="feature-card">
-            <span class="feature-icon">💼</span>
-            <h3 class="feature-title">Análise de Negócio</h3>
-            <p class="feature-description">Análise de impacto e valor de negócio do código</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if st.button("💼 Análise de Negócio", type="primary", use_container_width=True):
+    with col2:
+        if st.button("💼\nAnálise de Negócio", type="primary", use_container_width=True, key="btn_business"):
             st.session_state.current_page = "business_analysis"
             st.rerun()
 
@@ -481,8 +397,174 @@ def show_dashboard():
 
     st.markdown('</div></div>', unsafe_allow_html=True)
 
+def get_prompts_from_postgres():
+    """Obtém prompts do banco PostgreSQL local"""
+    try:
+        # Conecta ao banco PostgreSQL local
+        conn = psycopg2.connect(**POSTGRES_CONFIG)
+        cursor = conn.cursor()
+
+        # Query para obter prompts da tabela prompts
+        query = """
+        SELECT type, content, version, updated_at, id
+        FROM prompts
+        WHERE user_id = 1
+        """
+
+        cursor.execute(query)
+        rows = cursor.fetchall()
+
+        if rows:
+            prompts = {}
+            for row in rows:
+                prompt_type, content, version, updated_at, prompt_id = row
+                prompts[prompt_type] = {
+                    'content': content,
+                    'version': version,
+                    'last_modified': str(updated_at) if updated_at else '',
+                    'id': prompt_id
+                }
+            return prompts
+        else:
+            return None
+
+    except Exception as e:
+        st.error(f"❌ Erro ao carregar prompts do banco PostgreSQL: {str(e)}")
+        return None
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+def get_prompts_from_supabase():
+    """Obtém prompts do banco de dados Supabase (mantido para sincronização remota)"""
+    try:
+        supabase = get_supabase_client()
+
+        # Tenta obter prompts existentes
+        response = supabase.client.table('prompts').select('*').execute()
+
+        if response.data:
+            prompts = {}
+            for prompt_data in response.data:
+                prompt_type = prompt_data.get('type', 'general')
+                prompts[prompt_type] = {
+                    'content': prompt_data.get('content', ''),
+                    'version': prompt_data.get('version', 1),
+                    'last_modified': prompt_data.get('updated_at', ''),
+                    'id': prompt_data.get('id', '')
+                }
+            return prompts
+        else:
+            return None
+    except Exception as e:
+        st.error(f"❌ Erro ao carregar prompts do Supabase: {str(e)}")
+        return None
+
+def save_prompt_to_postgres(prompt_type, content):
+    """Salva/atualiza um prompt no banco PostgreSQL local"""
+    try:
+        # Conecta ao banco PostgreSQL local
+        conn = psycopg2.connect(**POSTGRES_CONFIG)
+        cursor = conn.cursor()
+
+        # Verifica se já existe um prompt deste tipo para o usuário
+        check_query = "SELECT id, version FROM prompts WHERE type = %s AND user_id = 1"
+        cursor.execute(check_query, (prompt_type,))
+        existing = cursor.fetchone()
+
+        if existing:
+            # Atualiza prompt existente
+            prompt_id, current_version = existing
+            update_query = """
+            UPDATE prompts
+            SET content = %s, version = version + 1, updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+            """
+            cursor.execute(update_query, (content, prompt_id))
+        else:
+            # Cria novo prompt
+            insert_query = """
+            INSERT INTO prompts (type, content, version, user_id, created_at, updated_at)
+            VALUES (%s, %s, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            """
+            cursor.execute(insert_query, (prompt_type, content))
+
+        # Commit da transação
+        conn.commit()
+        return True
+
+    except Exception as e:
+        st.error(f"❌ Erro ao salvar prompt no PostgreSQL: {str(e)}")
+        if 'conn' in locals():
+            conn.rollback()
+        return False
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+def sync_prompt_to_supabase(prompt_type, content):
+    """Sincroniza um prompt com o Supabase remoto via MCP"""
+    try:
+        supabase = get_supabase_client()
+
+        # Verifica se já existe
+        existing = supabase.client.table('prompts').select('*').eq('type', prompt_type).execute()
+
+        if existing.data:
+            # Atualiza prompt existente
+            prompt_id = existing.data[0]['id']
+            supabase.client.table('prompts').update({
+                'content': content,
+                'updated_at': 'now()'
+            }).eq('id', prompt_id).execute()
+        else:
+            # Cria novo prompt
+            supabase.client.table('prompts').insert({
+                'type': prompt_type,
+                'content': content,
+                'version': 1,
+                'created_at': 'now()',
+                'updated_at': 'now()'
+            }).execute()
+
+        st.success(f"✅ Prompt {prompt_type} sincronizado com Supabase remoto")
+        return True
+    except Exception as e:
+        st.error(f"❌ Erro ao sincronizar prompt com Supabase: {str(e)}")
+        return False
+
+def save_prompt_to_supabase(prompt_type, content):
+    """Salva/atualiza um prompt no Supabase (legado - manter para compatibilidade)"""
+    try:
+        supabase = get_supabase_client()
+
+        # Verifica se já existe
+        existing = supabase.client.table('prompts').select('*').eq('type', prompt_type).execute()
+
+        if existing.data:
+            # Atualiza prompt existente
+            prompt_id = existing.data[0]['id']
+            supabase.client.table('prompts').update({
+                'content': content,
+                'updated_at': 'now()'
+            }).eq('id', prompt_id).execute()
+        else:
+            # Cria novo prompt
+            supabase.client.table('prompts').insert({
+                'type': prompt_type,
+                'content': content,
+                'version': 1,
+                'created_at': 'now()',
+                'updated_at': 'now()'
+            }).execute()
+
+        return True
+    except Exception as e:
+        st.error(f"❌ Erro ao salvar prompt: {str(e)}")
+        return False
+
 def show_prompt_config():
-    """Interface de configuração de prompts"""
+    """Interface de configuração de prompts com integração Supabase"""
 
     # Header
     st.markdown("""
@@ -496,10 +578,14 @@ def show_prompt_config():
         st.session_state.current_page = "dashboard"
         st.rerun()
 
+    # Carregar prompts do banco PostgreSQL local
+    with st.spinner("Carregando prompts do banco PostgreSQL local..."):
+        saved_prompts = get_prompts_from_postgres()
+
     # Tabs para diferentes tipos de prompts
     tab1, tab2, tab3 = st.tabs(["📋 Critérios Gerais", "🏗️ Conformidade Arquitetural", "💼 Conformidade Negocial"])
 
-    # Prompts padrão
+    # Prompts padrão (fallback caso não exista no banco)
     default_prompts = {
         "general": """Analise o código fornecido considerando os seguintes critérios de qualidade:
 1. **Princípios SOLID**: Verifique violações do Single Responsibility Principle e Dependency Inversion
@@ -544,9 +630,15 @@ Para cada regra de negócio:
     with tab1:
         st.subheader("📋 Prompt de Critérios Gerais")
 
+        # Usa prompt do banco se existir, senão usa padrão
+        general_prompt_value = saved_prompts.get('general', {}).get('content', default_prompts["general"])
+
+        if saved_prompts and saved_prompts.get('general'):
+            st.success("✅ Prompt carregado do banco PostgreSQL local")
+
         general_prompt = st.text_area(
             "Configure o prompt para análise de critérios gerais:",
-            value=default_prompts["general"],
+            value=general_prompt_value,
             height=300,
             key="general_prompt",
             help="Este prompt será usado para análises gerais de qualidade de código"
@@ -554,20 +646,32 @@ Para cada regra de negócio:
 
         col1, col2, col3 = st.columns(3)
         with col1:
-            if st.button("💾 Salvar Prompt Geral", type="primary"):
-                st.success("✅ Prompt geral salvo com sucesso!")
+            if st.button("💾 Salvar Prompt Geral", type="primary", key="save_general"):
+                if save_prompt_to_postgres('general', general_prompt):
+                    st.success("✅ Prompt geral salvo no banco local!")
+                    # Sincronizar com Supabase remoto
+                    sync_prompt_to_supabase('general', general_prompt)
         with col2:
-            if st.button("🔄 Restaurar Padrão"):
+            if st.button("🔄 Usar Padrão", key="restore_general"):
+                st.session_state[f'general_prompt_temp'] = default_prompts["general"]
                 st.rerun()
         with col3:
-            st.info("📝 Auto-salvamento a cada 30s")
+            if saved_prompts and saved_prompts.get('general'):
+                st.info(f"📝 Versão: {saved_prompts['general'].get('version', 1)}")
+            else:
+                st.info("📝 Auto-salvamento a cada 30s")
 
     with tab2:
         st.subheader("🏗️ Prompt de Conformidade Arquitetural")
 
+        architectural_prompt_value = saved_prompts.get('architectural', {}).get('content', default_prompts["architectural"])
+
+        if saved_prompts and saved_prompts.get('architectural'):
+            st.success("✅ Prompt carregado do banco PostgreSQL local")
+
         architectural_prompt = st.text_area(
             "Configure o prompt para análise arquitetural:",
-            value=default_prompts["architectural"],
+            value=architectural_prompt_value,
             height=300,
             key="architectural_prompt",
             help="Este prompt será usado para análises de conformidade arquitetural"
@@ -575,20 +679,32 @@ Para cada regra de negócio:
 
         col1, col2, col3 = st.columns(3)
         with col1:
-            if st.button("💾 Salvar Prompt Arquitetural", type="primary"):
-                st.success("✅ Prompt arquitetural salvo com sucesso!")
+            if st.button("💾 Salvar Prompt Arquitetural", type="primary", key="save_architectural"):
+                if save_prompt_to_postgres('architectural', architectural_prompt):
+                    st.success("✅ Prompt arquitetural salvo no banco local!")
+                    # Sincronizar com Supabase remoto
+                    sync_prompt_to_supabase('architectural', architectural_prompt)
         with col2:
-            if st.button("🔄 Restaurar Padrão"):
+            if st.button("🔄 Usar Padrão", key="restore_architectural"):
+                st.session_state[f'architectural_prompt_temp'] = default_prompts["architectural"]
                 st.rerun()
         with col3:
-            st.info("📝 Auto-salvamento a cada 30s")
+            if saved_prompts and saved_prompts.get('architectural'):
+                st.info(f"📝 Versão: {saved_prompts['architectural'].get('version', 1)}")
+            else:
+                st.info("📝 Auto-salvamento a cada 30s")
 
     with tab3:
         st.subheader("💼 Prompt de Conformidade Negocial")
 
+        business_prompt_value = saved_prompts.get('business', {}).get('content', default_prompts["business"])
+
+        if saved_prompts and saved_prompts.get('business'):
+            st.success("✅ Prompt carregado do banco PostgreSQL local")
+
         business_prompt = st.text_area(
             "Configure o prompt para análise negocial:",
-            value=default_prompts["business"],
+            value=business_prompt_value,
             height=300,
             key="business_prompt",
             help="Este prompt será usado para análises de regras de negócio"
@@ -596,13 +712,38 @@ Para cada regra de negócio:
 
         col1, col2, col3 = st.columns(3)
         with col1:
-            if st.button("💾 Salvar Prompt Negocial", type="primary"):
-                st.success("✅ Prompt negocial salvo com sucesso!")
+            if st.button("💾 Salvar Prompt Negocial", type="primary", key="save_business"):
+                if save_prompt_to_postgres('business', business_prompt):
+                    st.success("✅ Prompt negocial salvo no banco local!")
+                    # Sincronizar com Supabase remoto
+                    sync_prompt_to_supabase('business', business_prompt)
         with col2:
-            if st.button("🔄 Restaurar Padrão"):
+            if st.button("🔄 Usar Padrão", key="restore_business"):
+                st.session_state[f'business_prompt_temp'] = default_prompts["business"]
                 st.rerun()
         with col3:
-            st.info("📝 Auto-salvamento a cada 30s")
+            if saved_prompts and saved_prompts.get('business'):
+                st.info(f"📝 Versão: {saved_prompts['business'].get('version', 1)}")
+            else:
+                st.info("📝 Auto-salvamento a cada 30s")
+
+    # Seção de informações do banco
+    if saved_prompts:
+        st.markdown("---")
+        st.subheader("📊 Status do Banco de Dados")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Prompts Salvos", len(saved_prompts))
+        with col2:
+            last_update = max(
+                saved_prompts.get('general', {}).get('last_modified', 'N/A'),
+                saved_prompts.get('architectural', {}).get('last_modified', 'N/A'),
+                saved_prompts.get('business', {}).get('last_modified', 'N/A')
+            )
+            st.metric("Última Atualização", last_update[:19] if last_update != 'N/A' else 'N/A')
+    else:
+        st.warning("⚠️ Nenhum prompt encontrado no banco. Use os prompts padrão ou configure novos prompts.")
 
 def show_code_upload():
     """Interface para upload de arquivos"""

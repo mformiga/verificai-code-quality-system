@@ -1,0 +1,173 @@
+# AVALIA Supabase Configuration
+
+[project]
+# Project reference (will be filled after project creation)
+# ref = "your-project-ref"
+
+[api]
+# Port to use for the API URL
+port = 54321
+# Schemas to expose in your API
+schemas = ["public", "graphql_public"]
+# Extra schemas to add to the search_path of every request
+extra_search_path = ["public", "extensions"]
+# Maximum rows in a result set
+max_rows = 1000
+
+[db]
+# Port to use for the local database URL
+port = 54322
+# Port to use for the local database shadow URL
+shadow_port = 54323
+# The database major version to use. Has to be the same as your local instance
+major_version = 15
+
+[studio]
+# Port to use for Supabase Studio
+port = 54323
+
+[storage]
+# The maximum file size allowed (e.g., "5MB", "500KB")
+file_size_limit = "100MB"
+# The allowed image transformations
+image_transformation_enabled = true
+
+[auth]
+# The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
+# in emails.
+site_url = "http://localhost:3000"
+# A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
+additional_redirect_urls = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:3026",
+    "http://localhost:3015",
+    "http://localhost:3014",
+    "http://localhost:3013",
+    "http://localhost:3011",
+    "https://your-production-domain.com"
+]
+# How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
+jwt_expiry = 3600
+# If disabled, users cannot sign up via email or magic links.
+enable_signup = true
+# If enabled, a user can be invited via email to join the project even if they don't have an account yet.
+enable_email_confirmations = true
+# If enabled, users can sign up using external providers (OAuth).
+enable_external_auth = true
+# If enabled, users can sign up via phone.
+enable_phone_confirmations = false
+
+[auth.email]
+# Enable email auth
+enable_signup = true
+# If enabled, a user will be required to confirm any email change on both the old, and new email
+# addresses. If disabled, only the new email is required to confirm.
+double_confirm_changes = true
+# If enabled, users need to confirm their email address before signing in.
+enable_confirmations = true
+
+# Use an OAuth provider
+[auth.external.apple]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.azure]
+enabled = false
+client_id = ""
+secret = ""
+url = ""
+
+[auth.external.bitbucket]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.discord]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.facebook]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.github]
+enabled = true
+client_id = ""
+secret = ""
+
+[auth.external.gitlab]
+enabled = false
+client_id = ""
+secret = ""
+url = ""
+
+[auth.external.google]
+enabled = true
+client_id = ""
+secret = ""
+
+[auth.external.keycloak]
+enabled = false
+client_id = ""
+secret = ""
+url = ""
+
+[auth.external.linkedin]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.notion]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.slack]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.spotify]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.twitch]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.twitter]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.workos]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.zoom]
+enabled = false
+client_id = ""
+secret = ""
+
+[edge_functions]
+# Port to use for the Edge Functions runtime
+port = 54321
+# Directory to find edge functions
+origin = "supabase/functions"
+
+[analytics]
+enabled = false
+port = 54327
+# Configure one of the supported backends: bigquery, s3, or logflare. Defaults to 'logflare'.
+backend = "logflare"
+
+[experimental]
+# Configures Postgres storage for realtime features
+realtime_enabled = true

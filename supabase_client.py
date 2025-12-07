@@ -275,7 +275,22 @@ def require_auth():
 
 def get_current_user_display():
     """Get current user display name"""
-    user = get_supabase_client().get_current_user()
-    if user:
-        return user.get('user_metadata', {}).get('username') or user.get('email', '').split('@')[0]
-    return "Usuário"
+    try:
+        user = get_supabase_client().get_current_user()
+        if user:
+            # Tenta obter do Pydantic model
+            if hasattr(user, 'user_metadata'):
+                username = user.user_metadata.get('username') if user.user_metadata else None
+            else:
+                username = user.get('user_metadata', {}).get('username') if hasattr(user, 'get') else None
+
+            if hasattr(user, 'email'):
+                email = user.email
+            else:
+                email = user.get('email', '') if hasattr(user, 'get') else ''
+
+            return username or (email.split('@')[0] if email else "Usuário")
+        return "Usuário"
+    except Exception as e:
+        # Se der erro, tenta fallback básico
+        return "Usuário"

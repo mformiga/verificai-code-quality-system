@@ -1,0 +1,105 @@
+SUPABASE INFORMATION GUIDE FOR AVALIA
+=======================================
+
+HOW TO GET YOUR SUPABASE CREDENTIALS:
+---------------------------------------
+
+1. ACCESS SUPABASE:
+   - Go to: https://app.supabase.com
+   - Login with your email and password
+   - If you don't have an account, create one
+
+2. CREATE PROJECT (if you don't have one):
+   - Click "New Project"
+   - Project Name: AVALIA Code Analysis
+   - Database Password: Create strong password (save it!)
+   - Region: Choose nearest to you
+   - Wait 2-3 minutes for creation
+
+3. GET PROJECT URL:
+   - In your project dashboard, click "Project Settings"
+   - Copy the "Project URL"
+   - Example: https://abc123def456.supabase.co
+
+4. GET API KEYS:
+   - Still in "Project Settings", click "API"
+   - Copy "anon public key"
+   - Copy "service_role key" (if needed)
+
+5. GET DATABASE URL:
+   - Still in "Project Settings", click "Database"
+   - Copy "Connection string"
+   - Format: postgresql://postgres.iamuser:password@host:5432/postgres
+
+6. GET PROJECT REF:
+   - The Project Ref is the part of the URL before ".supabase.co"
+   - Example: https://[PROJECT_REF].supabase.co
+   - Project Ref: abc123def456
+
+CONFIGURATION TEMPLATE:
+---------------------
+
+Copy this to your Streamlit Cloud secrets:
+
+[supabase]
+SUPABASE_URL = "https://YOUR_PROJECT_REF.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.YOUR_ANON_KEY_HERE"
+SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.YOUR_SERVICE_KEY_HERE"
+SUPABASE_PROJECT_REF = "YOUR_PROJECT_REF"
+DATABASE_URL = "postgresql://postgres.iamuser:YOUR_PASSWORD@aws-0-us-west-1.pooler.supabase.com:5432/postgres"
+
+WHERE TO CONFIGURE IN STREAMLIT CLOUD:
+------------------------------------------
+
+1. Go to: https://share.streamlit.io/
+2. Click on your app: verificai-code-quality-system
+3. Go to "Settings" > "Secrets"
+4. Add the configuration above with your actual credentials
+
+IMPORTANT NOTES:
+---------------
+
+- DATABASE_URL format: postgresql://postgres.iamuser:[PASSWORD]@[HOST]:5432/postgres
+- Replace YOUR_PROJECT_REF with your actual project reference
+- Replace YOUR_ANON_KEY_HERE with your actual anon key
+- Replace YOUR_SERVICE_KEY_HERE with your actual service key
+- Replace YOUR_PASSWORD with your actual database password
+
+EXAMPLE:
+---------
+
+[supabase]
+SUPABASE_URL = "https://abc123def456.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ..."
+SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ..."
+SUPABASE_PROJECT_REF = "abc123def456"
+DATABASE_URL = "postgresql://postgres.iamuser:mypassword@aws-0-us-west-1.pooler.supabase.com:5432/postgres"
+
+QUICK URLs:
+-----------
+
+- Supabase Dashboard: https://app.supabase.com
+- Your App: https://verificai-code-quality-system-eapzchsvw6mwarkajltkzf.streamlit.app/
+
+NEXT STEPS AFTER CONFIGURATION:
+-----------------------------------
+
+1. Run the database schema in Supabase SQL Editor
+2. Test user registration and login
+3. Verify code analysis works
+4. Check if analyses are saved to database
+
+TROUBLESHOOTING:
+----------------
+
+If you see "Cliente Supabase nao inicializado":
+- Check if your secrets are properly configured in Streamlit Cloud
+- Verify SUPABASE_URL and SUPABASE_ANON_KEY are correct
+- Make sure your Supabase project is active
+
+If you see database errors:
+- Run the schema in Supabase SQL Editor
+- Check if tables were created correctly
+- Verify Row Level Security policies
+
+For more help, check DEPLOYMENT_COMPLETE.md file.
