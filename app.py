@@ -398,17 +398,31 @@ def show_dashboard():
     st.markdown('</div></div>', unsafe_allow_html=True)
 
 def get_prompts_from_postgres():
-    """Obtém prompts do banco PostgreSQL local"""
+    """Obtém prompts do banco PostgreSQL local da tabela prompt_configurations"""
     try:
         # Conecta ao banco PostgreSQL local
         conn = psycopg2.connect(**POSTGRES_CONFIG)
         cursor = conn.cursor()
 
-        # Query para obter prompts da tabela prompts
+        # Query para obter prompts da tabela prompt_configurations
+        # Pega prompts específicos por ID conhecido ou o mais recente de cada tipo
         query = """
-        SELECT type, content, version, updated_at, id
-        FROM prompts
-        WHERE user_id = 1
+        WITH ranked_prompts AS (
+          SELECT prompt_type, content, updated_at, id, name, user_id,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY prompt_type
+                   ORDER BY
+                     CASE WHEN id IN (7) THEN 1 ELSE 2 END ASC,
+                     CASE WHEN name LIKE '%Template%' THEN 1 ELSE 2 END ASC,
+                     LENGTH(content) DESC,
+                     updated_at DESC
+                 ) as rn
+          FROM prompt_configurations
+          WHERE is_active = true
+        )
+        SELECT prompt_type, content, updated_at, id, name
+        FROM ranked_prompts
+        WHERE rn = 1
         """
 
         cursor.execute(query)
@@ -417,14 +431,15 @@ def get_prompts_from_postgres():
         if rows:
             prompts = {}
             for row in rows:
-                prompt_type, content, version, updated_at, prompt_id = row
+                prompt_type, content, updated_at, prompt_id, name = row
                 # Convert enum values (GENERAL, ARCHITECTURAL, BUSINESS) to lowercase for UI
                 prompt_type_lower = prompt_type.lower() if prompt_type else 'general'
                 prompts[prompt_type_lower] = {
                     'content': content,
-                    'version': version,
+                    'version': 1,
                     'last_modified': str(updated_at) if updated_at else '',
-                    'id': prompt_id
+                    'id': prompt_id,
+                    'name': name
                 }
             return prompts
         else:
@@ -463,7 +478,7 @@ def get_prompts_from_supabase():
         return None
 
 def save_prompt_to_postgres(prompt_type, content):
-    """Salva/atualiza um prompt no banco PostgreSQL local"""
+    """Salva/atualiza um prompt no banco PostgreSQL local na tabela prompt_configurations"""
     try:
         # Conecta ao banco PostgreSQL local
         conn = psycopg2.connect(**POSTGRES_CONFIG)
@@ -473,26 +488,26 @@ def save_prompt_to_postgres(prompt_type, content):
         prompt_type_upper = prompt_type.upper()
 
         # Verifica se já existe um prompt deste tipo para o usuário
-        check_query = "SELECT id, version FROM prompts WHERE type = %s AND user_id = 1"
-        cursor.execute(check_query, (prompt_type_upper,))
+        check_query = "SELECT id FROM prompt_configurations WHERE prompt_type = %s AND user_id = 1 AND name = %s"
+        cursor.execute(check_query, (prompt_type_upper, f"{prompt_type}_config"))
         existing = cursor.fetchone()
 
         if existing:
             # Atualiza prompt existente
-            prompt_id, current_version = existing
+            prompt_id = existing[0]
             update_query = """
-            UPDATE prompts
-            SET content = %s, version = version + 1, updated_at = CURRENT_TIMESTAMP
+            UPDATE prompt_configurations
+            SET content = %s, updated_at = CURRENT_TIMESTAMP, updated_by = 1
             WHERE id = %s
             """
             cursor.execute(update_query, (content, prompt_id))
         else:
             # Cria novo prompt
             insert_query = """
-            INSERT INTO prompts (type, content, version, user_id, created_at, updated_at)
-            VALUES (%s, %s, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            INSERT INTO prompt_configurations (prompt_type, name, content, user_id, is_active, is_default, created_at, updated_at, created_by, updated_by)
+            VALUES (%s, %s, %s, 1, true, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1)
             """
-            cursor.execute(insert_query, (prompt_type_upper, content))
+            cursor.execute(insert_query, (prompt_type_upper, f"{prompt_type}_config", content))
 
         # Commit da transação
         conn.commit()
