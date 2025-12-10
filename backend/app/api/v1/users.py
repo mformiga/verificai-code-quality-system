@@ -182,7 +182,7 @@ def list_users(
     )
 
 
-@router.get("/{user_id}", response_model=UserResponse)
+@router.get("/users/{user_id}", response_model=UserResponse)
 def get_user(
     user_id: int,
     current_user: User = Depends(verify_admin_permission),

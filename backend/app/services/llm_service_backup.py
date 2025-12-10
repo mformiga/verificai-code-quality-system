@@ -15,7 +15,7 @@ class LLMService:
 
     def __init__(self):
         self.base_url = "https://generativelanguage.googleapis.com/v1beta/models"
-        self.api_key = "AIzaSyDmhnKGqN5FnF5BSIYMdTvYlswednA3wL0"
+        self.api_key = "AIzaSyCkZOiDic9qQ_iIvZ8awzak4Owv-3FaKy8"
         self.model = "gemini-2.5-pro"
 
     async def send_prompt(self, prompt: str, **kwargs) -> Dict[str, Any]:

@@ -492,24 +492,38 @@ const GeneralAnalysisPage: React.FC = () => {
         });
       }, 300);
 
-      // Obter file paths para análise
-      const filePaths = await getAnalysisFilePaths();
-
-      if (filePaths.length === 0) {
+      // Verificar se existe código na tabela code_entries
+      try {
+        const latestCodeEntry = await analysisService.getLatestCodeEntry();
+        if (!latestCodeEntry.success || !latestCodeEntry.code_content) {
+          // Limpar estado de progresso antes de retornar
+          clearInterval(progressInterval);
+          setShowProgress(false);
+          setProgress(0);
+          setActiveTab('criteria');
+          setLoading(false);
+          alert('Nenhum código encontrado para análise. Por favor, cole um código na página de colagem primeiro.');
+          return;
+        }
+        console.log('Código encontrado para análise:', latestCodeEntry.title);
+      } catch (error) {
+        console.error('Erro ao verificar código disponível:', error);
         // Limpar estado de progresso antes de retornar
         clearInterval(progressInterval);
         setShowProgress(false);
         setProgress(0);
         setActiveTab('criteria');
         setLoading(false);
-        alert('Nenhum arquivo encontrado para análise. Por favor, faça upload dos arquivos primeiro.');
+        alert('Erro ao verificar código disponível. Por favor, tente novamente.');
         return;
       }
 
       // Create analysis request para reanálise do critério específico
       const request: AnalysisRequest = {
         criteria_ids: [criteriaKey],
-        file_paths: filePaths,
+        file_paths: [], // Não usar mais file paths para análise de critérios
+        use_code_entry: true, // Usar código da tabela code_entries
+        code_entry_id: undefined, // Deixar o backend buscar o mais recente
         analysis_name: `Reanálise do Critério: ${criterion}`,
         temperature: 0.7,
         max_tokens: 4000
@@ -744,24 +758,38 @@ const GeneralAnalysisPage: React.FC = () => {
         });
       }, 300);
 
-      // Obter file paths para análise
-      const filePaths = await getAnalysisFilePaths();
-
-      if (filePaths.length === 0) {
+      // Verificar se existe código na tabela code_entries
+      try {
+        const latestCodeEntry = await analysisService.getLatestCodeEntry();
+        if (!latestCodeEntry.success || !latestCodeEntry.code_content) {
+          // Limpar estado de progresso antes de retornar
+          clearInterval(progressInterval);
+          setShowProgress(false);
+          setProgress(0);
+          setActiveTab('criteria');
+          setLoading(false);
+          alert('Nenhum código encontrado para análise. Por favor, cole um código na página de colagem primeiro.');
+          return;
+        }
+        console.log('Código encontrado para análise:', latestCodeEntry.title);
+      } catch (error) {
+        console.error('Erro ao verificar código disponível:', error);
         // Limpar estado de progresso antes de retornar
         clearInterval(progressInterval);
         setShowProgress(false);
         setProgress(0);
         setActiveTab('criteria');
         setLoading(false);
-        alert('Nenhum arquivo encontrado para análise. Por favor, faça upload dos arquivos primeiro.');
+        alert('Erro ao verificar código disponível. Por favor, tente novamente.');
         return;
       }
 
       // Create analysis request para análise do critério específico
       const request: AnalysisRequest = {
         criteria_ids: [criteriaKey],
-        file_paths: filePaths,
+        file_paths: [], // Não usar mais file paths para análise de critérios
+        use_code_entry: true, // Usar código da tabela code_entries
+        code_entry_id: undefined, // Deixar o backend buscar o mais recente
         analysis_name: `Análise do Critério: ${criterionObj.text}`,
         temperature: 0.7,
         max_tokens: 4000
@@ -935,19 +963,89 @@ const GeneralAnalysisPage: React.FC = () => {
       setLoading(true);
       setSelectedCriteriaIds(selectedCriteriaIds);
 
-      // Excluir todos os resultados anteriores antes de iniciar nova análise
+      // Primeiro, verificar se existe código disponível
+      console.log('🔍 DEBUG: Verificando código disponível...');
+      let codeAvailable = false;
+
       try {
-        console.log('🗑️ Excluindo todos os resultados anteriores antes da nova análise...');
-        await analysisService.deleteAllAnalysisResults();
-        console.log('✅ Todos os resultados anteriores excluídos com sucesso');
-      } catch (deleteError) {
-        console.warn('⚠️ Erro ao excluir resultados anteriores, continuando com análise:', deleteError);
+        const latestCodeEntry = await analysisService.getLatestCodeEntry();
+        console.log('🔍 DEBUG: Resultado da verificação de código:', latestCodeEntry);
+
+        if (latestCodeEntry.success && latestCodeEntry.code_content) {
+          codeAvailable = true;
+          console.log('✅ Código disponível encontrado:', latestCodeEntry.title);
+        } else {
+          console.log('❌ Nenhum código disponível encontrado:', latestCodeEntry.message);
+        }
+      } catch (codeCheckError) {
+        console.error('❌ Erro ao verificar código disponível:', codeCheckError);
       }
 
-      // Limpar resultados anteriores para evitar misturar com nova análise
-      setResults([]);
-      // Resetar a flag de exclusão manual pois estamos iniciando uma nova análise
-      setResultsManuallyCleared(false);
+      // Só excluir resultados anteriores se houver código disponível
+      if (codeAvailable) {
+        try {
+          console.log('🗑️ Tentando excluir todos os resultados anteriores antes da nova análise...');
+
+          // Tentar exclusão normal primeiro
+          try {
+            await analysisService.deleteAllAnalysisResults();
+            console.log('✅ Todos os resultados anteriores excluídos com sucesso (método normal)');
+          } catch (deleteError) {
+            console.warn('⚠️ Erro ao excluir resultados (método normal):', deleteError);
+
+            // Se a exclusão normal falhar, tentar método alternativo
+            try {
+              console.log('🔄 Tentando método alternativo de exclusão...');
+
+              // Tentar excluir resultados individuais se houver
+              if (results.length > 0) {
+                console.log(`🔄 Excluindo ${results.length} resultados individualmente...`);
+                const resultIds = results
+                  .filter(r => r.id && !isNaN(parseInt(r.id)))
+                  .map(r => parseInt(r.id))
+                  .filter((id, index, array) => array.indexOf(id) === index); // Remover duplicados
+
+                if (resultIds.length > 0) {
+                  await analysisService.deleteMultipleAnalysisResults(resultIds);
+                  console.log('✅ Resultados excluídos com sucesso (método individual)');
+                } else {
+                  console.log('⚠️ Nenhum ID válido encontrado para exclusão');
+                }
+              } else {
+                console.log('ℹ️ Nenhum resultado anterior encontrado para excluir');
+              }
+
+            } catch (individualDeleteError) {
+              console.warn('⚠️ Erro ao excluir resultados (método individual):', individualDeleteError);
+              console.log('⚠️ Prosseguindo com análise sem excluir resultados anteriores...');
+            }
+          }
+
+          // Limpar resultados anteriores para evitar misturar com nova análise
+          setResults([]);
+          // Resetar a flag de exclusão manual pois estamos iniciando uma nova análise
+          setResultsManuallyCleared(false);
+
+        } catch (deleteError) {
+          console.warn('⚠️ Erro geral ao excluir resultados anteriores, continuando com análise:', deleteError);
+          console.log('ℹ️ Prosseguindo com análise sem excluir resultados anteriores...');
+          // Não limpa os resultados em caso de erro, para não perder dados existentes
+          setResultsManuallyCleared(true); // Evita erro de resultados vazios
+        }
+      } else {
+        // Se não há código disponível, não excluir os resultados existentes
+        console.log('🔍 DEBUG: Não excluindo resultados pois não há código disponível para análise');
+        setResultsManuallyCleared(true); // Evita erro de resultados vazios
+      }
+
+      // Se não há código disponível, sair antes de mostrar progresso
+      if (!codeAvailable) {
+        console.log('❌ Análise cancelada: nenhum código disponível');
+        setActiveTab('criteria');
+        setLoading(false);
+        alert('Nenhum código encontrado para análise. Por favor, cole um código na página de colagem primeiro.');
+        return;
+      }
 
       // Show simple progress bar at top of page
       setShowProgress(true);
@@ -964,24 +1062,12 @@ const GeneralAnalysisPage: React.FC = () => {
         });
       }, 300);
 
-      // Obter file paths para análise
-      const filePaths = await getAnalysisFilePaths();
-
-      if (filePaths.length === 0) {
-        // Limpar estado de progresso antes de retornar
-        clearInterval(progressInterval);
-        setShowProgress(false);
-        setProgress(0);
-        setActiveTab('criteria');
-        setLoading(false);
-        alert('Nenhum arquivo encontrado para análise. Por favor, faça upload dos arquivos primeiro.');
-        return;
-      }
-
-      // Create analysis request com os arquivos uploaded
+      // Create analysis request usando código da tabela code_entries
       const request: AnalysisRequest = {
         criteria_ids: selectedCriteriaIds,
-        file_paths: filePaths,
+        file_paths: [], // Não usar mais file paths para análise de critérios
+        use_code_entry: true, // Usar código da tabela code_entries
+        code_entry_id: undefined, // Deixar o backend buscar o mais recente
         analysis_name: 'Análise de Critérios Selecionados',
         temperature: 0.7,
         max_tokens: 4000

@@ -24,7 +24,7 @@ router = APIRouter()
 
 
 # Force reload 3 - test file modification again
-@router.get("/prompts/config", response_model=dict)
+@router.get("/config", response_model=dict)
 def get_prompt_config(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -104,7 +104,7 @@ def get_prompt_config(
         return default_config
 
 
-@router.post("/prompts/backup", response_model=dict)
+@router.post("/backup", response_model=dict)
 def create_prompt_backup(
     prompt_config: dict,
     current_user: User = Depends(get_current_user),
@@ -179,7 +179,7 @@ def create_prompt_backup(
         }
 
 
-@router.post("/prompts/save", response_model=dict)
+@router.post("/save", response_model=dict)
 def save_prompt_configuration(
     prompt_config: dict,
     current_user: User = Depends(get_current_user),

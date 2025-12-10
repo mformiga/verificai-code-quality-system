@@ -3,7 +3,7 @@ Dependency injection utilities for VerificAI Backend
 """
 
 from typing import Generator, Optional
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 import redis.asyncio as redis
@@ -57,15 +57,30 @@ async def get_current_active_user(
 
 
 async def get_optional_user(
-    db: Session = Depends(get_db),
-    token: Optional[HTTPAuthorizationCredentials] = Depends(security)
+    request: Request,
+    db: Session = Depends(get_db)
 ) -> Optional[User]:
     """Get optional current user (for endpoints that work with or without auth)"""
-    if token is None:
+    # Extract token from Authorization header
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
         return None
 
+    token = auth_header.split(" ")[1]
+
     try:
-        return await get_current_user(db, token)
+        # Verify token
+        username = verify_token(token)
+        if username is None:
+            return None
+
+        # Get user from database
+        user = db.query(User).filter(User.username == username).first()
+        if user is None or not user.is_active:
+            return None
+
+        return user
+
     except Exception:
         return None
 

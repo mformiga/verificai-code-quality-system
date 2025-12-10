@@ -3,6 +3,7 @@ export * from './analysis';
 export * from './file';
 export * from './prompt';
 export * from './auth';
+export * from './codeEntry';
 
 import type { UploadFile } from './file';
 import type { Analysis } from './analysis';

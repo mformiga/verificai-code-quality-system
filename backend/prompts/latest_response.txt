@@ -1,242 +1,784 @@
 ## Avaliação Geral
-A análise do código-fonte revela uma aplicação funcional, mas com débitos técnicos significativos em relação a princípios de design de software e melhores práticas do framework NestJS. Foram identificadas violações claras dos princípios de Responsabilidade Única (SRP) e Inversão de Dependência (DIP), resultando em componentes, como o `LaudoController`, que acumulam excesso de responsabilidades e acoplam a lógica de negócio à camada de apresentação. Além disso, o código apresenta um forte acoplamento ao framework subjacente (Express.js) através do uso direto de objetos de requisição e resposta, o que compromete a manutenibilidade e a capacidade de aproveitar plenamente os recursos do NestJS, como interceptors e pipes globais. A refatoração para extrair a lógica de negócio para serviços injetáveis e a adoção de abstrações do NestJS para manipulação de respostas são essenciais para melhorar a qualidade, testabilidade e escalabilidade do código.
+A análise do código-fonte revela uma aplicação NestJS backend e Next.js frontend com uma arquitetura razoável, mas com oportunidades significativas de melhoria em diversas áreas, especialmente na aplicação de princípios SOLID, tratamento de erros e validação de entradas. O backend utiliza TypeORM para persistência, MinIO para armazenamento de arquivos e se integra com uma API de IA externa. O frontend gerencia a autenticação Gov.br e a interação do usuário com o fluxo de processamento de laudos.
+
+Pontos fortes incluem o uso de injeção de dependência do NestJS para a maioria dos serviços, a utilização de streaming para operações de I/O de arquivos grandes e a sanitização básica de caminhos de arquivo para mitigar Path Traversal.
+
+No entanto, há desafios notáveis, como a sobrecarga de responsabilidades em controladores, o acoplamento direto a objetos de resposta do Express, a violação de camadas ao incluir lógica de negócio em controladores, a falta de validação de DTOs e a potencial inconsistência nos contratos de API em casos de erro. Além disso, algumas operações de I/O carecem de timeouts explícitos, e existem condições de corrida em operações de persistência que podem levar a inconsistências de dados.
 
 ## Critério 1: Princípios SOLID: Analisar a aplicação de princípios de design consolidados, como a Responsabilidade Única - SRP (evitando componentes que acumulam funções díspares) como controllers com múltiplos endpoints e a Inversão de Dependência (favorecendo o uso de mecanismos de injeção de dependência em vez da instanciação manual de componentes) como a instanciação manual de dependências em vez de usar a injeção padrão do NestJS
-**Status:** Não Conforme
-**Confiança:** 1.0%
+**Status:** Parcialmente Conforme
+**Confiança:** 0.8%
 
-A análise do código-fonte demonstra uma clara violação dos princípios de Responsabilidade Única (SRP) e Inversão de Dependência (DIP).
+A aplicação demonstra um esforço para seguir os princípios SOLID, especialmente a Inversão de Dependência (DIP) através do mecanismo de Injeção de Dependência do NestJS. A maioria dos serviços é injetada nos construtores dos componentes, como visto em `GovBrAuthController` e `HealthController`.
 
-**1. Violação do Princípio da Responsabilidade Única (SRP):**
+No entanto, o Princípio da Responsabilidade Única (SRP) é violado em alguns pontos críticos. O `LaudoController` é o exemplo mais proeminente, acumulando múltiplas responsabilidades que deveriam ser segregadas em serviços dedicados. Ele é responsável por:
+*   Validação de arquivos e dados de entrada.
+*   Extração e validação de CPF.
+*   Busca e persistência de dados no banco de dados (`LaudoOlivia`, `Usuario`).
+*   Orquestração de chamadas a serviços externos (MinIO e API de IA).
+*   Manipulação de arquivos temporários no sistema de arquivos.
+*   Geração de nomes de arquivo.
 
-O `LaudoController` é o principal exemplo de violação do SRP. Este controller acumula múltiplas e díspares responsabilidades que deveriam ser delegadas a outras camadas da aplicação (como serviços e repositórios).
+**Evidências do código:**
+*   **Violação de SRP em `LaudoController` (src/gateways/http/controllers/domain/laudo/laudo.controller.ts):**
+    ```typescript
+    @Controller('api')
+    export class LaudoController {
+      private async removeFile(filePath?: string): Promise<void> { /* ... */ }
+      private extractCpf(sub?: string): string { /* ... */ }
+      private generateFileName(lpco: string, type: 'usuario' | 'ia'): string { /* ... */ }
 
-*   **Lógica de Negócio:** O controller contém lógica para encontrar usuários, verificar a existência de laudos e criar/atualizar registros no banco de dados.
-*   **Manipulação de Arquivos:** Lida diretamente com o sistema de arquivos (`fs`) para salvar e remover arquivos temporários.
-*   **Comunicação com Serviços Externos:** Realiza chamadas diretas para uma API de IA (`axios.post`) e para o MinIO (`minioClient`).
-*   **Validação e Manipulação de Dados:** Contém lógica para extrair CPF, validar tipos de arquivo e parsear JSON.
-*   **Orquestração de Fluxo:** Controla todo o fluxo de processamento do laudo, desde o upload até a persistência e comunicação externa.
+      @Post('extract-pdf-data')
+      async extractPdfData( /* ... */ ) {
+        // Validação de arquivo e LPCO
+        // Busca de usuário no DB
+        // Busca de laudo existente no DB
+        // Upload para MinIO
+        // Chamada para IA_API_URL
+        // Persistência no DB
+      }
 
-**Evidência (SRP):**
-O método `extractPdfData` no arquivo `teste_olivia/olivia-back/src/gateways/http/controllers/domain/laudo/laudo.controller.ts` ilustra perfeitamente essa acumulação de responsabilidades:
-```typescript
-// ... LaudoController ...
-async extractPdfData(
-  @UploadedFile() laudoFile: Express.Multer.File,
-  @Body('lpco') lpco: string,
-  @Body('sub') sub: string
-) {
-  // 1. Validação de entrada HTTP
-  if (!laudoFile) { /* ... */ }
-  if (laudoFile.mimetype !== 'application/pdf') { /* ... */ }
-  
-  // 2. Lógica de manipulação de dados
-  const cpf = this.extractCpf(sub);
+      @Get('laudo/historico')
+      async getHistorico() {
+        // Consulta ao DB e transformação de dados
+      }
 
-  // 3. Acesso direto à camada de dados (violação de DIP também)
-  const userRepo = getRepository<Usuario>(Usuario);
-  const usuario = await userRepo.findOne({ where: { nrCpf: cpf } });
-  // ...
-  const laudoRepo = getRepository<LaudoOlivia>(LaudoOlivia);
-  const laudo = await laudoRepo.findOne({ where: { nrLpco: lpco, usuario: { id: usuario.id } } });
+      @Get('laudo/:filename')
+      async getLaudoPdf( /* ... */ ) {
+        // Recuperação de arquivo do MinIO
+      }
 
-  // 4. Lógica de negócio (verificação de existência)
-  if (laudo?.jsDadoBruto) { /* ... */ }
-
-  // 5. Interação com serviço de armazenamento (MinIO)
-  await minioClient.fPutObject(MINIO_BUCKET, usuarioFileName, laudoFile.path);
-
-  // 6. Chamada a serviço externo (API de IA)
-  const apiResponse = await axios.post(`${process.env.IA_API_URL}/extract-pdf-data`, formData, {
-    headers: formData.getHeaders(),
-  });
-
-  // 7. Persistência de dados
-  if (laudo) {
-    // ...
-    await laudoRepo.save(laudo);
-  } else {
-    // ...
-    await laudoRepo.save(novoLaudo);
-  }
-  
-  // 8. Manipulação direta do sistema de arquivos
-  // ... finally {
-  await this.removeFile(laudoFile.path);
-  // }
-}
-```
-
-**2. Violação do Princípio da Inversão de Dependência (DIP):**
-
-O projeto evita consistentemente o uso do sistema de injeção de dependência (DI) do NestJS, optando por um padrão de *Service Locator* e instanciação manual/direta de dependências.
-
-*   **Acesso ao Banco de Dados:** Em vez de injetar repositórios do TypeORM via construtor (ex: `@InjectRepository(LaudoOlivia)`), o código utiliza uma função helper `getRepository` que, por sua vez, busca uma instância global do `DataSource`. Isso acopla fortemente os controllers e outras classes à implementação específica de acesso a dados.
-*   **Clientes de Serviço:** O cliente MinIO (`minioClient`) é instanciado diretamente no arquivo `minio.client.ts` e importado onde é necessário, em vez de ser encapsulado em um serviço e provido pelo container de DI do NestJS.
-
-**Evidência (DIP):**
-No arquivo `teste_olivia/olivia-back/src/infrastructure/databases/typeorm/postgres/database.providers.ts`, a função `getRepository` demonstra o padrão *Service Locator*:
-```typescript
-// Helper para unificar o acesso ao repositório
-export const getRepository = <T extends { id?: any }>(target: any): RepositoryLike<T> => {
-  // Acesso a uma instância global/singleton em vez de injeção
-  return (getDataSource() as any).getRepository(target) as RepositoryLike<T>;
-};
-```
-Este helper é usado diretamente no `LaudoController`, que se torna responsável por "buscar" suas próprias dependências:
-```typescript
-// teste_olivia/olivia-back/src/gateways/http/controllers/domain/laudo/laudo.controller.ts
-import { getRepository } from '@/infrastructure/databases/typeorm/postgres/database.providers';
-import { LaudoOlivia } from '@/domains/domain/model-entities';
-// ...
-export class LaudoController {
-  // ...
-  // O controller busca ativamente sua dependência
-  const userRepo = getRepository<Usuario>(Usuario);
-  // ...
-}
-```
-A mesma violação ocorre com o cliente MinIO:
-```typescript
-// teste_olivia/olivia-back/src/infrastructure/minio/minio.client.ts
-// Instanciação direta
-const minioClient = new Client({ /* ... */ });
-export default minioClient;
-
-// teste_olivia/olivia-back/src/gateways/http/controllers/domain/laudo/laudo.controller.ts
-// Importação direta da instância
-import minioClient, { MINIO_BUCKET } from '@/infrastructure/minio/minio.client';
-// ...
-await minioClient.fPutObject(MINIO_BUCKET, usuarioFileName, laudoFile.path);
-```
+      @Post('data-processing')
+      async dataProcessing( /* ... */ ) {
+        // Validação de dados de entrada
+        // Busca de laudo no DB
+        // Chamada para IA_API_URL
+        // Persistência no DB
+        // Manipulação de arquivos temporários
+      }
+    }
+    ```
+*   **Instanciação manual/acoplamento direto de dependências:**
+    *   `LaudoController` e `AuthSessionStore` utilizam `getRepository<T>(target: any)` e `getDataSource()` diretamente, que embora encapsulados em helpers, ainda representam uma forma de acoplamento direto à implementação do TypeORM/InMemoryDataSource, em vez de injetar um `Repository` específico ou um serviço de repositório.
+    *   `minioClient` é importado diretamente em `LaudoController` (`import minioClient, { MINIO_BUCKET } from '@/infrastructure/minio/minio.client';`), o que o torna uma dependência concreta e não injetada.
 
 **Recomendações:**
-- **Criar uma camada de Serviço:** Abstrair toda a lógica de negócio, manipulação de arquivos e comunicação com serviços externos do `LaudoController` para um `LaudoService`. O controller deve apenas receber a requisição, delegar para o serviço e retornar a resposta.
-- **Utilizar Injeção de Dependência:**
-    - Para o acesso a dados, injetar os repositórios do TypeORM no construtor dos serviços usando `@InjectRepository(Entity)`.
-    - `LaudoService` deveria ter a seguinte assinatura no construtor:
-      ```typescript
-      constructor(
-        @InjectRepository(LaudoOlivia)
-        private readonly laudoRepository: Repository<LaudoOlivia>,
-        @InjectRepository(Usuario)
-        private readonly usuarioRepository: Repository<Usuario>,
-        private readonly minioService: MinioService, // Serviço customizado
-        private readonly httpService: HttpService // Para chamadas externas
-      ) {}
-      ```
-- **Abstrair Clientes Externos:** Criar um `MinioModule` e `MinioService` para encapsular a configuração e o uso do cliente MinIO. Este serviço deve ser provido pelo NestJS e injetado onde for necessário.
-- **Refatorar o `LaudoController`:** Após mover a lógica para um serviço, os métodos do controller se tornarão muito mais simples, focados apenas na interação HTTP.
+-   **Refatorar `LaudoController`:** Criar serviços dedicados para as seguintes responsabilidades:
+    -   `LaudoService`: Conteria a lógica de negócio principal para o domínio de laudos, orquestrando as operações.
+    -   `FileStorageService` (ou `MinioService`): Encapsularia as interações com o MinIO (upload, download, deleção).
+    -   `IaApiService`: Conteria a lógica para interagir com a API de IA externa.
+    -   `UserRepository` e `LaudoRepository`: Abstrairiam as operações de persistência de dados.
+    -   Utilitários como `extractCpf`, `generateFileName`, `removeFile` poderiam ser movidos para um `FileUtilService` ou `LaudoUtilService` e injetados.
+-   **Injetar `minioClient`:** Configurar o `minioClient` como um provider no NestJS e injetá-lo onde for necessário, em vez de importá-lo diretamente.
+-   **Injetar repositórios TypeORM:** Utilizar `@nestjs/typeorm` para injetar os repositórios TypeORM (`@InjectRepository(LaudoOlivia) private laudoRepo: Repository<LaudoOlivia>`) em vez de usar `getRepository()`, o que se alinha melhor com o padrão de DI do NestJS. O `InMemoryDataSource` precisaria ser adaptado para se integrar a este padrão ou utilizado apenas em testes.
 
 #FIM_ANALISE_CRITERIO#
 
 ## Critério 2: Acoplamento a Frameworks: Detectar o uso de funcionalidades que acoplam o código a implementações específicas do framework (ex: uso de @Res() do Express no NestJS), o que dificulta a manutenção e a aplicação de interceptors e pipes globais.
-**Status:** Não Conforme
-**Confiança:** 1.0%
+**Status:** Parcialmente Conforme
+**Confiança:** 0.9%
 
-O código demonstra um acoplamento direto e desnecessário com o framework subjacente (Express.js), violando as abstrações fornecidas pelo NestJS. O uso do decorador `@Res()` é identificado em múltiplos controllers, o que impede o NestJS de gerenciar o ciclo de vida da resposta. Consequentemente, funcionalidades como Interceptors (`@UseInterceptors`), Guards e Pipes que modificam a resposta de forma global ou declarativa não funcionarão como esperado nesses endpoints.
+O código apresenta acoplamento direto à camada de resposta do Express em dois controladores, o que é uma prática desaconselhada no NestJS. O uso do decorator `@Res()` (ou `@Response()`) e a manipulação direta do objeto `res` do Express impedem que o NestJS controle o ciclo de vida da resposta, ignorando interceptors, pipes e filtros de exceção globais que poderiam processar ou transformar a saída.
 
-**Evidências:**
+**Evidências do código:**
+*   **`GovBrAuthController` (src/gateways/http/controllers/core/govbr-auth.controller.ts):**
+    ```typescript
+    @Controller('auth/govbr')
+    export class GovBrAuthController {
+      constructor(private readonly govBrService: GovBrService) {}
 
-1.  **`GovBrAuthController`:** O método `login` utiliza `@Res()` para obter o objeto de resposta do Express e realizar um redirecionamento manualmente.
-
-    *   **Arquivo:** `teste_olivia/olivia-back/src/gateways/http/controllers/core/govbr-auth.controller.ts`
-    *   **Código:**
-        ```typescript
-        import { Controller, Get, Res } from '@nestjs/common';
-        import { Response } from 'express';
-        // ...
-        @Controller('auth/govbr')
-        export class GovBrAuthController {
-          constructor(private readonly govBrService: GovBrService) {}
-
-          @Get('login')
-          login(@Res() res: Response) {
-            const url = this.govBrService.getAuthorizationUrl();
-            // Acoplamento direto ao Express. Bypassa o fluxo de resposta do NestJS.
-            return res.redirect(url);
-          }
-          // ...
+      @Get('login')
+      login(@Res() res: Response) { // Acoplamento direto ao Express Response
+        const url = this.govBrService.getAuthorizationUrl();
+        return res.redirect(url); // Manipulação direta da resposta
+      }
+      // ...
+    }
+    ```
+    No caso de `res.redirect()`, é uma funcionalidade específica de redirecionamento, e o NestJS oferece o `@Redirect()` decorator para isso.
+*   **`LaudoController` (src/gateways/http/controllers/domain/laudo/laudo.controller.ts):**
+    ```typescript
+    @Controller('api')
+    export class LaudoController {
+      // ...
+      @Get('laudo/:filename')
+      async getLaudoPdf(@Param('filename') filename: string, @Res() res: Response) { // Acoplamento direto ao Express Response
+        const sanitizedFilename = path.basename(filename);
+        try {
+          const fileStream = await minioClient.getObject(MINIO_BUCKET, sanitizedFilename);
+          res.setHeader('Content-Type', 'application/pdf'); // Manipulação direta do cabeçalho
+          fileStream.on('error', () => {
+            res.status(404).json({ error: 'Arquivo não encontrado.' }); // Manipulação direta da resposta de erro
+          });
+          fileStream.pipe(res); // Streaming direto para a resposta
+        } catch (e) {
+          console.error('laudo/:filename - Erro ao obter arquivo do MinIO:', e);
+          res.status(404).json({ error: 'Arquivo não encontrado.' }); // Manipulação direta da resposta de erro
         }
-        ```
-
-2.  **`LaudoController`:** O método `getLaudoPdf` utiliza `@Res()` para fazer o stream de um arquivo PDF diretamente para a resposta. Isso também quebra o fluxo padrão do NestJS.
-
-    *   **Arquivo:** `teste_olivia/olivia-back/src/gateways/http/controllers/domain/laudo/laudo.controller.ts`
-    *   **Código:**
-        ```typescript
-        import { Controller, Get, Param, Res } from '@nestjs/common';
-        import { Response } from 'express';
-        // ...
-        @Controller('api')
-        export class LaudoController {
-          // ...
-          @Get('laudo/:filename')
-          async getLaudoPdf(@Param('filename') filename: string, @Res() res: Response) {
-            const sanitizedFilename = path.basename(filename);
-            try {
-              const fileStream = await minioClient.getObject(MINIO_BUCKET, sanitizedFilename);
-              res.setHeader('Content-Type', 'application/pdf');
-              // Acoplamento direto ao Express para streaming.
-              fileStream.pipe(res);
-            } catch (e) {
-              console.error('laudo/:filename - Erro ao obter arquivo do MinIO:', e);
-              // Manipulação manual de erro na resposta.
-              res.status(404).json({ error: 'Arquivo não encontrado.' });
-            }
-          }
-          // ...
-        }
-        ```
-
-Ambos os casos demonstram uma dependência direta da API do Express (`Response`), tornando o código menos portável (se o framework subjacente fosse trocado, por exemplo, para Fastify) e incompatível com o ecossistema de features do NestJS que operam sobre o objeto de resposta de forma padronizada.
+      }
+      // ...
+    }
+    ```
+    Neste caso, o streaming de arquivos é uma exceção comum onde o `@Res()` é frequentemente usado. No entanto, a manipulação de erros com `res.status(404).json()` dentro do `try-catch` e no `fileStream.on('error')` é inconsistente com o tratamento de erros global do NestJS.
 
 **Recomendações:**
-- **Para Redirecionamentos:** Em vez de usar `res.redirect()`, utilize o decorador `@Redirect()` do NestJS ou retorne um objeto com `url` e `statusCode`, permitindo que o framework lide com o redirecionamento.
-    *   **Exemplo de Refatoração para `GovBrAuthController`:**
-        ```typescript
-        import { Controller, Get, Redirect } from '@nestjs/common';
+-   **Para redirecionamentos:** Substituir o uso de `@Res()` para redirecionamentos pelo decorator `@Redirect()` do NestJS.
+    ```typescript
+    import { Controller, Get, Redirect } from '@nestjs/common';
+    // ...
+    @Get('login')
+    @Redirect() // Pode-se passar a URL dinamicamente ou fixamente
+    login() {
+      const url = this.govBrService.getAuthorizationUrl();
+      return { url }; // Retorna um objeto com a URL para o @Redirect
+    }
+    ```
+-   **Para streaming de arquivos:** Embora o streaming direto possa ser necessário em alguns casos de alta performance, é crucial garantir que o tratamento de erros seja consistente.
+    -   Considerar retornar um `StreamableFile` do NestJS (disponível no `@nestjs/common`) para que o framework possa gerenciar o Content-Type e potencialmente interceptar erros de forma mais padronizada.
+    -   Se a manipulação direta for mantida para o streaming, garantir que as exceções sejam lançadas (ex: `NotFoundException`, `InternalServerErrorException`) para que sejam capturadas pelo `AllExceptionsFilter` global, mantendo a consistência dos payloads de erro da API. O erro do stream (`fileStream.on('error', ...)`) também deve lançar uma exceção NestJS.
 
-        // ...
-        @Get('login')
-        @Redirect() // Opcionalmente, pode-se passar a URL e o status aqui
-        login() {
-          const url = this.govBrService.getAuthorizationUrl();
-          return { url, statusCode: 302 };
+#FIM_ANALISE_CRITERIO#
+
+## Critério 3: Violação de Camadas: Identificar se a lógica de negócio está incorretamente localizada em camadas de interface (como controladores de API), em vez de residir em camadas de serviço ou domínio dedicadas.
+**Status:** Parcialmente Conforme
+**Confiança:** 0.9%
+
+A lógica de negócio está significativamente presente nos controladores, especialmente no `LaudoController`, o que representa uma violação clara do princípio de camadas. Controladores devem ser finos, responsáveis apenas por receber requisições HTTP, validar dados de entrada (usando DTOs e pipes), e delegar a lógica de negócio a serviços.
+
+**Evidências do código:**
+*   **`LaudoController` (src/gateways/http/controllers/domain/laudo/laudo.controller.ts):**
+    *   **Validação de Negócio:**
+        ```typescript
+        private extractCpf(sub?: string): string {
+          if (!sub || typeof sub !== 'string') {
+            throw new BadRequestException("O campo 'sub' (CPF) é obrigatório.");
+          }
+          const cpf = sub.replace(/\D/g, '');
+          if (!cpf) {
+            throw new BadRequestException("O campo 'sub' deve conter um CPF válido.");
+          }
+          return cpf;
         }
         ```
-
-- **Para Streaming de Arquivos:** Em vez de usar `res.pipe()`, retorne uma instância de `StreamableFile` do NestJS. Isso permite que o framework gerencie o stream de forma eficiente e compatível com interceptors.
-    *   **Exemplo de Refatoração para `LaudoController`:**
+        Esta lógica de validação de CPF e erros de negócio deveria estar em um serviço ou utilitário injetável.
+    *   **Orquestração de Lógica de Negócio e Persistência:**
         ```typescript
-        import { Controller, Get, Param, StreamableFile } from '@nestjs/common';
-        import { createReadStream } from 'fs'; // Exemplo, no caso seria o stream do MinIO
-        import { Response } from 'express'; // Importe o Response para setar headers, mas não o injete com @Res
+        // Dentro de extractPdfData
+        const userRepo = getRepository<Usuario>(Usuario);
+        const usuario = await userRepo.findOne({ where: { nrCpf: cpf } });
+        if (!usuario) {
+          await this.removeFile(laudoFile.path);
+          throw new BadRequestException('Usuário não encontrado para o CPF informado.');
+        }
 
-        // ...
-        @Get('laudo/:filename')
-        async getLaudoPdf(@Param('filename') filename: string, @Res({ passthrough: true }) res: Response): Promise<StreamableFile> {
-          const sanitizedFilename = path.basename(filename);
+        const laudoRepo = getRepository<LaudoOlivia>(LaudoOlivia);
+        const laudo = await laudoRepo.findOne({ where: { nrLpco: lpco, usuario: { id: usuario.id } } });
+
+        if (laudo?.jsDadoBruto) {
+          await this.removeFile(laudoFile.path);
+          return laudo.jsDadoBruto;
+        }
+
+        // Lógica de upload para MinIO e chamada à API de IA
+        // Lógica de persistência condicional (criação ou atualização de laudo)
+        ```
+        Todo este bloco de código, que envolve buscar usuários, verificar laudos existentes, decidir se deve criar ou atualizar, e orquestrar chamadas externas, é lógica de negócio.
+    *   **Transformação de Dados para Resposta:**
+        ```typescript
+        // Dentro de getHistorico
+        return historico.map(i => ({
+          id: i.id,
+          lpco: i.nrLpco,
+          criacao: i.dhCriacaoRegistro,
+          laudoEnviado: i.obLaudoUsuario,
+          laudoProcessado: i.obLaudoIa,
+          clienteNome: i.usuario?.nmUsuario,
+        }));
+        ```
+        A transformação dos objetos de entidade para um formato de DTO de saída é uma preocupação da camada de serviço ou de um DTO Mapper, não do controlador.
+*   **`AuthSessionStore` (src/utils/auth-session.store.ts):**
+    ```typescript
+    export class AuthSessionStore {
+      static async set(sessionId: string, userId: number, expiresAt?: number) {
+        const dataSource = getDataSource() as any;
+        const repo = dataSource.getRepository(Sessao);
+        const session = repo.create({
+          id: sessionId,
+          usuario: { id: userId } as Usuario,
+          dhExpiracaoSessao: expiresAt ? new Date(expiresAt) : null,
+        });
+        await repo.save(session);
+      }
+      // ... get, delete
+    }
+    ```
+    Embora seja uma "store", a interação direta com o repositório e a lógica de criação de entidade para sessão deveriam ser encapsuladas em um serviço de domínio (`AuthService` ou `SessionService`) que utiliza um repositório para persistência.
+
+**Recomendações:**
+-   **Criar `LaudoService`:** Mover toda a lógica de negócio relacionada a laudos (validação de CPF, verificação de existência de laudo, orquestração de MinIO/IA/DB) para um `LaudoService` injetável. O controlador deve apenas chamar métodos deste serviço.
+-   **Utilizar DTOs de Saída:** Para `getHistorico`, usar DTOs de saída com `class-transformer` para mapear entidades para o formato desejado, mantendo a responsabilidade de transformação fora do controlador.
+-   **Refatorar `AuthSessionStore`:** Transformar `AuthSessionStore` em um serviço injetável (`@Injectable()`) e injetar o repositório de `Sessao` em vez de usar `getDataSource()` diretamente. Isso o integra melhor ao ecossistema NestJS e o coloca em uma camada mais apropriada (serviço de infraestrutura ou de domínio).
+
+#FIM_ANALISE_CRITERIO#
+
+## Critério 4: Pressão sobre a Memória: Analisar rotinas e laços que criam um volume excessivo de objetos de curta duração, pressionando o coletor de lixo (Garbage Collector) e causando pausas desnecessárias na aplicação. Avaliar se objetos poderiam ser reutilizados para otimizar o uso da memória.
+**Status:** Parcialmente Conforme
+**Confiança:** 0.7%
+
+No geral, o backend demonstra um bom entendimento da otimização de memória para operações de I/O intensivas, como upload e processamento de arquivos. A utilização de streams é uma prática exemplar para evitar o carregamento de grandes volumes de dados na memória. No entanto, há um ponto de atenção no frontend que pode causar pressão desnecessária na memória do cliente.
+
+**Evidências do código:**
+*   **Backend - Boas práticas com streams (src/gateways/http/controllers/domain/laudo/laudo.controller.ts):**
+    *   **Upload para MinIO:**
+        ```typescript
+        formData.append('laudo', fs.createReadStream(laudoFile.path), {
+          filename: laudoFile.originalname,
+          contentType: laudoFile.mimetype,
+        });
+        await minioClient.fPutObject(MINIO_BUCKET, usuarioFileName, laudoFile.path);
+        ```
+        `fs.createReadStream` lê o arquivo em chunks, evitando carregar todo o PDF na memória do servidor antes de enviá-lo para o MinIO. `minioClient.fPutObject` também é otimizado para arquivos.
+    *   **Recebimento de resposta da IA:**
+        ```typescript
+        const apiResponse = await axios.post(`${process.env.IA_API_URL}/data-processing`, body, {
+          responseType: 'stream', // Recebendo a resposta como stream
+        });
+        const writer = fs.createWriteStream(filePath);
+        apiResponse.data.pipe(writer); // Escrevendo diretamente para um arquivo
+        ```
+        Receber a resposta da API de IA como um stream e canalizá-la diretamente para um arquivo temporário é uma excelente prática para evitar o carregamento de grandes payloads na memória do servidor.
+*   **Frontend - Possível pressão na memória (src/pages/arquivos.jsx):**
+    ```javascript
+    const saveToBase64 = file => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file); // Lê o arquivo inteiro para memória como Base64
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+      });
+    };
+    // ...
+    const base64 = await saveToBase64(laudo);
+    saveApiResponse('laudo', base64); // Salva o Base64 no localStorage
+    ```
+    A função `saveToBase64` no frontend lê o arquivo PDF completo na memória do navegador como uma string Base64. Para PDFs muito grandes (centenas de MBs), isso pode consumir uma quantidade significativa de RAM no cliente, potencialmente causando lentidão ou até travamento do navegador, especialmente em dispositivos com pouca memória. Embora o backend receba o arquivo original via `FormData` e não o Base64, o `localStorage` ainda armazena essa representação para exibição no viewer.
+
+**Recomendações:**
+-   **Frontend - Otimizar visualização de PDF:** Para a visualização do PDF no frontend, em vez de salvar o arquivo inteiro como Base64 no `localStorage`, considere as seguintes abordagens para PDFs grandes:
+    -   **Servir o PDF diretamente do backend:** Após o upload para o MinIO, o backend pode retornar um URL temporário ou assinado do MinIO para o frontend, que então o passaria para o `Viewer` do `@react-pdf-viewer`. Isso evitaria que o PDF fosse carregado na memória do cliente duas vezes (uma como Base64, outra pelo viewer) e no `localStorage`.
+    -   **Otimizar `saveToBase64`:** Se a exibição local for estritamente necessária antes do upload, e o PDF puder ser grande, considere usar `URL.createObjectURL(file)` para criar um blob URL. Isso permite que o navegador acesse o arquivo diretamente sem carregá-lo completamente na memória como Base64. No entanto, o `localStorage` não pode armazenar blobs diretamente. Se a persistência for necessária, talvez um IndexedDB ou Cache API seja mais apropriado.
+-   **Revisar uso de `apiResponse.data` em `extractPdfData`:** Embora o `extract-pdf-data` não seja um stream, se a IA retornar um JSON extremamente grande, isso será carregado na memória (`laudo.jsDadoBruto = apiResponse.data;`). Para a maioria dos casos de extração de metadados de PDF, isso é aceitável, mas é um ponto a ser monitorado se os PDFs processados puderem gerar JSONs de dezenas/centenas de MBs.
+
+#FIM_ANALISE_CRITERIO#
+
+## Critério 5: Ciclo de Vida de Recursos Externos: Verificar se recursos externos, como arquivos temporários ou conexões de rede, são liberados de forma determinística em todos os fluxos de execução (sucesso, erro e finalização), evitando vazamentos de recursos.
+**Status:** Conforme
+**Confiança:** 0.9%
+
+O código demonstra um bom tratamento do ciclo de vida de arquivos temporários, utilizando blocos `finally` para garantir a limpeza. Conexões de rede e banco de dados são gerenciadas pelas respectivas bibliotecas (axios, MinIO client, TypeORM), que geralmente cuidam de seus próprios ciclos de vida e pooling de conexões.
+
+**Evidências do código:**
+*   **Limpeza de arquivos temporários em `LaudoController` (src/gateways/http/controllers/domain/laudo/laudo.controller.ts):**
+    *   **Método `extractPdfData`:**
+        ```typescript
+        @Post('extract-pdf-data')
+        @UseInterceptors(FileInterceptor('laudo', { dest: 'uploads/' }))
+        async extractPdfData( /* ... */ ) {
+          // ... lógica principal ...
           try {
-            const fileStream = await minioClient.getObject(MINIO_BUCKET, sanitizedFilename);
-            res.set({
-              'Content-Type': 'application/pdf',
-            });
-            return new StreamableFile(fileStream);
-          } catch (e) {
-            console.error('laudo/:filename - Erro ao obter arquivo do MinIO:', e);
-            throw new NotFoundException('Arquivo não encontrado.'); // Use as exceções do NestJS
+            // ... operações ...
+          } catch (error: any) {
+            // ... tratamento de erro ...
+          } finally {
+            await this.removeFile(laudoFile.path); // Limpeza garantida
           }
         }
         ```
-        Nota: O uso de `@Res({ passthrough: true })` ainda é necessário para setar headers customizados, mas a responsabilidade de enviar a resposta permanece com o NestJS, garantindo a compatibilidade com o restante do framework.
+    *   **Método `dataProcessing`:**
+        ```typescript
+        @Post('data-processing')
+        async dataProcessing( /* ... */ ) {
+          // ... lógica principal ...
+          try {
+            // ... operações ...
+          } catch (error: any) {
+            // ... tratamento de erro ...
+          } finally {
+            await this.removeFile(filePath); // Limpeza garantida
+          }
+        }
+        ```
+    *   O método `removeFile` encapsula a lógica de deleção e tratamento de erros de deleção, o que é um bom padrão.
+        ```typescript
+        private async removeFile(filePath?: string): Promise<void> {
+          if (!filePath) return;
+          try {
+            await fs.promises.unlink(filePath);
+          } catch (e) {
+            // Ignora erros de remoção, o que é aceitável para arquivos temporários
+          }
+        }
+        ```
+*   **Conexões de Banco de Dados:** O `DataSource` do TypeORM é inicializado uma única vez e gerenciado globalmente (`dataSourceInstance` em `database.providers.ts`). O TypeORM e o driver `pg` lidam com o pooling de conexões, liberando-as automaticamente após o uso. A inicialização e erros são logados.
+*   **MinIO Client:** O `minioClient` é configurado globalmente e reutilizado. A biblioteca MinIO é responsável por gerenciar suas próprias conexões HTTP/TCP de forma eficiente.
+
+**Recomendações:**
+-   Nenhuma recomendação crítica aqui. O tratamento de arquivos temporários é robusto. Para conexões de rede e banco de dados, as bibliotecas subjacentes são confiáveis. No NestJS, é comum ter um hook `onApplicationShutdown` no `AppModule` para fechar explicitamente recursos globais como o `DataSource` do TypeORM, embora o TypeORM geralmente se encarregue disso.
+
+#FIM_ANALISE_CRITERIO#
+
+## Critério 6: Operações de I/O Bloqueantes ou Inseguras: Inspecionar chamadas de rede e outras operações de entrada/saída para garantir a configuração de tempos limite (timeouts) e limites de tamanho de payload, prevenindo que a aplicação fique bloqueada ou vulnerável a sobrecargas.
+**Status:** Parcialmente Conforme
+**Confiança:** 0.8%
+
+Existem lacunas na configuração de tempos limite (timeouts) para chamadas de rede e limites de tamanho de payload para uploads de arquivos, o que pode levar a vulnerabilidades de disponibilidade e sobrecarga do sistema.
+
+**Evidências do código:**
+*   **Falta de `timeout` em chamadas `axios` (src/gateways/http/controllers/domain/laudo/laudo.controller.ts e src/context/AuthContext.js):**
+    *   `LaudoController.extractPdfData`:
+        ```typescript
+        const apiResponse = await axios.post(`${process.env.IA_API_URL}/extract-pdf-data`, formData, {
+          headers: formData.getHeaders(),
+        }); // Sem timeout explícito
+        ```
+    *   `LaudoController.dataProcessing`:
+        ```typescript
+        const apiResponse = await axios.post(`${process.env.IA_API_URL}/data-processing`, body, {
+          responseType: 'stream',
+        }); // Sem timeout explícito
+        ```
+    *   `AuthContext.js` (frontend):
+        ```javascript
+        const { data } = await apiClient.get('/auth/govbr/callback', {
+          params: { code, state }
+        }); // Sem timeout explícito para chamada ao backend
+        ```
+    A ausência de timeouts pode fazer com que a aplicação espere indefinidamente por uma resposta de um serviço externo lento ou travado, exaurindo threads ou conexões e levando a uma negação de serviço.
+*   **Limites de tamanho de payload para `multer` não configurados (src/gateways/http/controllers/domain/laudo/laudo.controller.ts):**
+    ```typescript
+    @UseInterceptors(FileInterceptor('laudo', { dest: 'uploads/' })) // Sem configuração de limites
+    ```
+    O `FileInterceptor` do NestJS, que utiliza `multer` por baixo dos panos, permite configurar limites de arquivo (tamanho, quantidade, tipos) para uploads. A falta dessa configuração significa que a aplicação está usando os padrões do `multer`, que podem ser muito permissivos, permitindo o upload de arquivos excessivamente grandes e sobrecarregando o servidor ou o armazenamento MinIO.
+
+**Recomendações:**
+-   **Configurar `timeout` para todas as chamadas `axios`:** Adicionar a propriedade `timeout` às configurações de `axios` para todas as chamadas a serviços externos. Um timeout razoável deve ser definido com base no tempo de resposta esperado do serviço.
+    ```typescript
+    // Exemplo:
+    await axios.post(url, data, {
+      headers: formData.getHeaders(),
+      timeout: 30000, // 30 segundos
+    });
+    ```
+-   **Configurar limites de `multer`:** Adicionar um objeto `limits` ao `FileInterceptor` para controlar o tamanho máximo do arquivo, o número de arquivos e, opcionalmente, o tipo de arquivo (embora o mimetype já seja verificado manualmente). Isso previne ataques de Denial of Service por uploads de arquivos muito grandes.
+    ```typescript
+    import { FileInterceptor } from '@nestjs/platform-express';
+    // ...
+    @UseInterceptors(FileInterceptor('laudo', {
+      dest: 'uploads/',
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10 MB
+        files: 1, // Apenas 1 arquivo por vez
+      },
+    }))
+    ```
+-   **Configurar limites de payload para a aplicação NestJS:** No `main.ts`, configurar o `bodyParser` do Express (usado pelo NestJS) para limitar o tamanho máximo de JSON e URL-encoded payloads, se aplicável, para requisições que não são de upload de arquivos.
+
+#FIM_ANALISE_CRITERIO#
+
+## Critério 7: Manuseio de Dados em Larga Escala: Detectar o carregamento de grandes volumes de dados (como arquivos ou resultados de consultas) diretamente para a memória. Recomendar a utilização de padrões como streaming para processamento de dados em partes (chunks).
+**Status:** Conforme
+**Confiança:** 0.9%
+
+O backend demonstra um bom manuseio de dados em larga escala, especialmente para arquivos, utilizando streaming de forma eficaz. No entanto, o frontend tem um ponto de atenção em relação ao carregamento de PDFs na memória.
+
+**Evidências do código:**
+*   **Backend - Uso de streaming para uploads e downloads (src/gateways/http/controllers/domain/laudo/laudo.controller.ts):**
+    *   **Upload de PDF para MinIO:**
+        ```typescript
+        formData.append('laudo', fs.createReadStream(laudoFile.path), { /* ... */ });
+        await minioClient.fPutObject(MINIO_BUCKET, usuarioFileName, laudoFile.path);
+        ```
+        `fs.createReadStream` e `minioClient.fPutObject` são operações baseadas em stream, o que significa que o arquivo PDF não é totalmente carregado na memória do servidor, mas sim processado em chunks. Isso é ideal para arquivos grandes.
+    *   **Download de PDF do MinIO:**
+        ```typescript
+        const fileStream = await minioClient.getObject(MINIO_BUCKET, sanitizedFilename);
+        fileStream.pipe(res);
+        ```
+        `minioClient.getObject` retorna um stream, que é então diretamente canalizado para o objeto de resposta HTTP (`res`). Isso garante que o servidor não precisa carregar o arquivo inteiro na memória antes de enviá-lo ao cliente.
+    *   **Recebimento de PDF processado da IA:**
+        ```typescript
+        const apiResponse = await axios.post(`${process.env.IA_API_URL}/data-processing`, body, {
+          responseType: 'stream',
+        });
+        const writer = fs.createWriteStream(filePath);
+        apiResponse.data.pipe(writer);
+        ```
+        A resposta da API de IA (que é um PDF gerado) também é recebida como um stream e escrita diretamente para um arquivo temporário, evitando o carregamento completo na memória do servidor.
+*   **Backend - Carregamento de JSON da IA:**
+    *   No método `extractPdfData`, a resposta da IA (`apiResponse.data`) é um JSON e é armazenada diretamente em `laudo.jsDadoBruto`. Embora para a maioria dos casos de extração de metadados de PDF o JSON resultante não seja massivo, se a IA puder retornar JSONs muito grandes, isso poderia carregar um volume considerável de dados na memória. No contexto atual, é uma preocupação secundária comparada ao manuseio de arquivos binários.
+*   **Frontend - Carregamento de PDF em Base64 (src/pages/arquivos.jsx):**
+    ```javascript
+    const saveToBase64 = file => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file); // Lê o arquivo inteiro para memória como Base64
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+      });
+    };
+    ```
+    Como mencionado no Critério 4, esta operação no frontend carrega o PDF inteiro na memória do navegador como uma string Base64. Para PDFs grandes, isso pode causar problemas de performance e memória no cliente.
+
+**Recomendações:**
+-   **Frontend - Otimização do carregamento de PDF para visualização:** Para a visualização de PDFs grandes, considere alternativas ao Base64, como:
+    -   Servir o PDF do backend via um URL temporário ou assinado diretamente para o `@react-pdf-viewer/core`. Isso evita o carregamento do arquivo na memória do cliente como Base64 e o armazenamento no `localStorage`.
+    -   Se a necessidade for de visualização local *antes* do upload, use `URL.createObjectURL(file)` para criar um blob URL, que permite ao navegador acessar o arquivo sem carregá-lo totalmente na memória como Base64. No entanto, isso não resolve o armazenamento no `localStorage`, que ainda precisaria de uma estratégia diferente (e.g., IndexedDB).
+-   **Monitoramento de payloads JSON da IA:** Embora o uso atual de JSON para `jsDadoBruto` seja provavelmente adequado, é prudente monitorar o tamanho desses payloads. Se eles crescerem excessivamente, estratégias como armazenar referências a arquivos no MinIO em vez do JSON completo, ou usar processamento em batch/streaming para o JSON, podem ser consideradas.
+
+#FIM_ANALISE_CRITERIO#
+
+## Critério 8: Condições de Corrida em Persistência: Identificar padrões de "leitura-seguida-de-escrita" em operações de banco de dados que podem introduzir inconsistências de dados devido à concorrência, sugerindo o uso de transações ou operações atômicas.
+**Status:** Parcialmente Conforme
+**Confiança:** 0.8%
+
+O código apresenta dois cenários de "leitura-seguida-de-escrita" nos métodos do `LaudoController` que podem levar a condições de corrida em ambientes de alta concorrência, potencialmente introduzindo inconsistências nos dados.
+
+**Evidências do código:**
+*   **`LaudoController.extractPdfData` (src/gateways/http/controllers/domain/laudo/laudo.controller.ts):**
+    ```typescript
+    // 1. Leitura: Verifica se um laudo existente possui dados brutos
+    const laudo = await laudoRepo.findOne({ where: { nrLpco: lpco, usuario: { id: usuario.id } } });
+
+    if (laudo?.jsDadoBruto) {
+      await this.removeFile(laudoFile.path);
+      return laudo.jsDadoBruto;
+    }
+
+    // ... (chamada à API de IA) ...
+
+    // 2. Escrita: Atualiza ou cria o laudo
+    if (laudo) { // Se o laudo foi encontrado na leitura inicial
+      laudo.jsDadoBruto = apiResponse.data;
+      laudo.obLaudoUsuario = usuarioFileName;
+      laudo.usuario = usuario;
+      await laudoRepo.save(laudo);
+    } else { // Se o laudo não foi encontrado na leitura inicial
+      const novoLaudo = laudoRepo.create({
+        nrLpco: lpco,
+        jsDadoBruto: apiResponse.data,
+        dhCriacaoRegistro: new Date(),
+        obLaudoUsuario: usuarioFileName,
+        usuario,
+      });
+      await laudoRepo.save(novoLaudo);
+    }
+    ```
+    **Problema:** Se duas requisições para o *mesmo LPCO e usuário* chegarem quase simultaneamente e o `laudo` ainda não tiver `jsDadoBruto`, ambas passarão pela verificação `if (laudo?.jsDadoBruto)`. Ambas chamarão a API de IA. Se ambas tentarem salvar, a última a executar `await laudoRepo.save()` pode sobrescrever os dados da primeira. Se o `laudo` não existir, ambas tentarão criar um `novoLaudo`. Sem uma restrição `UNIQUE` no banco de dados para `nr_lpco` e `id_usuario` na tabela `S_LAUDO_OLIVIA` (o que não é evidente no `modelo.sql`), isso pode resultar em múltiplos registros para o mesmo LPCO/usuário, o que é provavelmente indesejado. Se houvesse uma restrição `UNIQUE`, a segunda tentativa de criação falharia.
+*   **`LaudoController.dataProcessing` (src/gateways/http/controllers/domain/laudo/laudo.controller.ts):**
+    ```typescript
+    // 1. Leitura: Busca um laudo pelo LPCO
+    const laudoRepo = getRepository<LaudoOlivia>(LaudoOlivia);
+    const laudo = await laudoRepo.findOne({ where: { nrLpco: lpco } });
+
+    if (!laudo) {
+      throw new NotFoundException('Laudo não encontrado para o LPCO informado.');
+    }
+
+    // ... (chamada à API de IA, salvamento de arquivo no MinIO) ...
+
+    // 2. Escrita: Atualiza o laudo
+    laudo.obLaudoIa = aiFileName;
+    laudo.jsDadoUsuario = parsedChemData;
+    await laudoRepo.save(laudo);
+    ```
+    **Problema:** Se duas requisições para o *mesmo LPCO* chegarem simultaneamente, ambas lerão o mesmo `laudo`. Ambas processarão os dados com a IA e gerarão arquivos no MinIO. A última a executar `await laudoRepo.save(laudo)` sobrescreverá as alterações da primeira, resultando na perda dos dados (`obLaudoIa`, `jsDadoUsuario`) da primeira requisição.
+
+**Recomendações:**
+-   **Utilizar Transações de Banco de Dados:** Envolver as operações de leitura e escrita relacionadas em uma transação de banco de dados. Isso garante que todas as operações dentro da transação sejam tratadas como uma única unidade atômica. Se a transação falhar (e.g., por uma condição de corrida detectada pelo DB), ela será revertida.
+    ```typescript
+    // Exemplo para extractPdfData com transação
+    await getDataSource().transaction(async (transactionalEntityManager) => {
+      const userRepo = transactionalEntityManager.getRepository(Usuario);
+      const laudoRepo = transactionalEntityManager.getRepository(LaudoOlivia);
+
+      const usuario = await userRepo.findOne({ where: { nrCpf: cpf } });
+      // ... validação de usuário ...
+
+      let laudo = await laudoRepo.findOne({ where: { nrLpco: lpco, usuario: { id: usuario.id } } });
+
+      if (laudo?.jsDadoBruto) {
+        // ...
+        return; // Ou retornar o dado existente e não prosseguir
+      }
+
+      // ... (chamada à API de IA) ...
+
+      if (laudo) {
+        laudo.jsDadoBruto = apiResponse.data;
+        laudo.obLaudoUsuario = usuarioFileName;
+        await laudoRepo.save(laudo);
+      } else {
+        const novoLaudo = laudoRepo.create({ /* ... */ });
+        await laudoRepo.save(novoLaudo);
+      }
+    });
+    ```
+-   **Adicionar Restrições `UNIQUE` no Banco de Dados:** Se a intenção é que haja apenas um `LaudoOlivia` por `nr_lpco` e `id_usuario`, adicione uma restrição `UNIQUE` composta a essas colunas na tabela `S_LAUDO_OLIVIA`. Isso fará com que o banco de dados imponha a unicidade e lance um erro se uma condição de corrida tentar inserir um duplicado, que pode ser capturado e tratado.
+    ```sql
+    ALTER TABLE OLIVIA.S_LAUDO_OLIVIA
+      ADD CONSTRAINT UK_LAUDO_LPCO_USUARIO UNIQUE (NR_LPCO, ID_USUARIO);
+    ```
+-   **Bloqueio Otimista/Pessimista:** Para cenários mais complexos, considerar bloqueio otimista (com um campo de versão) ou bloqueio pessimista (com bloqueios de linha/tabela no DB) para garantir a integridade dos dados durante operações de leitura-seguida-de-escrita.
+
+#FIM_ANALISE_CRITERIO#
+
+## Critério 9: Validação de Entradas: Verificar se os pontos de entrada da aplicação que recebem dados, especialmente arquivos, possuem validações, filtros de tipo e limites de tamanho para mitigar riscos de segurança. Analisar se objetos de transferência de dados (DTOs) são utilizados com bibliotecas de validação para garantir a integridade e o formato dos dados.
+**Status:** Parcialmente Conforme
+**Confiança:** 0.8%
+
+A aplicação realiza algumas validações básicas de entrada, especialmente para arquivos e parâmetros de string. No entanto, a abordagem é manual e não utiliza a capacidade completa do NestJS com DTOs e `class-validator`, o que a torna menos robusta, mais verbosa e propensa a erros. Limites de tamanho para uploads de arquivos também estão ausentes.
+
+**Evidências do código:**
+*   **Validação manual em `LaudoController` (src/gateways/http/controllers/domain/laudo/laudo.controller.ts):**
+    *   **`extractPdfData`:**
+        ```typescript
+        if (!laudoFile) { throw new BadRequestException("Arquivo 'laudo' não foi enviado."); }
+        if (laudoFile.mimetype !== 'application/pdf') { /* ... */ throw new BadRequestException("O arquivo 'laudo' deve ser um PDF."); }
+        if (!lpco || typeof lpco !== 'string') { /* ... */ throw new BadRequestException("O campo 'lpco' é obrigatório e deve ser uma string."); }
+        const cpf = this.extractCpf(sub); // Validação de CPF customizada
+        ```
+    *   **`dataProcessing`:**
+        ```typescript
+        if (!lpco || typeof lpco !== 'string' || lpco.trim() === '') { throw new BadRequestException("O campo 'lpco' é obrigatório e deve ser uma string válida."); }
+        if (!chemData || typeof chemData !== 'string') { throw new BadRequestException("O campo 'chem_data' é obrigatório e deve ser uma string."); }
+        try {
+          parsedChemData = JSON.parse(chemData);
+          if (typeof parsedChemData !== 'object' || Array.isArray(parsedChemData) || Object.keys(parsedChemData).length === 0) {
+            throw new Error('O campo "chem_data" deve conter um objeto JSON válido e não vazio.');
+          }
+        } catch (e: any) {
+          throw new BadRequestException(`O campo 'chem_data' deve conter um JSON válido. ${e.message}`);
+        }
+        this.extractCpf(sub);
+        ```
+    Estas validações são funcionais, mas são executadas diretamente no controlador, misturando preocupações HTTP com lógica de validação.
+*   **Falta de DTOs com `class-validator`:** Não há uso explícito de DTOs (`@Body() createDto: CreateLaudoDto`) combinados com `@nestjs/class-validator` e `@nestjs/class-transformer` para validação declarativa. Isso significa que a validação é imperativa e repetitiva.
+*   **Falta de limites de tamanho para `FileInterceptor`:**
+    ```typescript
+    @UseInterceptors(FileInterceptor('laudo', { dest: 'uploads/' }))
+    ```
+    O `FileInterceptor` não especifica a opção `limits`, o que significa que não há um limite de tamanho de arquivo configurado para uploads, deixando a aplicação vulnerável a ataques de sobrecarga com arquivos grandes.
+*   **Frontend `arquivos.jsx`:**
+    ```javascript
+    slotProps={{ htmlInput: { accept: '.pdf' }, inputLabel: { shrink: true } }}
+    ```
+    O atributo `accept=".pdf"` no input de arquivo do HTML é apenas uma sugestão para o navegador e pode ser facilmente contornado por um usuário mal-intencionado. A validação de mimetype no backend é correta, mas a falta de limites ainda é um problema.
+
+**Recomendações:**
+-   **Implementar DTOs e `ValidationPipe`:** Criar Data Transfer Objects (DTOs) para as entradas dos endpoints (`extractPdfData`, `dataProcessing`, etc.) e usar os decorators do `class-validator` para definir as regras de validação.
+    ```typescript
+    // Exemplo: create-laudo.dto.ts
+    import { IsString, IsNotEmpty, IsNumberString, IsOptional, IsMimeType } from 'class-validator';
+
+    export class ExtractPdfDataDto {
+      @IsNotEmpty()
+      @IsString()
+      lpco: string;
+
+      @IsNotEmpty()
+      @IsNumberString() // Para CPF
+      sub: string;
+      // Arquivo é tratado pelo interceptor, mas o tipo pode ser validado no pipe
+    }
+    // No controller:
+    @Post('extract-pdf-data')
+    @UseInterceptors(FileInterceptor('laudo', { /* ... */ }))
+    async extractPdfData(
+      @UploadedFile() laudoFile: Express.Multer.File,
+      @Body() body: ExtractPdfDataDto // NestJS validará automaticamente
+    ) {
+      // ... a validação manual é removida, pois o pipe já a fez ...
+    }
+    ```
+    Garantir que o `ValidationPipe` global esteja configurado no `main.ts` para habilitar a validação automática.
+-   **Configurar limites de `multer`:** Adicionar a opção `limits` ao `FileInterceptor` para definir o tamanho máximo permitido para os arquivos.
+-   **Centralizar validação de CPF:** Mover a lógica de `extractCpf` para um `Pipe` personalizado ou um serviço, de modo que possa ser reutilizada e aplicada de forma declarativa.
+-   **Validação de JSON (`chem_data`):** Para o campo `chem_data`, que é um JSON, utilizar um DTO aninhado ou um `class-validator` customizado para validar a estrutura interna do JSON de forma mais robusta do que `JSON.parse` e verificações manuais de `typeof`. A biblioteca `zod` já está presente no projeto para validação de variáveis de ambiente e pode ser estendida para DTOs.
+
+#FIM_ANALISE_CRITERIO#
+
+## Critério 10: Acesso a Recursos do Sistema: Inspecionar o código que interage com o sistema de arquivos para identificar o uso de entradas do usuário na construção de caminhos, o que pode levar a vulnerabilidades de acesso indevido a arquivos (Path Traversal).
+**Status:** Conforme
+**Confiança:** 0.9%
+
+O código demonstra boas práticas na interação com o sistema de arquivos, especificamente na prevenção de vulnerabilidades de Path Traversal. As entradas do usuário são tratadas com cautela ao construir caminhos de arquivo.
+
+**Evidências do código:**
+*   **Sanitização de nome de arquivo em `getLaudoPdf` (src/gateways/http/controllers/domain/laudo/laudo.controller.ts):**
+    ```typescript
+    @Get('laudo/:filename')
+    async getLaudoPdf(@Param('filename') filename: string, @Res() res: Response) {
+      const sanitizedFilename = path.basename(filename); // Uso de path.basename para sanitizar
+      try {
+        const fileStream = await minioClient.getObject(MINIO_BUCKET, sanitizedFilename);
+        // ...
+      } catch (e) { /* ... */ }
+    }
+    ```
+    A função `path.basename(filename)` é crucial aqui, pois ela retorna apenas o último componente de um caminho, removendo qualquer diretório pai (`../`) ou caminho absoluto que um usuário mal-intencionado possa tentar injetar. Isso impede que o atacante acesse arquivos fora do diretório de destino esperado.
+*   **Geração de nomes de arquivo únicos (src/gateways/http/controllers/domain/laudo/laudo.controller.ts):**
+    ```typescript
+    private generateFileName(lpco: string, type: 'usuario' | 'ia'): string {
+      const safeLpco = lpco.replace(/[^A-Za-z0-9_-]/g, ''); // Sanitiza LPCO
+      const hash = randomBytes(6).toString('hex'); // Adiciona um hash aleatório
+      return `${safeLpco}_${type}_${hash}.pdf`;
+    }
+    ```
+    Os nomes dos arquivos são gerados de forma programática, incluindo um hash aleatório, e o LPCO é sanitizado. Isso garante que os nomes dos arquivos são únicos, imprevisíveis e não contêm caracteres maliciosos que possam ser interpretados como partes de um caminho.
+*   **Diretórios fixos para arquivos temporários:**
+    *   `FileInterceptor('laudo', { dest: 'uploads/' })` usa um diretório fixo (`uploads/`).
+    *   `const tempDir = path.join(process.cwd(), 'temp');` usa um diretório fixo (`temp/`).
+    A combinação de diretórios fixos e nomes de arquivo gerados de forma segura minimiza o risco de Path Traversal.
+
+**Recomendações:**
+-   Nenhuma recomendação crítica. As medidas implementadas para prevenir Path Traversal são adequadas.
+
+#FIM_ANALISE_CRITERIO#
+
+## Critério 11: Tratamento de Erros: Sinalizar blocos de captura de exceção vazios ou que apenas registram o erro sem um tratamento adequado, pois eles podem ocultar falhas críticas de segurança ou de lógica de negócio.
+**Status:** Parcialmente Conforme
+**Confiança:** 0.7%
+
+O tratamento de erros na aplicação é misto. Há uma configuração global de filtros e interceptors no NestJS, o que é uma boa prática. No entanto, existem casos onde erros são capturados e apenas registrados (ou até ignorados), e um endpoint específico (`getLaudoPdf`) manipula a resposta de erro diretamente, contornando o mecanismo global.
+
+**Evidências do código:**
+*   **Configuração global de erros (src/main.ts):**
+    ```typescript
+    app.useGlobalFilters(new AllExceptionsFilter());
+    app.useGlobalInterceptors(new ErrorsInterceptor(logger));
+    ```
+    Esta é uma boa base para um tratamento de erros consistente em toda a aplicação.
+*   **Tratamento de erro direto em `LaudoController.getLaudoPdf` (src/gateways/http/controllers/domain/laudo/laudo.controller.ts):**
+    ```typescript
+    @Get('laudo/:filename')
+    async getLaudoPdf(@Param('filename') filename: string, @Res() res: Response) {
+      // ...
+      try {
+        // ...
+        fileStream.on('error', () => { // Erro do stream
+          res.status(404).json({ error: 'Arquivo não encontrado.' }); // Resposta direta, bypassa global
+        });
+        fileStream.pipe(res);
+      } catch (e) { // Erro ao obter objeto do MinIO
+        console.error('laudo/:filename - Erro ao obter arquivo do MinIO:', e); // Log com console.error
+        res.status(404).json({ error: 'Arquivo não encontrado.' }); // Resposta direta, bypassa global
+      }
+    }
+    ```
+    Este método lida com erros de forma inconsistente: usa `console.error` em vez do `AppLogger` injetado e retorna respostas JSON diretamente (`res.status(404).json()`) em vez de lançar exceções NestJS que seriam capturadas pelo filtro global. Isso pode levar a logs inconsistentes e formatos de resposta de erro variados.
+*   **`console.error` em vez de `AppLogger`:** Em vários `try-catch` blocks dentro de `LaudoController` e no `AuthContext.js` (frontend), `console.error` é usado para registrar erros, mesmo quando um `AppLogger` está disponível no backend. Isso pode dificultar a centralização e monitoramento de logs.
+    *   `LaudoController.extractPdfData`: `console.error('Erro no processamento do laudo:', error);`
+    *   `LaudoController.dataProcessing`: `console.error('Erro ao salvar no MinIO:', e);` e `throw new BadRequestException(error.response?.data || error.message || 'Erro ao processar a requisição');`
+*   **Blocos `catch` que apenas registram e re-lançam exceções genéricas (src/gateways/http/controllers/domain/laudo/laudo.controller.ts):**
+    ```typescript
+    catch (error: any) {
+      console.error('Erro no processamento do laudo:', error);
+      throw new BadRequestException(
+        error.response?.data || error.message || 'Erro ao processar a requisição'
+      );
+    }
+    ```
+    Embora a exceção seja re-lançada como `BadRequestException`, a captura de `any` e o log genérico podem obscurecer a causa raiz de alguns erros.
+
+*   **Bloco `catch` vazio no frontend (src/pages/auth/govbr/sair.jsx):**
+    ```javascript
+    useEffect(() => {
+      try {
+        sessionStorage.clear();
+        localStorage.removeItem('user');
+        router.push('/');
+      } catch {} // Bloco catch vazio
+    }, []);
+    ```
+    Um bloco `catch` vazio é uma antipattern grave, pois qualquer erro que ocorra durante a limpeza da sessão será silenciosamente ignorado, podendo levar a estados inconsistentes ou falhas difíceis de depurar.
+
+**Recomendações:**
+-   **Consistência no tratamento de erros do `getLaudoPdf`:**
+    -   Evitar o uso direto de `@Res()` para retornar erros. Em vez disso, lançar exceções específicas do NestJS (ex: `NotFoundException`, `InternalServerErrorException`) para que o `AllExceptionsFilter` global possa interceptá-las e formatar uma resposta de erro consistente.
+    -   O erro do stream (`fileStream.on('error', () => { ... })`) também deve ser tratado lançando uma exceção NestJS.
+-   **Usar `AppLogger` consistentemente:** Substituir todas as chamadas `console.error` no backend por `this.logger.error(...)` (após injetar `AppLogger` nos controladores e serviços).
+-   **Refinar captura de exceções:** Evitar `catch (error: any)` sempre que possível. Capturar tipos de exceção mais específicos e fornecer mensagens de erro mais detalhadas para o log.
+-   **Remover blocos `catch` vazios:** No frontend (`src/pages/auth/govbr/sair.jsx`), o bloco `catch` vazio deve ser removido ou, no mínimo, deve registrar o erro para fins de depuração.
+-   **Frontend Error Handling:** Considerar uma estratégia mais centralizada para o tratamento de erros no frontend, talvez com um componente `ErrorBoundary` ou um serviço de notificação de erros, para evitar `console.error` espalhados e fornecer feedback ao usuário de forma mais consistente.
+
+#FIM_ANALISE_CRITERIO#
+
+## Critério 12: Consistência de Contratos de API: Analisar as saídas da aplicação para detectar rotas que retornam tipos de dados inconsistentes dependendo do fluxo de execução, o que viola o contrato da API e pode causar falhas em sistemas clientes.
+**Status:** Parcialmente Conforme
+**Confiança:** 0.8%
+
+A maioria dos endpoints da API mantém uma consistência razoável nos tipos de dados retornados. No entanto, o endpoint de download de laudos (`GET /api/laudo/:filename`) apresenta uma inconsistência notável na sua resposta de erro, o que pode complicar a lógica do cliente.
+
+**Evidências do código:**
+*   **Inconsistência em `LaudoController.getLaudoPdf` (src/gateways/http/controllers/domain/laudo/laudo.controller.ts):**
+    ```typescript
+    @Get('laudo/:filename')
+    async getLaudoPdf(@Param('filename') filename: string, @Res() res: Response) {
+      const sanitizedFilename = path.basename(filename);
+      try {
+        const fileStream = await minioClient.getObject(MINIO_BUCKET, sanitizedFilename);
+        res.setHeader('Content-Type', 'application/pdf');
+        fileStream.on('error', () => {
+          res.status(404).json({ error: 'Arquivo não encontrado.' }); // Retorna JSON em caso de erro de stream
+        });
+        fileStream.pipe(res); // Retorna PDF em caso de sucesso
+      } catch (e) {
+        console.error('laudo/:filename - Erro ao obter arquivo do MinIO:', e);
+        res.status(404).json({ error: 'Arquivo não encontrado.' }); // Retorna JSON em caso de erro de MinIO
+      }
+    }
+    ```
+    Neste endpoint, a resposta esperada em caso de sucesso é um stream de bytes de um arquivo PDF (`Content-Type: application/pdf`). No entanto, em caso de erro (arquivo não encontrado no MinIO ou erro durante o streaming), a resposta é um objeto JSON (`{ error: 'Arquivo não encontrado.' }`) com `Content-Type: application/json` (implícito, ou talvez `text/plain` dependendo do Express). Um cliente que espera um PDF precisaria inspecionar o `Content-Type` do cabeçalho da resposta para determinar como processar o corpo da resposta, o que é uma complexidade desnecessária e uma violação do contrato de API que geralmente espera um tipo de resposta consistente para um dado endpoint.
+*   **Outros endpoints (Conforme):**
+    *   `extractPdfData`: Retorna JSON (`apiResponse.data`) ou lança `BadRequestException` (que o filtro global transformaria em JSON de erro). Consistente.
+    *   `getHistorico`: Retorna um array de objetos JSON. Consistente.
+    *   `dataProcessing`: Retorna um objeto JSON com detalhes do processamento ou lança `BadRequestException`. Consistente.
+    *   Endpoints `GovBrAuthController`: Retornam JSON ou redirecionam (que é um comportamento HTTP padrão). Consistente.
+
+**Recomendações:**
+-   **Consistência para `getLaudoPdf`:** Para manter a consistência do contrato de API, o endpoint `GET /api/laudo/:filename` deveria sempre retornar o mesmo tipo de resposta em caso de erro.
+    -   A melhor prática é que, para um endpoint que retorna um arquivo binário em caso de sucesso, as respostas de erro *sempre* sejam em um formato estruturado (e.g., JSON) e com um status HTTP apropriado (e.g., 404 Not Found, 500 Internal Server Error).
+    -   Para alcançar isso de forma consistente com o NestJS, o método `getLaudoPdf` não deve manipular `res.status().json()` diretamente. Em vez disso, deve lançar exceções do NestJS (como `NotFoundException` ou `InternalServerErrorException`). O `AllExceptionsFilter` global do NestJS se encarregará de transformar essas exceções em um payload JSON consistente para o cliente.
+    ```typescript
+    // Exemplo de como refatorar getLaudoPdf
+    import { Controller, Get, Param, StreamableFile, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+    // ...
+    @Get('laudo/:filename')
+    async getLaudoPdf(@Param('filename') filename: string): Promise<StreamableFile> {
+      const sanitizedFilename = path.basename(filename);
+      try {
+        const fileStream = await minioClient.getObject(MINIO_BUCKET, sanitizedFilename);
+        // Retorna um StreamableFile para que NestJS gerencie a resposta
+        return new StreamableFile(fileStream, { type: 'application/pdf' });
+      } catch (e) {
+        this.logger.error('laudo/:filename - Erro ao obter arquivo do MinIO:', e);
+        // Lança exceções NestJS para serem capturadas pelo filtro global
+        throw new NotFoundException('Arquivo não encontrado.');
+      }
+    }
+    ```
+    Isso garante que, em caso de erro, o cliente sempre receberá um JSON de erro padronizado, e em caso de sucesso, um PDF.
 
 #FIM_ANALISE_CRITERIO#
 
 ## Recomendações Gerais
-- **Adotar a Camada de Serviço:** A recomendação mais crítica é a criação de uma camada de serviço para encapsular a lógica de negócio, desacoplando-a dos controllers. Isso melhorará drasticamente a organização, a testabilidade e a reutilização do código.
-- **Abraçar a Injeção de Dependência:** Refatorar o código para usar o sistema de DI do NestJS de forma consistente. Isso significa injetar dependências (repositórios, serviços, etc.) através de construtores em vez de usar localizadores de serviço ou importações diretas de instâncias.
-- **Utilizar as Abstrações do NestJS:** Evitar o acoplamento direto com o Express.js, utilizando as abstrações fornecidas pelo NestJS, como `StreamableFile` para streaming e o decorador `@Redirect` para redirecionamentos. Isso garante que a aplicação possa se beneficiar de todo o ecossistema do NestJS.
-- **Consistência no Tratamento de Erros:** Padronizar o tratamento de erros utilizando as exceções HTTP do NestJS (ex: `BadRequestException`, `NotFoundException`) em vez de manipular manualmente os códigos de status e respostas de erro.
+1.  **Refatoração de Controladores e Serviços (SRP):** O `LaudoController` é o principal candidato para refatoração. Mover a lógica de negócio, validação e orquestração para serviços dedicados (e.g., `LaudoService`, `FileStorageService`, `IaApiService`) tornará o código mais modular, testável e fácil de manter.
+2.  **Adoção Completa de DTOs e `ValidationPipe`:** Implementar DTOs para todas as entradas de API e usar `class-validator` com o `ValidationPipe` global do NestJS. Isso centraliza e padroniza a validação de entradas, removendo a lógica manual dos controladores.
+3.  **Injeção de Dependência Consistente:** Injetar todas as dependências, incluindo `minioClient` e repositórios TypeORM, através do sistema de DI do NestJS, em vez de importações diretas ou helpers globais (`getRepository`, `getDataSource`).
+4.  **Remover Acoplamento Direto a Frameworks:** Eliminar o uso direto de `@Res()` para manipulação de respostas HTTP, exceto quando estritamente necessário para streaming. Utilizar os decorators e tipos de retorno do NestJS (e.g., `@Redirect()`, `StreamableFile`) para permitir que o framework gerencie o ciclo de vida da resposta.
+5.  **Configurar Timeouts e Limites:** Adicionar timeouts explícitos para todas as chamadas de rede externas (`axios`) e configurar limites de tamanho de arquivo no `FileInterceptor` do NestJS para prevenir ataques de negação de serviço e sobrecarga.
+6.  **Tratamento de Erros Unificado:** Assegurar que todos os erros no backend sejam lançados como exceções do NestJS e capturados pelo `AllExceptionsFilter` global, garantindo respostas de erro consistentes (JSON) e logs centralizados via `AppLogger`. Evitar `console.error` e blocos `catch` vazios.
+7.  **Mitigar Condições de Corrida:** Implementar transações de banco de dados para operações de "leitura-seguida-de-escrita" críticas (`extractPdfData`, `dataProcessing`) e considerar a adição de restrições `UNIQUE` no banco de dados para garantir a integridade dos dados em cenários de concorrência.
+8.  **Otimização de Memória no Frontend:** Revisar o carregamento de arquivos PDF grandes para visualização no frontend, explorando alternativas ao armazenamento em Base64 no `localStorage` para reduzir a pressão sobre a memória do navegador.
 
 #FIM#

@@ -2,7 +2,7 @@ import axios from 'axios';
 import type { ApiError } from '@/types/api';
 
 const apiClient = axios.create({
-  baseURL: (import.meta as any).env.VITE_API_BASE_URL || '/api/v1',
+  baseURL: (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:8000',
   timeout: 300000, // 5 minutos para permitir análise completa da LLM
   headers: {
     'Content-Type': 'application/json',

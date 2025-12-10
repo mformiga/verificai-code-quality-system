@@ -3,7 +3,8 @@ import { Routes, Route, Navigate, Link } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import LoginPage from '@/pages/LoginPage';
 import PromptConfigPage from '@/pages/PromptConfigPage';
-import CodeUploadPage from '@/pages/CodeUploadPage';
+import CodePastePage from '@/pages/CodePastePage';
+import FunctionalCodePage from '@/pages/FunctionalCodePage';
 import GeneralAnalysisPage from '@/pages/GeneralAnalysisPage';
 import ArchitecturalAnalysisPage from '@/pages/ArchitecturalAnalysisPage';
 import BusinessAnalysisPage from '@/pages/BusinessAnalysisPage';
@@ -65,10 +66,10 @@ const DashboardPage: React.FC = () => {
               </Link>
 
               <Link to="/code-upload" className="feature-card">
-                <span className="feature-icon">📁</span>
-                <h3 className="feature-title">Upload de Código</h3>
+                <span className="feature-icon">📝</span>
+                <h3 className="feature-title">Colar Código</h3>
                 <p className="feature-description">
-                  Faça upload dos arquivos de código para análise
+                  Cole e salve trechos de código para análise posterior
                 </p>
               </Link>
 
@@ -105,8 +106,8 @@ const DashboardPage: React.FC = () => {
                   <span className="br-list-text">Configuração de Prompts</span>
                 </Link>
                 <Link to="/code-upload" className="br-item">
-                  <span className="br-list-title">📁</span>
-                  <span className="br-list-text">Upload de Código</span>
+                  <span className="br-list-title">📝</span>
+                  <span className="br-list-text">Colar Código</span>
                 </Link>
                 <Link to="/general-analysis" className="br-item">
                   <span className="br-list-title">📊</span>
@@ -200,7 +201,7 @@ function App() {
       } />
       <Route path="/code-upload" element={
         <ProtectedRoute>
-          <CodeUploadPage />
+          <FunctionalCodePage />
         </ProtectedRoute>
       } />
       <Route path="/general-analysis" element={

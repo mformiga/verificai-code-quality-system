@@ -13,6 +13,8 @@ const CodePastePage: React.FC = () => {
   const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'paste' | 'history'>('paste');
 
+  // Force hot reload - updated at 2025-12-09 22:00
+
   // Handle code save success
   const handleCodeSave = (codeData: any) => {
     console.log('Code saved successfully:', codeData);
