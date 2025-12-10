@@ -1,6 +1,6 @@
 {
-  "version": 2,
   "name": "verificai-code-quality-system",
+  "version": 2,
   "builds": [
     {
       "src": "frontend/package.json",
@@ -26,11 +26,7 @@
   ],
   "env": {
     "PYTHON_VERSION": "3.11",
-    "NODE_VERSION": "18"
-  },
-  "functions": {
-    "api/index.py": {
-      "runtime": "python3.11"
-    }
+    "NODE_VERSION": "18",
+    "VITE_API_BASE_URL": "https://verificai-code-quality-system.vercel.app/api"
   }
 }

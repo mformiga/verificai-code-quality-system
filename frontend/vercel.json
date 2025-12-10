@@ -10,7 +10,13 @@
       }
     }
   ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ],
   "env": {
-    "NODE_VERSION": "18"
+    "VITE_API_BASE_URL": "https://seu-backend-project.vercel.app/api"
   }
 }
