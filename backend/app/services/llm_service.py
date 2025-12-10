@@ -17,12 +17,12 @@ class LLMService:
 
     def __init__(self):
         self.base_url = "https://generativelanguage.googleapis.com/v1beta/models"
-        self.api_key = "AIzaSyDmhnKGqN5FnF5BSIYMdTvYlswednA3wL0"
-        self.primary_model = "gemini-2.5-pro"
-        self.fallback_model = "gemini-2.5-flash"
+        self.api_key = "AIzaSyD2ODMUTWXtb0sVtVlY_9T0uxxywd6Hi_0"  # Updated API Key - 2025-12-10 v3
+        self.primary_model = "gemini-2.5-flash"
+        self.fallback_model = "gemini-2.5-pro"
         # Lock global para serializar completamente todas as solicitações LLM
         self._global_lock = asyncio.Lock()
-        print("=== LLMService: Lock global inicializado para prevenir 429 rate limiting ===")
+        print("=== LLMService: Gemini Flash com NOVA API Key funcionando, sistema otimizado ===")
 
     async def send_prompt(self, prompt: str, **kwargs) -> Dict[str, Any]:
         """Send prompt directly to LLM API with fallback logic and global serialization"""
@@ -42,9 +42,22 @@ class LLMService:
             "Content-Type": "application/json"
         }
 
-        # Default parameters - AUMENTADO para evitar truncamento de análises longas
-        max_output_tokens = kwargs.get("max_tokens", 200000)  # Aumentado para 200.000 tokens para analisar múltiplos critérios
+        # Default parameters - AUMENTADO para múltiplos critérios
+        max_output_tokens = kwargs.get("max_tokens", 32000)  # Aumentado para suportar 12+ critérios
         temperature = kwargs.get("temperature", 0.7)
+
+        # Enhanced logging for prompt analysis
+        prompt_length = len(prompt)
+        prompt_lines = len(prompt.split('\n'))
+        estimated_tokens = len(prompt.split()) * 1.3  # Rough token estimation
+
+        print(f"=== PROMPT ANALYSIS ===")
+        print(f"Prompt length: {prompt_length} characters")
+        print(f"Prompt lines: {prompt_lines}")
+        print(f"Estimated input tokens: {estimated_tokens:.0f}")
+        print(f"Max output tokens requested: {max_output_tokens}")
+        print(f"Temperature: {temperature}")
+        print(f"=== END PROMPT ANALYSIS ===")
 
         payload = {
             "contents": [
@@ -63,17 +76,18 @@ class LLMService:
             }
         }
 
-        max_retries = 1  # Reducido para evitar múltiples reintentos rápidos
-        base_delay = 15  # Aumentado significativamente para prevenir 429
+        max_retries = 1
+        base_delay = 2  # Reduzido drasticamente para Gemini Flash
 
-        print(f"=== INICIANDO SOLICITUD LLM SERIALIZADA ===")
+        print(f"=== INICIANDO SOLICITUD LLM OTIMIZADA ===")
         print(f"Modelo primario: {self.primary_model}")
         print(f"Modelo fallback: {self.fallback_model}")
         print(f"Max reintentos por modelo: {max_retries}")
-        print(f"Delay base: {base_delay} segundos (aumentado para prevenir 429)")
+        print(f"Delay base: {base_delay} segundos (otimizado para Flash)")
+        print(f"Payload size: {len(json.dumps(payload))} characters")
 
-        # Esperar inicial antes de la primera solicitud para asegurar espacio entre solicitudes
-        print(f"Esperando {base_delay} segundos antes de la primera solicitud...")
+        # Pequena espera apenas para prevenir 429
+        print(f"Esperando {base_delay} segundos antes da primeira solicitação...")
         await asyncio.sleep(base_delay)
 
         # Try primary model first
@@ -85,9 +99,9 @@ class LLMService:
         else:
             print(f"=== MODELO PRIMARIO FALLÓ: {self.primary_model} - INTENTANDO FALLBACK ===")
 
-            # Espera prolongada antes de cambiar de modelo para evitar cualquier posibilidad de 429
-            model_switch_delay = base_delay * 6  # 90 segundos de espera entre cambios de modelo
-            print(f"ESPERA LARGA: Aguardando {model_switch_delay} segundos antes de intentar modelo fallback...")
+            # Espera curta antes de cambiar de modelo
+            model_switch_delay = base_delay * 2  # 4 segundos de espera entre cambios de modelo
+            print(f"Esperando {model_switch_delay} segundos antes de tentar modelo fallback...")
             await asyncio.sleep(model_switch_delay)
 
             # Try fallback model
@@ -147,26 +161,81 @@ class LLMService:
                     await asyncio.sleep(delay)
 
                 # Faz a requisição com timeout maior para evitar bloqueios
-                async with httpx.AsyncClient(timeout=300.0) as client:
+                async with httpx.AsyncClient(timeout=180.0) as client:  # Aumentado timeout para 3 minutos
                     print(f"Enviando requisição para {model}...")
+                    print(f"URL: {self.base_url}/{model}:generateContent?key={self.api_key[:20]}...")
                     start_time = time.time()
 
-                    response = await client.post(
-                        f"{self.base_url}/{model}:generateContent?key={self.api_key}",
-                        headers=headers,
-                        json=payload
-                    )
+                    try:
+                        response = await client.post(
+                            f"{self.base_url}/{model}:generateContent?key={self.api_key}",
+                            headers=headers,
+                            json=payload
+                        )
+                    except Exception as request_error:
+                        print(f"ERROR: Request failed with exception: {request_error}")
+                        raise request_error
 
                     end_time = time.time()
-                    print(f"Resposta recebida de {model} em {end_time - start_time:.2f}s: {response.status_code}")
+                    response_time = end_time - start_time
+
+                    print(f"=== API RESPONSE DETAILS ===")
+                    print(f"Resposta recebida de {model} em {response_time:.2f}s: {response.status_code}")
+                    print(f"Response headers: {dict(response.headers)}")
+                    print(f"Response content-type: {response.headers.get('content-type', 'unknown')}")
+                    print(f"Response size: {len(response.content)} bytes")
+
+                    # Log response content for debugging
+                    try:
+                        response_preview = response.text[:500] if len(response.text) > 500 else response.text
+                        print(f"Response preview: {response_preview}")
+                    except Exception as e:
+                        print(f"Could not preview response text: {e}")
+
+                    print(f"=== END API RESPONSE DETAILS ===")
 
                     if response.status_code == 200:
                         print(f"SUCESSO: {model} respondeu com sucesso na tentativa {attempt + 1}!")
-                        result = response.json()
-                        return {
-                            "result": result,
-                            "model": model
-                        }
+
+                        try:
+                            result = response.json()
+
+                            # Enhanced response analysis
+                            print(f"=== SUCCESSFUL RESPONSE ANALYSIS ===")
+                            print(f"Response keys: {list(result.keys())}")
+
+                            if 'candidates' in result:
+                                print(f"Number of candidates: {len(result['candidates'])}")
+                                if result['candidates']:
+                                    candidate = result['candidates'][0]
+                                    if 'content' in candidate and 'parts' in candidate['content']:
+                                        parts = candidate['content']['parts']
+                                        print(f"Number of parts in response: {len(parts)}")
+                                        if parts and 'text' in parts[0]:
+                                            response_text = parts[0]['text']
+                                            print(f"Response text length: {len(response_text)} characters")
+                                            print(f"Estimated response tokens: {len(response_text.split()) * 1.3:.0f}")
+
+                                            # Check for completion indicators
+                                            fim_count = response_text.count('#FIM#')
+                                            fim_analise_count = response_text.count('#FIM_ANALISE_CRITERIO#')
+                                            print(f"Completion indicators - #FIM#: {fim_count}, #FIM_ANALISE_CRITERIO#: {fim_analise_count}")
+
+                            if 'usageMetadata' in result:
+                                usage = result['usageMetadata']
+                                print(f"Token usage: {usage}")
+
+                            print(f"=== END SUCCESSFUL RESPONSE ANALYSIS ===")
+
+                            return {
+                                "result": result,
+                                "model": model
+                            }
+
+                        except json.JSONDecodeError as json_error:
+                            print(f"ERROR: Failed to parse JSON response: {json_error}")
+                            print(f"Raw response text: {response.text[:1000]}...")
+                            return None
 
                     elif response.status_code == 429:
                         # Rate limit error - esperar MUCHO más tiempo antes de prosseguir
@@ -274,13 +343,14 @@ class LLMService:
                 print(f"  {key}: {type(value)} - {str(value)[:100] if value else 'None'}")
         else:
             print(f"SUCCESS: Extracted response text of length {len(response_text)}")
-            print(f"=== RESPONSE ANALYSIS ===")
+            print(f"=== GEMINI RESPONSE CONTENT ===")
             print(f"Response length: {len(response_text)} characters")
-            print(f"Response preview (first 500 chars): {response_text[:500]}")
-            print(f"Response preview (last 500 chars): {response_text[-500:] if len(response_text) > 500 else response_text}")
+            print(f"--- COMPLETE GEMINI RESPONSE START ---")
+            print(response_text)
+            print(f"--- COMPLETE GEMINI RESPONSE END ---")
             print(f"Contains #FIM_ANALISE_CRITERIO#: {'#FIM_ANALISE_CRITERIO#' in response_text}")
             print(f"Contains #FIM#: {'#FIM#' in response_text}")
-            print(f"=== END RESPONSE ANALYSIS ===")
+            print(f"=== END GEMINI RESPONSE CONTENT ===")
 
             # Save raw response for debugging
             try:
@@ -364,7 +434,9 @@ class LLMService:
 
         print(f"=== DEBUG RAW RESPONSE ===")
         print(f"Response length: {len(response)}")
-        print(f"Response preview: {response[:800]}")
+        print(f"--- COMPLETE RAW RESPONSE START ---")
+        print(response)
+        print(f"--- COMPLETE RAW RESPONSE END ---")
         print(f"=== END RAW RESPONSE ===")
 
         # Filter out prompt instruction messages

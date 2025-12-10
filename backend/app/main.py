@@ -15,27 +15,19 @@ from app.core.middleware import (
     ErrorHandlerMiddleware,
     RateLimitMiddleware
 )
-from app.api.v1 import auth, users, prompts, analysis, upload, file_paths, general_analysis, simple_analysis
+from app.api.v1 import auth, users, prompts, analysis, upload, file_paths, general_analysis, simple_analysis, code_entries
 import uvicorn
 
 # Custom CORS middleware to handle OPTIONS requests
 class CustomCORSMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if request.method == "OPTIONS":
+            origin = request.headers.get("origin")
+            allowed_origins = ["http://localhost:3011", "http://localhost:3012", "http://localhost:3013"]
+
             response = Response()
-            origin = request.headers.get("origin", "")
-            # Allow multiple frontend ports
-            allowed_origins = [
-                "http://localhost:3011",
-                "http://localhost:3012",
-                "http://localhost:3013",
-                "http://localhost:3014",
-                "http://localhost:3015"
-            ]
             if origin in allowed_origins:
                 response.headers["Access-Control-Allow-Origin"] = origin
-            else:
-                response.headers["Access-Control-Allow-Origin"] = "http://localhost:3011"
             response.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS, PUT, DELETE"
             response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
             response.headers["Access-Control-Allow-Credentials"] = "true"
@@ -43,7 +35,7 @@ class CustomCORSMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         return response
 
-# Initialize logging - Updated for CORS fix
+# Initialize logging
 setup_logging()
 
 # Create FastAPI application
@@ -59,13 +51,7 @@ app = FastAPI(
 # Configure CORS middleware first (before other middlewares)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3011",
-        "http://localhost:3012",
-        "http://localhost:3013",
-        "http://localhost:3014",
-        "http://localhost:3015"
-    ],  # Allow multiple frontend ports
+    allow_origins=["*"],  # Permitir todas as origens temporariamente para teste
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -74,7 +60,7 @@ app.add_middleware(
 )
 
 # Add middleware stack - Order matters!
-app.add_middleware(CustomCORSMiddleware)  # Adicionar middleware CORS personalizado
+# CustomCORSMiddleware removido para evitar conflitos
 app.add_middleware(ErrorHandlerMiddleware)
 app.add_middleware(RateLimitMiddleware, requests_per_minute=settings.RATE_LIMIT_REQUESTS_PER_MINUTE)
 app.add_middleware(RequestLoggingMiddleware)
@@ -85,7 +71,8 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.include_router(auth.router, prefix=settings.API_V1_STR, tags=["authentication"])
 app.include_router(users.router, prefix=settings.API_V1_STR, tags=["users"])
 app.include_router(file_paths.router, prefix=settings.API_V1_STR + "/file-paths", tags=["file_paths"])
-app.include_router(prompts.router, prefix=settings.API_V1_STR, tags=["prompts"])
+app.include_router(code_entries.router, prefix=settings.API_V1_STR, tags=["code_entries"])
+app.include_router(prompts.router, prefix=settings.API_V1_STR + "/prompts", tags=["prompts"])
 app.include_router(analysis.router, prefix=settings.API_V1_STR, tags=["analysis"])
 app.include_router(upload.router, prefix=settings.API_V1_STR, tags=["upload"])
 app.include_router(general_analysis.router, prefix=settings.API_V1_STR + "/general-analysis", tags=["general_analysis"])
@@ -198,6 +185,7 @@ async def test_all_files():
             "file_paths": paths,
             "total_count": len(paths),
             "message": f"TEST: Found {len(paths)} file paths - ALL FILES"
+        # Reload trigger - touched at 2025-12-09 15:14 - CORS UPDATE
         }
 
     except Exception as e:

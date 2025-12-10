@@ -8,6 +8,10 @@ from .analysis import (
     AnalysisCreate, AnalysisUpdate, AnalysisResponse, AnalysisListResponse,
     AnalysisResultResponse
 )
+from .code_entry import (
+    CodeEntryCreate, CodeEntryUpdate, CodeEntryResponse, CodeEntryList,
+    CodeEntryDeleteResponse, CodeLanguageDetection, CodeEntryStats
+)
 from .common import PaginationParams, PaginatedResponse
 
 __all__ = [
@@ -15,5 +19,7 @@ __all__ = [
     "PromptCreate", "PromptUpdate", "PromptResponse", "PromptListResponse",
     "AnalysisCreate", "AnalysisUpdate", "AnalysisResponse", "AnalysisListResponse",
     "AnalysisResultResponse",
+    "CodeEntryCreate", "CodeEntryUpdate", "CodeEntryResponse", "CodeEntryList",
+    "CodeEntryDeleteResponse", "CodeLanguageDetection", "CodeEntryStats",
     "PaginationParams", "PaginatedResponse"
 ]
