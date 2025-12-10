@@ -18,30 +18,11 @@ from app.core.middleware import (
 from app.api.v1 import auth, users, prompts, analysis, upload, file_paths, general_analysis, simple_analysis, code_entries
 import uvicorn
 
-# Custom CORS middleware to handle OPTIONS requests
-class CustomCORSMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        if request.method == "OPTIONS":
-            origin = request.headers.get("origin")
-            allowed_origins = [
-                "http://localhost:3011",
-                "http://localhost:3012",
-                "http://localhost:3013",
-                "https://verificai-frontend.vercel.app"
-            ]
-
-            response = Response()
-            if origin in allowed_origins:
-                response.headers["Access-Control-Allow-Origin"] = origin
-            else:
-                # Para produção, permitir a origem do Vercel frontend
-                response.headers["Access-Control-Allow-Origin"] = "https://verificai-frontend.vercel.app"
-            response.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS, PUT, DELETE"
-            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-            return response
-        response = await call_next(request)
-        return response
+# Simplificado - removendo CustomCORSMiddleware para evitar conflitos
+# class CustomCORSMiddleware(BaseHTTPMiddleware):
+#     async def dispatch(self, request: Request, call_next):
+#         response = await call_next(request)
+#         return response
 
 # Initialize logging
 setup_logging()
@@ -60,20 +41,23 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "http://localhost:3000",
         "http://localhost:3011",
         "http://localhost:3012",
         "http://localhost:3013",
-        "https://verificai-frontend.vercel.app"
+        "http://localhost:5173",
+        "https://verificai-frontend.vercel.app",
+        "https://verificai-frontend-rouan.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+    allow_headers=["*"],
     expose_headers=["*"],
     max_age=600,
 )
 
 # Add middleware stack - Order matters!
-app.add_middleware(CustomCORSMiddleware)
+# CustomCORSMiddleware removido para evitar conflitos
 app.add_middleware(ErrorHandlerMiddleware)
 app.add_middleware(RateLimitMiddleware, requests_per_minute=settings.RATE_LIMIT_REQUESTS_PER_MINUTE)
 app.add_middleware(RequestLoggingMiddleware)
