@@ -1,0 +1,8 @@
+# Ignorar arquivos que não precisam no deployment
+__pycache__/
+*.pyc
+.pytest_cache/
+.git/
+.env.local
+.DS_Store
+node_modules/
