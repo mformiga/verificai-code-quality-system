@@ -27,11 +27,41 @@ class Settings(BaseSettings):
         env="DATABASE_URL"
     )
 
-    # Ensure PostgreSQL configuration
+    # Supabase Configuration for Vercel deployment
+    SUPABASE_URL: str = Field(
+        default="https://mcp.supabase.com/mcp?project_ref=jjxmfidggofuaxcdtkrd",
+        env="SUPABASE_URL"
+    )
+    SUPABASE_ANON_KEY: Optional[str] = Field(default=None, env="SUPABASE_ANON_KEY")
+    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = Field(default=None, env="SUPABASE_SERVICE_ROLE_KEY")
+
+    # Environment Detection
+    IS_VERCEL_DEPLOYMENT: bool = Field(default=False, env="VERCEL")
+
+    # Database Configuration with Environment Detection
     @field_validator('DATABASE_URL', mode='before')
     @classmethod
     def validate_database_url(cls, v):
-        """Force PostgreSQL configuration"""
+        """Database configuration with environment detection"""
+        # Check if we're in Vercel deployment
+        is_vercel = os.getenv('VERCEL', 'false').lower() == 'true'
+
+        if is_vercel:
+            # Use Supabase for Vercel deployment
+            supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+            project_ref = os.getenv('SUPABASE_PROJECT_REF', 'jjxmfidggofuaxcdtkrd')
+
+            if supabase_key:
+                # Format Supabase connection string properly
+                db_url = f"postgresql://postgres.{project_ref}:{supabase_key}@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+                print(f"Using Supabase database for Vercel deployment")
+                return db_url
+            else:
+                print(f"WARNING: SUPABASE_SERVICE_ROLE_KEY not found in Vercel environment")
+                # Return a fallback that will fail gracefully
+                return "postgresql://localhost:5432/verificai"
+
+        # Local development - use PostgreSQL
         if not v:
             return "postgresql://verificai:verificai123@localhost:5432/verificai"
 
@@ -67,7 +97,7 @@ class Settings(BaseSettings):
 
     # CORS Configuration
     BACKEND_CORS_ORIGINS: List[str] = Field(
-        default=["http://localhost:3000", "http://localhost:5173", "http://localhost:3026", "http://localhost:3015", "http://localhost:3014", "http://localhost:3013", "http://localhost:3011"],
+        default=["http://localhost:3000", "http://localhost:5173", "http://localhost:3026", "http://localhost:3015", "http://localhost:3014", "http://localhost:3013", "http://localhost:3011", "https://verificai-frontend.vercel.app"],
         env="BACKEND_CORS_ORIGINS"
     )
 
