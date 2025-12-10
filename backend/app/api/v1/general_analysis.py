@@ -3,7 +3,7 @@ General analysis endpoints for VerificAI Backend - STO-007
 Updated for token display fix - FINAL VERSION
 """
 
-print("MODULE LOADED: general_analysis.py - 2025-10-05 23:08 - FIXED")
+print("MODULE LOADED: general_analysis.py - 2025-12-09 22:08 - LATEST-CODE-ENTRY TEST")
 
 from typing import List, Optional, Any
 from pathlib import Path
@@ -18,6 +18,7 @@ from app.models.analysis import Analysis, AnalysisStatus
 from app.models.prompt import Prompt, PromptCategory
 from app.models.prompt import GeneralCriteria, GeneralAnalysisResult as GeneralAnalysisResultModel
 from app.models.uploaded_file import UploadedFile, FileStatus
+from app.models.code_entry import CodeEntry
 from app.schemas.analysis import AnalysisCreate, AnalysisResponse
 from app.api.v1.analysis import process_analysis
 from app.services.prompt_service import get_prompt_service
@@ -130,8 +131,10 @@ class GeneralAnalysisRequest(BaseModel):
 class AnalyzeSelectedRequest(BaseModel):
     """Request model for analyzing selected criteria"""
     criteria_ids: List[str]
-    file_paths: List[str]
-    analysis_name: Optional[str] = "Anlise de Critrios Gerais"
+    file_paths: List[str] = []  # Mantido para compatibilidade, mas não será usado
+    use_code_entry: bool = True  # Novo flag para indicar que deve usar code_entry
+    code_entry_id: Optional[str] = None  # ID específico do code_entry (opcional)
+    analysis_name: Optional[str] = "Análise de Critérios Gerais"
     temperature: float = 0.7
     max_tokens: int = 500000
 
@@ -561,6 +564,57 @@ async def debug_test(
     }
 
 
+@router.get("/latest-code-entry")
+async def get_latest_code_entry(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Get the latest code entry from the current user"""
+    try:
+        print(f"DEBUG: Getting latest code entry for user {current_user.id}")
+
+        # Get the most recent code entry for the current user
+        latest_entry = db.query(CodeEntry).filter(
+            CodeEntry.user_id == current_user.id,
+            CodeEntry.is_active == True
+        ).order_by(CodeEntry.created_at.desc()).first()
+
+        if not latest_entry:
+            return {
+                "success": False,
+                "message": "Nenhum código encontrado. Por favor, cole um código na página de colagem primeiro.",
+                "code_content": None,
+                "title": None,
+                "language": None,
+                "lines_count": 0,
+                "characters_count": 0
+            }
+
+        print(f"DEBUG: Found latest code entry: {latest_entry.title} ({latest_entry.lines_count} lines)")
+
+        return {
+            "success": True,
+            "message": "Código recuperado com sucesso",
+            "code_content": latest_entry.code_content,
+            "title": latest_entry.title,
+            "description": latest_entry.description,
+            "language": latest_entry.language,
+            "lines_count": latest_entry.lines_count,
+            "characters_count": latest_entry.characters_count,
+            "created_at": latest_entry.created_at,
+            "entry_id": str(latest_entry.id)
+        }
+
+    except Exception as e:
+        print(f"ERROR in get_latest_code_entry: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving latest code entry: {str(e)}"
+        )
+
+
 @router.get("/results/{analysis_id}", response_model=GeneralAnalysisResult)
 async def get_general_analysis_result(
     analysis_id: int,
@@ -617,6 +671,57 @@ async def get_general_analysis_result(
     )
 
 
+@router.post("/get-latest-code-entry")
+async def get_latest_code_entry_post(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Get the latest code entry from the current user using POST method"""
+    try:
+        print(f"DEBUG: Getting latest code entry for user {current_user.id}")
+
+        # Get the most recent code entry for the current user
+        latest_entry = db.query(CodeEntry).filter(
+            CodeEntry.user_id == current_user.id,
+            CodeEntry.is_active == True
+        ).order_by(CodeEntry.created_at.desc()).first()
+
+        if not latest_entry:
+            return {
+                "success": False,
+                "message": "Nenhum código encontrado. Por favor, cole um código na página de colagem primeiro.",
+                "code_content": None,
+                "title": None,
+                "language": None,
+                "lines_count": 0,
+                "characters_count": 0
+            }
+
+        print(f"DEBUG: Found latest code entry: {latest_entry.title} ({latest_entry.lines_count} lines)")
+
+        return {
+            "success": True,
+            "message": "Código recuperado com sucesso",
+            "code_content": latest_entry.code_content,
+            "title": latest_entry.title,
+            "description": latest_entry.description,
+            "language": latest_entry.language,
+            "lines_count": latest_entry.lines_count,
+            "characters_count": latest_entry.characters_count,
+            "created_at": latest_entry.created_at,
+            "entry_id": str(latest_entry.id)
+        }
+
+    except Exception as e:
+        print(f"ERROR in get_latest_code_entry_post: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving latest code entry: {str(e)}"
+        )
+
+
 @router.options("/analyze-selected")
 async def options_analyze_selected(request: Request):
     """Handle OPTIONS requests for CORS preflight"""
@@ -629,23 +734,31 @@ async def analyze_selected_criteria(
     db: Session = Depends(get_db)
 ) -> Any:
     """Analyze selected criteria using LLM with dynamic prompt insertion"""
+    # DEBUG: Updated with better logging for debugging
     try:
         print(f"DEBUG: === STARTING ANALYZE-SELECTED FUNCTION ===")
         print(f"DEBUG: Starting analysis for criteria: {request.criteria_ids}")
         print(f"DEBUG: File paths: {request.file_paths}")
         print(f"DEBUG: User: {current_user.username} (ID: {current_user.id})")
+        print(f"DEBUG: use_code_entry: {request.use_code_entry}")
+        print(f"DEBUG: code_entry_id: {request.code_entry_id}")
 
         # Get prompt service
         print("DEBUG: Getting prompt service...")
         prompt_service = get_prompt_service(db)
 
-        # Step 1: Read the general prompt from database
+        # Step 1: Read the general prompt from database (CORRECTED TO USE PROMPT ID 4)
         print("DEBUG: Getting general prompt from database...")
         try:
-            general_prompt = prompt_service.get_general_prompt(5)  # Use the correct prompt ID
+            # CORRECTED: Use prompt ID 4 which has the correct structure and placeholder
+            general_prompt = prompt_service.get_general_prompt(4)  # Use Template com Código Fonte no Início
+            print(f"DEBUG: Using prompt ID 4 (Template com Código Fonte no Início) - contains [INSERIR CÓDIGO AQUI]")
+            if "[INSERIR CÓDIGO AQUI]" not in general_prompt:
+                print(f"DEBUG: WARNING - Prompt ID 4 doesn't contain placeholder, using default")
+                general_prompt = prompt_service._get_default_general_prompt()
         except Exception as e:
-            print(f"DEBUG: Error getting prompt 5, using default: {e}")
-            general_prompt = prompt_service.get_general_prompt()  # Use default prompt
+            print(f"DEBUG: Error getting prompt 4, using default: {e}")
+            general_prompt = prompt_service._get_default_general_prompt()
         print(f"DEBUG: Retrieved general prompt length: {len(general_prompt)}")
 
         # Step 2: Get selected criteria from database
@@ -663,59 +776,109 @@ async def analyze_selected_criteria(
         modified_prompt = prompt_service.insert_criteria_into_prompt(general_prompt, selected_criteria)
         print(f"DEBUG: Modified prompt length: {len(modified_prompt)}")
 
-        # Step 4: Read ALL source code files and replace placeholder
+        # Step 4: Get source code from code_entries table or files
         try:
-            # Use all file paths from the request
-            if not request.file_paths or len(request.file_paths) == 0:
-                raise HTTPException(status_code=400, detail="No file paths provided")
-
-            print(f"DEBUG: Processing {len(request.file_paths)} files for analysis")
-
             all_source_code = ""
+            source_info = ""
             total_files_processed = 0
 
-            # Process each file and combine them
-            for i, source_file_path in enumerate(request.file_paths):
-                try:
-                    print(f"DEBUG: Processing file {i+1}/{len(request.file_paths)}: {source_file_path}")
+            if request.use_code_entry:
+                # Buscar código da tabela code_entries
+                print(f"DEBUG: Getting code from code_entries table")
 
-                    # Try to find the uploaded file and get its real storage path
-                    actual_file_path = get_uploaded_file_path(source_file_path, db, current_user.id)
-                    print(f"DEBUG: Actual file path to read: {actual_file_path}")
+                code_entry = None
 
-                    with open(actual_file_path, "r", encoding="utf-8") as f:
-                        file_content = f.read()
-                        file_size = len(file_content)
-                        print(f"DEBUG: File read successfully: {file_size} characters")
+                # Se um ID específico foi fornecido, usar esse
+                if request.code_entry_id:
+                    code_entry = db.query(CodeEntry).filter(
+                        CodeEntry.id == request.code_entry_id,
+                        CodeEntry.user_id == current_user.id,
+                        CodeEntry.is_active == True
+                    ).first()
+                    print(f"DEBUG: Looking for specific code_entry_id: {request.code_entry_id}")
+                else:
+                    # Caso contrário, buscar o mais recente
+                    code_entry = db.query(CodeEntry).filter(
+                        CodeEntry.user_id == current_user.id,
+                        CodeEntry.is_active == True
+                    ).order_by(CodeEntry.created_at.desc()).first()
+                    print(f"DEBUG: Looking for latest code entry")
 
-                    # Add file header and content to the combined source code
-                    file_extension = source_file_path.split('.')[-1] if '.' in source_file_path else 'txt'
-                    all_source_code += f"\n\n{'='*60}\n"
-                    all_source_code += f"ARQUIVO: {source_file_path}\n"
-                    all_source_code += f"TAMANHO: {file_size} caracteres\n"
-                    all_source_code += f"TIPO: {file_extension.upper()}\n"
-                    all_source_code += f"{'='*60}\n\n"
-                    all_source_code += file_content
+                if not code_entry:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Nenhum código encontrado na tabela de colagem. Por favor, cole um código na página de colagem primeiro."
+                    )
 
-                    total_files_processed += 1
+                all_source_code = code_entry.code_content
+                file_size = len(all_source_code)
 
-                except Exception as file_error:
-                    print(f"DEBUG: Error processing file {source_file_path}: {file_error}")
-                    # Continue with other files even if one fails
-                    continue
+                # Adicionar informações sobre o código
+                source_info = f"\n\n{'='*60}\n"
+                source_info += f"CÓDIGO COLADO: {code_entry.title}\n"
+                source_info += f"DESCRIÇÃO: {code_entry.description or 'Sem descrição'}\n"
+                source_info += f"LINGUAGEM: {code_entry.language or 'Não detectada'}\n"
+                source_info += f"TAMANHO: {file_size} caracteres\n"
+                source_info += f"LINHAS: {code_entry.lines_count}\n"
+                source_info += f"CRIADO EM: {code_entry.created_at}\n"
+                source_info += f"{'='*60}\n\n"
 
-            print(f"DEBUG: Successfully processed {total_files_processed}/{len(request.file_paths)} files")
+                print(f"DEBUG: Found code entry: {code_entry.title} ({file_size} characters)")
+                total_files_processed = 1
+
+            else:
+                # Mantido para compatibilidade: ler dos arquivos (caminho original)
+                if not request.file_paths or len(request.file_paths) == 0:
+                    raise HTTPException(status_code=400, detail="No file paths provided")
+
+                print(f"DEBUG: Processing {len(request.file_paths)} files for analysis")
+
+                # Process each file and combine them
+                for i, source_file_path in enumerate(request.file_paths):
+                    try:
+                        print(f"DEBUG: Processing file {i+1}/{len(request.file_paths)}: {source_file_path}")
+
+                        # Try to find the uploaded file and get its real storage path
+                        actual_file_path = get_uploaded_file_path(source_file_path, db, current_user.id)
+                        print(f"DEBUG: Actual file path to read: {actual_file_path}")
+
+                        with open(actual_file_path, "r", encoding="utf-8") as f:
+                            file_content = f.read()
+                            file_size = len(file_content)
+                            print(f"DEBUG: File read successfully: {file_size} characters")
+
+                        # Add file header and content to the combined source code
+                        file_extension = source_file_path.split('.')[-1] if '.' in source_file_path else 'txt'
+                        source_info += f"\n\n{'='*60}\n"
+                        source_info += f"ARQUIVO: {source_file_path}\n"
+                        source_info += f"TAMANHO: {file_size} caracteres\n"
+                        source_info += f"TIPO: {file_extension.upper()}\n"
+                        source_info += f"{'='*60}\n\n"
+                        all_source_code += file_content
+
+                        total_files_processed += 1
+
+                    except Exception as file_error:
+                        print(f"DEBUG: Error processing file {source_file_path}: {file_error}")
+                        # Continue with other files even if one fails
+                        continue
+
+                print(f"DEBUG: Successfully processed {total_files_processed}/{len(request.file_paths)} files")
+
             print(f"DEBUG: Total source code size: {len(all_source_code)} characters")
 
             if total_files_processed == 0:
-                raise HTTPException(status_code=500, detail="Nenhum arquivo pde ser lido para anlise")
+                raise HTTPException(status_code=500, detail="Nenhum código pôde ser lido para análise")
 
+        except HTTPException:
+            raise
         except Exception as e:
-            print(f"DEBUG: Error reading source code files: {e}")
-            raise HTTPException(status_code=500, detail=f"Erro ao ler arquivos de cdigo fonte: {str(e)}")
+            print(f"DEBUG: Error reading source code: {e}")
+            raise HTTPException(status_code=500, detail=f"Erro ao ler código fonte: {str(e)}")
 
-        # Replace placeholder with combined source code from all files
-        final_prompt = modified_prompt.replace("[INSERIR CÓDIGO AQUI]", all_source_code)
+        # Replace placeholder with source code (from code_entries or files)
+        full_source_code = source_info + all_source_code
+        final_prompt = modified_prompt.replace("[INSERIR CÓDIGO AQUI]", full_source_code)
         print(f"DEBUG: Replaced placeholder with source code")
         print(f"DEBUG: Final prompt length: {len(final_prompt)}")
 
