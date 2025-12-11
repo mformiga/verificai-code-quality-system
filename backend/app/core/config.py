@@ -107,8 +107,7 @@ class Settings(BaseSettings):
             "http://localhost:3026",
             "http://localhost:5173",
             "https://verificai-frontend.vercel.app",
-            "https://verificai-frontend-rouan.vercel.app",
-            "https://verificai-frontend-git-feature-production-deploy-mauricios-projects-b3859180.vercel.app"
+            "https://verificai-frontend-*.vercel.app"
         ],
         env="BACKEND_CORS_ORIGINS"
     )
