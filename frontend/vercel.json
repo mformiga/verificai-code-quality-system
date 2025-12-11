@@ -17,22 +17,22 @@
       "use": "@vercel/node"
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/test",
-      "dest": "/api/test"
+      "source": "/api/test",
+      "destination": "/api/test"
     },
     {
-      "src": "/api/proxy",
-      "dest": "/api/proxy"
+      "source": "/api/proxy",
+      "destination": "/api/proxy"
     },
     {
-      "src": "/api/(.*)",
-      "dest": "/api/proxy"
+      "source": "/api/(.*)",
+      "destination": "/api/proxy"
     },
     {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/((?!api).*)",
+      "destination": "/index.html"
     }
   ],
   "headers": [
