@@ -97,7 +97,18 @@ class Settings(BaseSettings):
 
     # CORS Configuration
     BACKEND_CORS_ORIGINS: List[str] = Field(
-        default=["http://localhost:3000", "http://localhost:5173", "http://localhost:3026", "http://localhost:3015", "http://localhost:3014", "http://localhost:3013", "http://localhost:3011", "https://verificai-frontend.vercel.app"],
+        default=[
+            "http://localhost:3000",
+            "http://localhost:3011",
+            "http://localhost:3012",
+            "http://localhost:3013",
+            "http://localhost:3014",
+            "http://localhost:3015",
+            "http://localhost:3026",
+            "http://localhost:5173",
+            "https://verificai-frontend.vercel.app",
+            "https://verificai-frontend-rouan.vercel.app"
+        ],
         env="BACKEND_CORS_ORIGINS"
     )
 

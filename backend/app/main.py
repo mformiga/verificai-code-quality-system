@@ -40,15 +40,7 @@ app = FastAPI(
 # Configure CORS middleware first (before other middlewares)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3011",
-        "http://localhost:3012",
-        "http://localhost:3013",
-        "http://localhost:5173",
-        "https://verificai-frontend.vercel.app",
-        "https://verificai-frontend-rouan.vercel.app"
-    ],
+    allow_origins=settings.BACKEND_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
