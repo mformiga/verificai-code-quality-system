@@ -63,13 +63,7 @@ const GeneralAnalysisPage: React.FC = () => {
   const uploadedFiles = uploadStore?.files || [];
   const [dbFilePaths, setDbFilePaths] = useState<string[]>([]);
 
-  // Debug: Log onde os arquivos estão vindo
-  console.log('🔍 DEBUG - Fontes de arquivos:');
-  console.log('  - uploadedFiles (uploadStore):', uploadedFiles);
-  console.log('  - uploadedFiles.length:', uploadedFiles.length);
-  console.log('  - dbFilePaths:', dbFilePaths);
-  console.log('  - dbFilePaths.length:', dbFilePaths.length);
-
+  
   // Função para recarregar paths do banco de dados
   const reloadDbPaths = async () => {
     try {
