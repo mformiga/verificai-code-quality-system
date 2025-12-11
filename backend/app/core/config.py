@@ -46,10 +46,11 @@ class Settings(BaseSettings):
         """Database configuration with environment detection"""
         print(f"DEBUG: Starting database URL validation...")
 
-        # Check if DATABASE_URL is already set in environment
+        # Check if DATABASE_URL is already set in environment (highest priority)
         env_database_url = os.getenv('DATABASE_URL')
         if env_database_url and env_database_url.startswith('postgresql://'):
             print(f"DEBUG: Found DATABASE_URL in environment, using it directly")
+            print(f"DEBUG: DB URL: {env_database_url.split('@')[0] + '@***'}")
             return env_database_url
 
         # Check if we're in Vercel or Render deployment
