@@ -56,8 +56,8 @@ class Settings(BaseSettings):
 
             if supabase_key:
                 # Format Supabase connection string properly for external access
-                # Use pooler for external connections: postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
-                db_url = f"postgresql://postgres.{project_ref}:{supabase_key}@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+                # Use pooler for external connections: postgresql://postgres:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+                db_url = f"postgresql://postgres:{supabase_key}@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
                 deployment_type = "Vercel" if is_vercel else "Render" if is_render else "Production"
                 print(f"Using Supabase database for {deployment_type} deployment")
                 return db_url
