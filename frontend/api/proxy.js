@@ -11,14 +11,21 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const backendUrl = 'https://verificai-backend-h3z3nxy5t-mauricios-projects-b3859180.vercel.app';
+    const backendUrl = 'https://verificai-backend-1mmrfd0n7-mauricios-projects-b3859180.vercel.app';
     const { url, method, headers, body } = req;
 
     // Remove host header to avoid conflicts
     const { host, ...forwardHeaders } = headers;
 
+    // If the URL starts with /api, we need to forward it as is to the backend
+    // The frontend will call /api/v1/login/json and we forward it to backend + /api/v1/login/json
+    const targetUrl = url.startsWith('/api') ? url : `/api${url}`;
+    const fullUrl = `${backendUrl}${targetUrl}`;
+
+    console.log('Proxying request:', { method, targetUrl, fullUrl });
+
     // Make the request to the backend
-    const response = await fetch(`${backendUrl}${url}`, {
+    const response = await fetch(fullUrl, {
       method,
       headers: {
         ...forwardHeaders,
