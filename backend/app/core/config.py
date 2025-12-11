@@ -72,13 +72,13 @@ class Settings(BaseSettings):
                 key_preview = supabase_key[:10] + "..." if len(supabase_key) > 10 else supabase_key
                 print(f"DEBUG: Found SUPABASE_SERVICE_ROLE_KEY: {key_preview}")
 
-                # Try direct connection format (not pooler) with just 'postgres' as user
-                # This is the standard Supabase format for direct connections
-                db_url = f"postgresql://postgres:{supabase_key}@db.{project_ref}.supabase.co:5432/postgres"
+                # Use pooler format which is designed for external connections
+                # Format: postgresql://postgres:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+                db_url = f"postgresql://postgres:{supabase_key}@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
 
                 deployment_type = "Vercel" if is_vercel else "Render" if is_render else "Production"
-                print(f"DEBUG: Using Supabase database for {deployment_type} deployment (direct connection)")
-                print(f"DEBUG: Generated DB URL: postgresql://postgres:***@db.{project_ref}.supabase.co:5432/postgres")
+                print(f"DEBUG: Using Supabase database for {deployment_type} deployment (pooler mode)")
+                print(f"DEBUG: Generated DB URL: postgresql://postgres:***@aws-0-us-east-1.pooler.supabase.com:6543/postgres")
 
                 return db_url
             else:
