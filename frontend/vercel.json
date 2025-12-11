@@ -7,14 +7,6 @@
       "config": {
         "distDir": "dist"
       }
-    },
-    {
-      "src": "api/proxy.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/test.js",
-      "use": "@vercel/node"
     }
   ],
   "rewrites": [
@@ -29,10 +21,6 @@
     {
       "source": "/api/(.*)",
       "destination": "/api/proxy"
-    },
-    {
-      "source": "/((?!api).*)",
-      "destination": "/index.html"
     }
   ],
   "headers": [
