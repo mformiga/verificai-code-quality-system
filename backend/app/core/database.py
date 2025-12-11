@@ -78,11 +78,27 @@ logger.info(f"Environment detection: {ENVIRONMENT_NAME}")
 logger.info(f"Database type: {DATABASE_TYPE}")
 logger.info(f"Database URL preview: {settings.DATABASE_URL.split('@')[0] + '@***' if '@' in settings.DATABASE_URL else '***'}")
 
-# SQLAlchemy configuration with environment-specific settings
-db_config = get_database_config()
-engine = create_engine(settings.DATABASE_URL, **db_config)
+# Initialize database engine and session factory (lazy initialization)
+engine = None
+SessionLocal = None
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def get_database_engine():
+    """Get or create database engine with lazy initialization"""
+    global engine, SessionLocal
+    if engine is None:
+        print(f"DEBUG: Creating database engine with URL: {settings.DATABASE_URL.split('@')[0] + '@***'}")
+        db_config = get_database_config()
+        engine = create_engine(settings.DATABASE_URL, **db_config)
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        print(f"DEBUG: Database engine created successfully")
+    return engine
+
+def get_database_session():
+    """Get database session factory"""
+    global SessionLocal
+    if SessionLocal is None:
+        get_database_engine()
+    return SessionLocal
 
 # Log database connection info
 logger.info(f"Database type: {DATABASE_TYPE}")
@@ -104,6 +120,7 @@ Base.metadata.naming_convention = convention
 
 def get_db() -> Generator[Session, None, None]:
     """Database dependency for FastAPI routes with environment-aware error handling"""
+    SessionLocal = get_database_session()
     db = SessionLocal()
     try:
         yield db
@@ -139,7 +156,8 @@ async def get_redis() -> redis.Redis:
 def create_tables():
     """Create database tables"""
     try:
-        Base.metadata.create_all(bind=engine)
+        db_engine = get_database_engine()
+        Base.metadata.create_all(bind=db_engine)
         logger.info("Database tables created successfully")
     except Exception as e:
         logger.error(f"Error creating database tables: {e}")
@@ -149,7 +167,8 @@ def create_tables():
 def drop_tables():
     """Drop database tables (use with caution)"""
     try:
-        Base.metadata.drop_all(bind=engine)
+        db_engine = get_database_engine()
+        Base.metadata.drop_all(bind=db_engine)
         logger.info("Database tables dropped successfully")
     except Exception as e:
         logger.error(f"Error dropping database tables: {e}")
@@ -160,11 +179,20 @@ class DatabaseManager:
     """Database connection and transaction manager"""
 
     def __init__(self):
-        self.engine = engine
-        self.session_factory = SessionLocal
+        self.engine = None
+        self.session_factory = None
+
+    def get_engine(self):
+        """Get database engine (lazy initialization)"""
+        if self.engine is None:
+            self.engine = get_database_engine()
+            self.session_factory = get_database_session()
+        return self.engine
 
     def get_session(self) -> Session:
         """Get a new database session"""
+        if self.session_factory is None:
+            self.get_engine()
         return self.session_factory()
 
     def execute_raw_sql(self, sql: str, params: dict = None) -> any:
