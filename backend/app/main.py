@@ -38,14 +38,15 @@ app = FastAPI(
 )
 
 # Configure CORS middleware first (before other middlewares)
+# CORS mais permissivo para debug em produção
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origins=["*"],  # Temporariamente "*" para debug
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=["*"],
-    max_age=600,
+    max_age=86400,  # 24 horas
 )
 
 # Add middleware stack - Order matters!
@@ -136,11 +137,15 @@ async def get_public_file_paths():
 @app.options("/{path:path}")
 async def options_handler(request: Request, path: str):
     """Global OPTIONS handler for CORS preflight requests"""
-    return {
-        "message": "CORS preflight handled",
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "headers": ["Content-Type", "Authorization"]
-    }
+    # Retornar resposta vazia com status 200 para preflight
+    from fastapi import Response
+    response = Response()
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Max-Age"] = "86400"
+    return response
 
 if __name__ == "__main__":
     uvicorn.run(
