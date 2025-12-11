@@ -1,5 +1,7 @@
 {
   "version": 2,
+  "name": "verificai-backend",
+  "alias": "verificai-backend",
   "builds": [
     {
       "src": "api/index.py",
