@@ -37,27 +37,31 @@ class Settings(BaseSettings):
 
     # Environment Detection
     IS_VERCEL_DEPLOYMENT: bool = Field(default=False, env="VERCEL")
+    IS_RENDER_DEPLOYMENT: bool = Field(default=False, env="RENDER")
 
     # Database Configuration with Environment Detection
     @field_validator('DATABASE_URL', mode='before')
     @classmethod
     def validate_database_url(cls, v):
         """Database configuration with environment detection"""
-        # Check if we're in Vercel deployment
+        # Check if we're in Vercel or Render deployment
         is_vercel = os.getenv('VERCEL', 'false').lower() == 'true'
+        is_render = os.getenv('RENDER', 'false').lower() == 'true'
+        is_production = os.getenv('ENVIRONMENT', 'development').lower() == 'production'
 
-        if is_vercel:
-            # Use Supabase for Vercel deployment
+        if is_vercel or is_render or is_production:
+            # Use Supabase for production deployment
             supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
             project_ref = os.getenv('SUPABASE_PROJECT_REF', 'jjxmfidggofuaxcdtkrd')
 
             if supabase_key:
                 # Format Supabase connection string properly
                 db_url = f"postgresql://postgres.{project_ref}:{supabase_key}@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
-                print(f"Using Supabase database for Vercel deployment")
+                deployment_type = "Vercel" if is_vercel else "Render" if is_render else "Production"
+                print(f"Using Supabase database for {deployment_type} deployment")
                 return db_url
             else:
-                print(f"WARNING: SUPABASE_SERVICE_ROLE_KEY not found in Vercel environment")
+                print(f"WARNING: SUPABASE_SERVICE_ROLE_KEY not found in production environment")
                 # Return a fallback that will fail gracefully
                 return "postgresql://localhost:5432/verificai"
 
