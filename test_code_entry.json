@@ -1,8 +1,0 @@
-{
-  "code_content": "print('Hello, World!')",
-  "title": "Test Python Code",
-  "description": "A simple test script",
-  "language": "python",
-  "lines_count": 1,
-  "characters_count": 22
-}

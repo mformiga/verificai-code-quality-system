@@ -1,5 +1,6 @@
 """
 Database configuration and connection management for VerificAI Backend
+Supports both local PostgreSQL and Supabase (for Vercel deployment)
 """
 
 from sqlalchemy import create_engine, MetaData, text
@@ -7,8 +8,9 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import QueuePool
 import redis.asyncio as redis
-from typing import Generator
+from typing import Generator, Optional
 import logging
+import os
 
 from app.core.config import settings
 from app.models.base import Base
@@ -23,19 +25,48 @@ from app.models.file_path import FilePath
 
 logger = logging.getLogger(__name__)
 
-# SQLAlchemy configuration
-engine = create_engine(
-    settings.DATABASE_URL,
-    poolclass=QueuePool,
-    pool_size=settings.DATABASE_POOL_SIZE,
-    max_overflow=settings.DATABASE_MAX_OVERFLOW,
-    pool_timeout=settings.DATABASE_POOL_TIMEOUT,
-    pool_recycle=settings.DATABASE_POOL_RECYCLE,
-    pool_pre_ping=True,
-    echo=settings.DEBUG,
-)
+# Environment detection
+IS_VERCEL = os.getenv('VERCEL', 'false').lower() == 'true'
+DATABASE_TYPE = "supabase" if IS_VERCEL else "postgresql"
+
+# Database-specific configuration
+def get_database_config():
+    """Get database configuration based on environment"""
+    if IS_VERCEL:
+        logger.info("Initializing Supabase database connection for Vercel deployment")
+        return {
+            "pool_size": min(settings.DATABASE_POOL_SIZE, 5),  # Reduce pool size for serverless
+            "max_overflow": 0,  # Disable overflow for serverless
+            "pool_timeout": 10,  # Reduce timeout for serverless
+            "pool_recycle": 300,  # Reduce recycle time for serverless
+            "pool_pre_ping": True,
+            "echo": settings.DEBUG,
+            "connect_args": {
+                "sslmode": "require",
+                "connect_timeout": 10,
+            }
+        }
+    else:
+        logger.info("Initializing local PostgreSQL database connection")
+        return {
+            "poolclass": QueuePool,
+            "pool_size": settings.DATABASE_POOL_SIZE,
+            "max_overflow": settings.DATABASE_MAX_OVERFLOW,
+            "pool_timeout": settings.DATABASE_POOL_TIMEOUT,
+            "pool_recycle": settings.DATABASE_POOL_RECYCLE,
+            "pool_pre_ping": True,
+            "echo": settings.DEBUG,
+        }
+
+# SQLAlchemy configuration with environment-specific settings
+db_config = get_database_config()
+engine = create_engine(settings.DATABASE_URL, **db_config)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Log database connection info
+logger.info(f"Database type: {DATABASE_TYPE}")
+logger.info(f"Database URL configured: {'***' if settings.SUPABASE_SERVICE_ROLE_KEY else settings.DATABASE_URL.split('@')[0] + '@***'}")
 
 
 # Naming convention for constraints
@@ -52,12 +83,16 @@ Base.metadata.naming_convention = convention
 
 
 def get_db() -> Generator[Session, None, None]:
-    """Database dependency for FastAPI routes"""
+    """Database dependency for FastAPI routes with environment-aware error handling"""
     db = SessionLocal()
     try:
         yield db
     except Exception as e:
-        logger.error(f"Database session error: {e}")
+        logger.error(f"Database session error [{DATABASE_TYPE}]: {e}")
+        if IS_VERCEL:
+            logger.error("Supabase connection failed - check Vercel environment variables")
+        else:
+            logger.error("PostgreSQL connection failed - check local database configuration")
         db.rollback()
         raise
     finally:
@@ -120,13 +155,18 @@ class DatabaseManager:
             return result
 
     def health_check(self) -> bool:
-        """Check database connectivity"""
+        """Check database connectivity with environment-specific feedback"""
         try:
             with self.get_session() as session:
                 session.execute(text("SELECT 1"))
+                logger.info(f"Database health check passed for {DATABASE_TYPE}")
                 return True
         except Exception as e:
-            logger.error(f"Database health check failed: {e}")
+            logger.error(f"Database health check failed [{DATABASE_TYPE}]: {e}")
+            if IS_VERCEL:
+                logger.error("Supabase health check failed - verify project configuration and credentials")
+            else:
+                logger.error("PostgreSQL health check failed - verify local database is running")
             return False
 
 
