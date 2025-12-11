@@ -1,5 +1,20 @@
 {
   "version": 2,
   "name": "verificai-backend",
-  "alias": "verificai-backend"
+  "alias": "verificai-backend",
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python",
+      "config": {
+        "runtime": "python3.11"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/api/index.py"
+    }
+  ]
 }
