@@ -6,10 +6,10 @@ import sys
 import os
 
 # Add the backend directory to the Python path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(os.path.dirname(__file__))
 
 # Import the FastAPI app
 from app.main import app
 
-# Vercel will use the app directly
+# Export the app for Vercel
 handler = app
