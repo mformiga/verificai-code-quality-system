@@ -1,6 +1,6 @@
 {
   "name": "verificai-frontend",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Frontend do VerificAI Code Quality System",
   "type": "module",
   "scripts": {
