@@ -11,7 +11,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const backendUrl = 'https://verificai-backend.vercel.app';
+    const backendUrl = 'https://verificai-backend-h3z3nxy5t-mauricios-projects-b3859180.vercel.app';
     const { url, method, headers, body } = req;
 
     // Remove host header to avoid conflicts
