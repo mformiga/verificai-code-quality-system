@@ -1,11 +1,15 @@
-def handler(request):
-    return {
-        'statusCode': 200,
-        'headers': {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-        },
-        'body': '{"message": "Backend working on Vercel!", "status": "ok"}'
-    }
+"""
+Vercel serverless function entry point for the backend API
+"""
+
+import sys
+import os
+
+# Add the backend directory to the Python path
+sys.path.append(os.path.dirname(__file__))
+
+# Import the FastAPI app
+from app.main import app
+
+# Vercel will use the app directly
+handler = app
