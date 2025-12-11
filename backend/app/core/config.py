@@ -55,9 +55,9 @@ class Settings(BaseSettings):
             project_ref = os.getenv('SUPABASE_PROJECT_REF', 'jjxmfidggofuaxcdtkrd')
 
             if supabase_key:
-                # Format Supabase connection string properly
-                # Correct format: postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres
-                db_url = f"postgresql://postgres:{supabase_key}@db.{project_ref}.supabase.co:5432/postgres"
+                # Format Supabase connection string properly for external access
+                # Use pooler for external connections: postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+                db_url = f"postgresql://postgres.{project_ref}:{supabase_key}@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
                 deployment_type = "Vercel" if is_vercel else "Render" if is_render else "Production"
                 print(f"Using Supabase database for {deployment_type} deployment")
                 return db_url
