@@ -27,6 +27,16 @@ class Settings(BaseSettings):
         env="DATABASE_URL"
     )
 
+    # Override DATABASE_URL with environment variable (highest priority)
+    @classmethod
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # Check if DATABASE_URL is set in environment and override
+        env_db_url = os.getenv('DATABASE_URL')
+        if env_db_url and env_db_url.startswith('postgresql://'):
+            cls.DATABASE_URL = env_db_url
+            print(f"DEBUG: DATABASE_URL overridden from environment: {env_db_url.split('@')[0] + '@***'}")
+
     # Supabase Configuration for Vercel deployment
     SUPABASE_URL: str = Field(
         default="https://mcp.supabase.com/mcp?project_ref=jjxmfidggofuaxcdtkrd",
