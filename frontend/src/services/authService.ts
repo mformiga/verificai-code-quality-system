@@ -1,7 +1,6 @@
 import type { User, LoginCredentials, RegisterData, AuthResponse } from '@/types/auth';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
-console.log('🔍 API_BASE_URL being used:', API_BASE_URL);
 
 export const authService = {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
