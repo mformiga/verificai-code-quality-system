@@ -11,9 +11,21 @@
     {
       "src": "api/proxy.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "api/test.js",
+      "use": "@vercel/node"
     }
   ],
   "rewrites": [
+    {
+      "source": "/api/test",
+      "destination": "/api/test"
+    },
+    {
+      "source": "/api/proxy",
+      "destination": "/api/proxy"
+    },
     {
       "source": "/api/(.*)",
       "destination": "/api/proxy"
