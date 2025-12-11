@@ -27,13 +27,28 @@ logger = logging.getLogger(__name__)
 
 # Environment detection
 IS_VERCEL = os.getenv('VERCEL', 'false').lower() == 'true'
-DATABASE_TYPE = "supabase" if IS_VERCEL else "postgresql"
+IS_RENDER = os.getenv('RENDER', 'false').lower() == 'true'
+IS_PRODUCTION = os.getenv('ENVIRONMENT', 'development').lower() == 'production'
+
+# Determine database type and environment
+if IS_VERCEL:
+    DATABASE_TYPE = "supabase"
+    ENVIRONMENT_NAME = "Vercel"
+elif IS_RENDER:
+    DATABASE_TYPE = "supabase"
+    ENVIRONMENT_NAME = "Render"
+elif IS_PRODUCTION:
+    DATABASE_TYPE = "supabase"
+    ENVIRONMENT_NAME = "Production"
+else:
+    DATABASE_TYPE = "postgresql"
+    ENVIRONMENT_NAME = "Local"
 
 # Database-specific configuration
 def get_database_config():
     """Get database configuration based on environment"""
-    if IS_VERCEL:
-        logger.info("Initializing Supabase database connection for Vercel deployment")
+    if DATABASE_TYPE == "supabase":
+        logger.info(f"Initializing Supabase database connection for {ENVIRONMENT_NAME} deployment")
         return {
             "pool_size": min(settings.DATABASE_POOL_SIZE, 5),  # Reduce pool size for serverless
             "max_overflow": 0,  # Disable overflow for serverless
@@ -47,7 +62,7 @@ def get_database_config():
             }
         }
     else:
-        logger.info("Initializing local PostgreSQL database connection")
+        logger.info(f"Initializing local PostgreSQL database connection for {ENVIRONMENT_NAME}")
         return {
             "poolclass": QueuePool,
             "pool_size": settings.DATABASE_POOL_SIZE,
@@ -57,6 +72,11 @@ def get_database_config():
             "pool_pre_ping": True,
             "echo": settings.DEBUG,
         }
+
+# Debug environment detection BEFORE creating engine
+logger.info(f"Environment detection: {ENVIRONMENT_NAME}")
+logger.info(f"Database type: {DATABASE_TYPE}")
+logger.info(f"Database URL preview: {settings.DATABASE_URL.split('@')[0] + '@***' if '@' in settings.DATABASE_URL else '***'}")
 
 # SQLAlchemy configuration with environment-specific settings
 db_config = get_database_config()
