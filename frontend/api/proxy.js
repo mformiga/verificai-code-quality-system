@@ -22,7 +22,14 @@ module.exports = async (req, res) => {
     const targetUrl = url.startsWith('/api') ? url : `/api${url}`;
     const fullUrl = `${backendUrl}${targetUrl}`;
 
-    console.log('Proxying request:', { method, targetUrl, fullUrl });
+    console.log('Proxying request:', {
+      method,
+      originalUrl: url,
+      targetUrl,
+      fullUrl,
+      headers: forwardHeaders,
+      body: body ? 'present' : 'none'
+    });
 
     // Make the request to the backend
     const response = await fetch(fullUrl, {
@@ -38,6 +45,13 @@ module.exports = async (req, res) => {
 
     // Forward the response
     const responseText = await response.text();
+
+    console.log('Backend response:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries()),
+      responseLength: responseText.length
+    });
 
     res.status(response.status);
 
