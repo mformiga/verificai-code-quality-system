@@ -55,14 +55,24 @@ class Settings(BaseSettings):
             project_ref = os.getenv('SUPABASE_PROJECT_REF', 'jjxmfidggofuaxcdtkrd')
 
             if supabase_key:
-                # Format Supabase connection string properly for external access
-                # Use pooler for external connections: postgresql://postgres:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
-                db_url = f"postgresql://postgres:{supabase_key}@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+                # Debug information (show first few chars only for security)
+                key_preview = supabase_key[:10] + "..." if len(supabase_key) > 10 else supabase_key
+                print(f"Found SUPABASE_SERVICE_ROLE_KEY: {key_preview}")
+
+                # Try session mode instead of pooler for better compatibility
+                # Format: postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:5432/postgres
+                db_url = f"postgresql://postgres.{project_ref}:{supabase_key}@aws-0-us-east-1.pooler.supabase.com:5432/postgres"
+
                 deployment_type = "Vercel" if is_vercel else "Render" if is_render else "Production"
-                print(f"Using Supabase database for {deployment_type} deployment")
+                print(f"Using Supabase database for {deployment_type} deployment (session mode)")
                 return db_url
             else:
                 print(f"WARNING: SUPABASE_SERVICE_ROLE_KEY not found in production environment")
+                # Check if key is available under different name
+                database_url = os.getenv('DATABASE_URL')
+                if database_url and database_url.startswith('postgresql://'):
+                    print(f"Using DATABASE_URL from environment instead")
+                    return database_url
                 # Return a fallback that will fail gracefully
                 return "postgresql://localhost:5432/verificai"
 
