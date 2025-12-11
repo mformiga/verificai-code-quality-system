@@ -101,7 +101,6 @@ const GeneralAnalysisPage: React.FC = () => {
             }
 
             setDbFilePaths(paths);
-            console.log('✅ Paths recarregados do banco de dados:', paths);
             return paths;
           }
         } catch (endpointError) {
