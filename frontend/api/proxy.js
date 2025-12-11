@@ -30,8 +30,10 @@ module.exports = async (req, res) => {
       headers: {
         ...forwardHeaders,
         'Content-Type': headers['content-type'] || 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
       body: method !== 'GET' && method !== 'HEAD' ? body : undefined,
+      redirect: 'manual', // Don't follow redirects automatically
     });
 
     // Forward the response
