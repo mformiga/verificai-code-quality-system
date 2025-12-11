@@ -44,48 +44,58 @@ class Settings(BaseSettings):
     @classmethod
     def validate_database_url(cls, v):
         """Database configuration with environment detection"""
+        print(f"DEBUG: Starting database URL validation...")
+
+        # Check if DATABASE_URL is already set in environment
+        env_database_url = os.getenv('DATABASE_URL')
+        if env_database_url and env_database_url.startswith('postgresql://'):
+            print(f"DEBUG: Found DATABASE_URL in environment, using it directly")
+            return env_database_url
+
         # Check if we're in Vercel or Render deployment
         is_vercel = os.getenv('VERCEL', 'false').lower() == 'true'
         is_render = os.getenv('RENDER', 'false').lower() == 'true'
         is_production = os.getenv('ENVIRONMENT', 'development').lower() == 'production'
+
+        print(f"DEBUG: Environment - Vercel: {is_vercel}, Render: {is_render}, Production: {is_production}")
 
         if is_vercel or is_render or is_production:
             # Use Supabase for production deployment
             supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
             project_ref = os.getenv('SUPABASE_PROJECT_REF', 'jjxmfidggofuaxcdtkrd')
 
+            print(f"DEBUG: Project ref: {project_ref}")
+            print(f"DEBUG: Supabase key found: {'Yes' if supabase_key else 'No'}")
+
             if supabase_key:
                 # Debug information (show first few chars only for security)
                 key_preview = supabase_key[:10] + "..." if len(supabase_key) > 10 else supabase_key
-                print(f"Found SUPABASE_SERVICE_ROLE_KEY: {key_preview}")
+                print(f"DEBUG: Found SUPABASE_SERVICE_ROLE_KEY: {key_preview}")
 
-                # Try session mode instead of pooler for better compatibility
-                # Format: postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:5432/postgres
+                # Try the standard format first
                 db_url = f"postgresql://postgres.{project_ref}:{supabase_key}@aws-0-us-east-1.pooler.supabase.com:5432/postgres"
 
                 deployment_type = "Vercel" if is_vercel else "Render" if is_render else "Production"
-                print(f"Using Supabase database for {deployment_type} deployment (session mode)")
+                print(f"DEBUG: Using Supabase database for {deployment_type} deployment")
+                print(f"DEBUG: Generated DB URL: postgresql://postgres.{project_ref}:***@aws-0-us-east-1.pooler.supabase.com:5432/postgres")
+
                 return db_url
             else:
-                print(f"WARNING: SUPABASE_SERVICE_ROLE_KEY not found in production environment")
-                # Check if key is available under different name
-                database_url = os.getenv('DATABASE_URL')
-                if database_url and database_url.startswith('postgresql://'):
-                    print(f"Using DATABASE_URL from environment instead")
-                    return database_url
+                print(f"DEBUG: WARNING: SUPABASE_SERVICE_ROLE_KEY not found in production environment")
                 # Return a fallback that will fail gracefully
                 return "postgresql://localhost:5432/verificai"
 
         # Local development - use PostgreSQL
         if not v:
+            print(f"DEBUG: No DATABASE_URL provided, using local default")
             return "postgresql://verificai:verificai123@localhost:5432/verificai"
 
         # Ensure it's PostgreSQL
         if not v.startswith('postgresql'):
-            print(f"WARNING: Non-PostgreSQL database detected: {v}")
+            print(f"DEBUG: WARNING: Non-PostgreSQL database detected: {v}")
             return "postgresql://verificai:verificai123@localhost:5432/verificai"
 
-        print(f"Using PostgreSQL database: {v}")
+        print(f"DEBUG: Using provided PostgreSQL database")
         return v
 
     # Database Connection Pool Settings

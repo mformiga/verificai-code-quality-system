@@ -15,6 +15,8 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
+      - key: SUPABASE_PROJECT_REF
+        value: jjxmfidggofuaxcdtkrd
       - key: JWT_SECRET_KEY
         generateValue: true
       - key: JWT_ALGORITHM
