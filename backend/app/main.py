@@ -71,8 +71,8 @@ app.include_router(simple_analysis.router, prefix=settings.API_V1_STR + "/simple
 @app.on_event("startup")
 async def startup_event():
     """Application startup event"""
-    # Create database tables
-    create_tables()
+    # Create database tables - commented out since tables already exist in Supabase
+    # create_tables()
 
 @app.get("/")
 async def root():

@@ -29,7 +29,22 @@
       "Bash(dir:*)",
       "Bash(node:*)",
       "Bash(npm install)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(sudo tee:*)",
+      "Bash(sudo:*)",
+      "Bash(sudo apt:*)",
+      "Bash(npm install:*)",
+      "Bash(lt:*)",
+      "Bash(ENVIRONMENT=production python:*)",
+      "Bash(SUPABASE_SERVICE_ROLE_KEY=test_key ENVIRONMENT=production python:*)",
+      "Bash(SUPABASE_SERVICE_ROLE_KEY=test_key_12345 ENVIRONMENT=production python:*)",
+      "Bash(SUPABASE_SERVICE_ROLE_KEY=test_12345 ENVIRONMENT=production python:*)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:test_12345@db.jjxmfidggofuaxcdtkrd.supabase.co:5432/postgres\" python:*)",
+      "Bash(echo \"DATABASE_URL=\"\"postgresql://postgres:SUA_CHAVE_REAL@db.jjxmfidggofuaxcdtkrd.supabase.co:5432/postgres\"\" python -c \"\"from app.core.config import settings; print(''Conexão bem-sucedida!'')\"\"\")",
+      "Bash(echo \"DATABASE_URL=\"\"postgresql://postgres:SUA_CHAVE_REAL@db.jjxmfidggofuaxcdtkrd.supabase.co:5432/postgres\"\" python -c \"\"from app.core.config import settings; print(''SUCCESS: Connection works!'')\"\"\")",
+      "Bash(DATABASE_URL=\"postgresql://postgres:TEST_DATABASE_URL@db.jjxmfidggofuaxcdtkrd.supabase.co:5432/postgres\" python:*)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeG1maWRnZ29mdWF4Y2R0a3JkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODEyMTE0NCwiZXhwIjoyMDczNjk3MTQ0fQ.MaeZ2hEJXoC_Fz2BlO42QlDfg7s9TRNhoHGuzMERWEE@db.jjxmfidggofuaxcdtkrd.supabase.co:5432/postgres\" python:*)",
+      "Bash(echo \"DATABASE_URL=\"\"postgresql://postgres:NOVA_CHAVE_AQUI@db.jjxmfidggofuaxcdtkrd.supabase.co:5432/postgres\"\" python -c \"\"import psycopg2; conn = psycopg2.connect(os.getenv(''DATABASE_URL'')); print(''Conexão bem-sucedida!''); conn.close()\"\"\")"
     ],
     "deny": [],
     "ask": []
